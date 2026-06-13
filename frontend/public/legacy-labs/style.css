@@ -1,0 +1,431 @@
+    body {
+        margin: 0;
+        margin-top: 5%;
+        font-family: Arial, sans-serif;
+        background-color: white; /* Background color for the webpage */
+        padding-left: 5%;
+        padding-right: 5%;
+        height: 700px;
+    }
+    
+    .content {
+        flex-grow: 1; /* Allow content to grow and fill available space */
+        padding: 20px; /* Padding for content */
+        overflow-y: hidden; /* Enable scrolling if content overflows */
+        background-color: #fff; /* Background color for content */
+        transition: margin-left 0.3s ease; /* Smooth transition for margin change */
+        line-height: 1.25;
+    }
+    #consent-form{
+        font-family: 'Times New Roman', Times, serif;
+        line-height: 1.5;
+        /*paragraph: single-line spacing*/
+    }
+    .content li{
+        line-height: 1.5;
+        
+        font-size: larger;
+    }
+    .contentbutton{
+        display: flex;
+        justify-content: center;
+        align-items: center;   
+    }
+    .contentbutton button{
+        padding: 15px 30px;
+        font-size: 20px;
+        color: rgb(255, 255, 255);
+        background-color: #235340;
+        border: none;
+        cursor: pointer;
+        border-radius: 8px;
+    }
+
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: white; /* Toolbar background */
+        padding: 10px 20px;
+        border-bottom: 2px solid black; /* Black line dividing toolbar and content */
+        font-size: 20px;
+    }
+    .toolbar img {
+        height: 50px; /* Adjust height as needed */
+    }
+    .toolbar button {
+        color: black; /* Change text color to black */
+        text-align: center;
+        padding: 10px 16px;
+        text-decoration: none;
+        margin-left: 20px;
+        position: relative; /* Position for dropdown */
+    }
+    .dropdown {
+        display: none; /* Hide dropdown by default */
+        position: absolute; /* Position it below the button */
+        background-color: white;
+        z-index: 1; /* Ensure dropdown is on top */
+        margin-top: 5px; /* Space between button and dropdown */
+    }
+    .show {
+        display: block; /* Show dropdown */
+    }
+    .arrow {
+        margin-left: 5px; /* Space between text and arrow */
+        display: inline-block;
+        transition: transform 0.3s; /* Smooth transition for rotation */
+    }
+    .dropdown-active .arrow {
+        transform: rotate(180deg); /* Rotate arrow when dropdown is active */
+    }
+
+    .content.shift {
+        margin-left: 250px; /* Adjust this value to match your sidebar width */
+    }
+
+    #sidebar {
+        width: 250px; /* Sidebar width */
+        display: none;
+    }
+
+    
+    #sidebar.active {
+        display: block; /* Show sidebar when active */
+    }
+
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: white; /* Toolbar background */
+        padding: 10px 20px;
+        border-bottom: 2px solid black; /* Black line dividing toolbar and content */
+    }
+    .toolbar img {
+        height: 45px; /* Adjust height as needed */
+    }
+    .toolbar a {
+        color: black; /* Change text color to black */
+        text-align: center;
+        padding: 12px 16px;
+        text-decoration: none;
+        margin-left: 20px;
+    }
+    .toolbar a:hover {
+        background-color: #ddd; /* Light gray background on hover */
+    }
+    
+    header {
+        line-height: 10px;
+        color: black;
+        padding-top: 0px;
+        text-align: center;
+        width: 100%;
+        height: 90px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+    }
+    .header h1 {
+        margin-bottom: 100px; 
+    }
+    .header h3{
+        margin-top: 100px;
+    }
+    p{
+        text-align: left;
+        font-size: 20px;
+    }
+    
+    nav button + button {
+        border-top: 1px solid #ddd;
+    }
+    
+    .content, #question-container {
+        flex-grow: 1;
+        padding: 0px 20px 20px; /* Adjust top padding */
+        overflow-y: auto; /* Scrollable content */
+        background-color: #fff;
+        transition: margin-left 0.3s;
+        margin-left: 0; /* Set default margin */
+    }
+    #labBody{
+        margin-top: 0;
+        height: auto;
+        line-height: 2;
+        text-align: justify;
+        margin-left: 15%;
+        margin-right: 15%;
+    }
+
+    #labBody p{
+        text-align: justify;
+        line-height: 2;
+    }
+    #labBody li{
+        text-align: left;
+    }
+    
+    #labBody h2, #labContent#labHeader{
+        text-align: center;        
+        margin: 0;
+        padding:0;
+        margin-bottom: 0;
+
+    }
+    
+    .content.active {
+        margin-left: 250px; /* Shift content when sidebar is open */
+    }
+    
+    #content-title {
+        margin-top: 0; /* No extra margin */
+    }
+    
+    @media (max-width: 600px) {
+        nav {
+            width: 70%;
+            left: -100%;
+        }
+        nav.active {
+            left: 0;
+        }
+        nav button {
+            width: 90%;
+            margin: 5px 0;
+        }
+        header, .content {
+            padding: 10px;
+        }
+    }
+    
+    #game-container {
+        height: 490px;
+        display: flex;
+        /*flex-direction: column;*/
+        align-items: center;
+        justify-content: center;
+        border: 2px solid black;
+        border-radius: 10px;
+        margin-top: 0px;
+        margin-bottom: 15px;
+    }
+    
+    iframe {
+        margin: 3px 0; /* Margin around iframe */
+        max-width: 100%; /* Responsive iframe */
+        height: 99%;  /*Fixed height for iframe */
+        border: none; /* No border */
+    }
+    
+    h2, h3 {
+        text-align: center;
+        margin: 10px 0; /* Margin for headings */
+        padding: 10px;
+    }
+    h4 {
+        text-align: center;
+    }
+    
+    @media (max-width: 300px){
+        iframe {
+            height: 200px; /* Adjust iframe height for smaller screens */
+            align-self: center;
+        }
+    }
+    
+    #alert-modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1000; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgb(0,0,0); /* Fallback color */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto; /* 15% from the top and centered */
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Could be more or less, depending on screen size */
+        max-width: 600px;
+        border-radius: 8px;
+    }
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    img {
+        max-width: 100%; /* Responsive images */
+        height: auto;
+    }
+    
+    input[type="checkbox"] {
+        margin-right: 10px;
+    }
+
+    #notice-container, #pre-test-container, #post-test-container{
+        transition: margin-left 0.3s ease;
+    }
+    .notice-container .technicalGuide li{
+        font-size: 20px;
+        line-height: 1.5;
+    }
+    .notice-container img{
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+        width:800px;
+        height:auto;
+    }
+    .center {
+        text-align: center; /* Center align this paragraph */
+    }
+    .left {
+        text-align: left; /* Left align these paragraphs */
+    }
+    .centerword{        
+        font-family: Arial, sans-serif;
+        background-color: white; /* Background color for the webpage */
+        text-align: center;
+    }
+    .dialog {
+        width: 300px;
+        height: 110px;
+        margin: 8px;
+        padding: 20px;
+        border-radius: 8px;
+        font-family: Arial, sans-serif;
+        justify-content: center;
+        text-align: justify;
+    }
+
+    .dialogbox {
+        width: 900px;
+        height: 150px;
+        margin-left: 85px;
+        margin-right: 85px;
+        padding: 20px;
+        border-radius: 8px;
+        font-family: Arial, sans-serif;
+        font-size: large;
+        display: flex; /* Flexbox for horizontal layout */
+        align-items: center;
+        text-align: center;
+        justify-content: center;
+        justify-self: center;
+    }
+
+    .dialog1 { 
+        background-color: #ffffff;
+        border: 2px solid #357858;
+        text-align: center;
+        line-height: 1.25;
+        text-align: inherit;
+    }
+    .dialog2 {
+        background-color: #62C191;
+        color: #fff;
+        text-align: center;
+        line-height: 1.25;
+        text-align: inherit;
+    }
+
+    .locked {
+        background-color: white;
+        cursor: not-allowed;
+        pointer-events: none; /*Disable pointer events*/
+    }
+
+
+    .unlocked {
+        background-color: green;
+    }
+
+    .prebutton {        
+        padding: 15px 30px;
+        font-size: 20px;
+        color: white;
+        background-color: #235340;
+        border: none;
+        cursor: pointer;
+        border-radius: 8px;
+        cursor: not-allowed; /* Not allowed cursor initially */
+        transition: background-color 0.3s, opacity 0.3s;
+        justify-items: center;
+        justify-self: center;                
+    }
+
+    .prebutton.active {
+        background-color: #235340; /* Change to green when active */
+        cursor: pointer; /* Change cursor to pointer */
+        
+    }
+
+    .labContent{
+        display: flex;
+        position: absolute;
+        height: 700px;
+        width: 100%;
+    }
+    .labHeader h2{
+        justify-self: center;
+        text-align: center;
+        justify-content: center;
+        margin: 0;
+    }
+
+    #containerings{
+        width: auto;
+        height: auto;
+        text-align: center;
+    }
+    #submit, #nextPageButton{
+        display: flex;
+        justify-items: center;
+        text-align: center;
+        justify-self: center;
+        padding: 15px 30px;
+        font-size: 20px;
+        color: rgb(255, 255, 255);
+        background-color: #235340;
+        border: none;
+        cursor: pointer;
+        border-radius: 8px;
+    }
+    .technicalGuide ol{
+        line-height: 2;
+    }
+    #nextLabButton, #nextExerciseButton{        
+        text-align: center;
+        justify-self: center;
+        padding: 15px 30px;
+        font-size: 20px;
+        color: #62C191;
+        border-color: #62C191;
+        background-color: #ffffff;
+        cursor: pointer;
+        border-radius: 8px;
+        box-shadow: none;
+        position: absolute;
+        left:50%;
+        transform: translateX(-50%);
+    }
+    #thank{
+        text-align: center;
+    }

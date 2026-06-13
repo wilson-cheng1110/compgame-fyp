@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <title>COMP3423 Human Computer Interaction</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <div class="toolbar">
+            <img src="../images/logo.png" alt="Logo"> <div>
+                <a onclick="showHomepage();window.scrollTo(0, 0);" style="cursor: pointer;"><b>Home</b></a>
+                <a onclick="showUserGuide();window.scrollTo(0, 0);" style="cursor: pointer;"><b>Guide</b></a>
+            </div>
+        </div>
+    </header>
+
+    <div class="content" id="content" style="display: block;">
+        <h1 class="center">Welcome!</h1>
+        <p>This platform is an extracurricular resource for COMP3423 Human Computer Interaction, developed by a research
+            team led by <b>Dr. Jeff Tang</b> and <b>Prof. Johan Hoorn</b>.
+        </p>
+        <h2 class="center">Expected Outcomes<br></h2>
+        <div class="dialogbox">
+            <div class="dialog dialog1">Through interactive experiences with Fitts' Law, Weber's Law, etc., you will<b>
+                    better understand of HCI principles.</b> </div>
+            <div class="dialog dialog2 middle">By practicing with typical cases, you will improve your skills in
+                <b>interface design</b> and <b>user experience optimization</b>.
+            </div>
+            <div class="dialog dialog1">By applying HCI theoretical knowledge to practical problems, you will enhance
+                your ability to <b>solve real-world issues</b>.</div>
+        </div>
+        <h2 class="center">Participation Notes<br></h2>
+        <ol>
+            <li>The performance in the labs will <b>not directly affect your grades</b>. Please <b>avoid consulting
+                    external resources</b>.
+            </li>
+            <li>You will receive <b>additional course grade points</b> upon completing all labs and surveys.</li>
+            <li>A complete experience takes approximately <b>20 minutes</b>.</li>
+            <li>Please complete all experiences and submit the surveys by <b>23:59 on December 5, 2025</b>.</li>
+        </ol>
+        <div class="contentbutton">
+            <button onclick="showUserGuide();window.scrollTo(0, 0);"><b>Get Started</b></button>
+        </div>
+    </div>
+
+    <div id="user-guide" class="notice-container" style="display: none;">
+        <h2 class="center">Instructions for Use</h2>
+        <img src="../images/instructionOfUse.png" alt="Instructions"> <div class="technicalGuide">
+            <ol>
+                <li>Use latest <b>Chrome, Firefox, or Edge</b>. <b>Avoid Safari.</b></li>
+                <li>Ensure a stable network connection.</li>
+                <li>Report issues to <a href="mailto:yandi.lu@connect.polyu.hk">yandi.lu@connect.polyu.hk</a>.</li>
+            </ol>
+        </div>
+        <div class="contentbutton">
+            <button onclick="showConsentForm();window.scrollTo(0, 0);"><b>Go to Consent Form</b></button>
+        </div>
+    </div>
+
+    <form id="consentform" class="consent-container" style="display: none;">
+        <h1 class="centerword">CONSENT TO PARTICIPATE IN RESEARCH</h1>
+        <p class="left"><strong>Name:</strong> <input type="text" id="name" required></p>
+        <p class="left"><strong>Student ID (SID):</strong> <input type="text" id="SID" required></p>
+        <p class="left"><strong>Date:</strong> <span id="date"></span></p>
+        <p class="left"><input type="checkbox" id="checkBox" required> I agree to participate.</p>
+        <div class="contentbutton">
+            <div id="submit" onclick="validateForm();" style="cursor:pointer; display:inline-block;"><b>Submit</b></div>
+        </div>
+    </form>
+
+    <div id="containerings" class="container" style="display: none">
+        <h2 class="centerword">Pre-survey</h2>
+        <a href="https://docs.google.com/forms/d/..." target="_blank">Pre-survey Link</a>
+        <div class="prebutton" id="preb">
+            <button id="nextButton" disabled onclick="finishPreSurvey();"><b>I've finished.</b></button>
+        </div>
+        <p class="centerword" id="countdown">This button will activate in (10) seconds.</p>
+    </div>
+
+    <div id="post-test-container" style="display: none;">
+        <h2 class="centerword">Post-survey</h2>
+        <a href="https://docs.google.com/forms/d/..." target="_blank">Post-survey Link</a>
+        <div class="contentbutton" id="postb">
+            <button id="postNextButton" disabled onclick="thankyou();"><b>I've finished.</b></button>
+        </div>
+        <p class="centerword" id="countdown2">This button will activate in (10) seconds.</p> </div>
+
+    <div id="thank" style="display: none;">
+        <h1 class="centerword">Thank you!</h1>
+        <div class="contentbutton">
+            <button onclick="showHomepage();"><b>Go to Homepage</b></button>
+        </div>
+    </div>
+
+    <div id="labContent" style="display: none;">
+        <h1 id="labHeader" class="centerword"></h1>
+        <div id="labBody"></div>
+        <div class="contentbutton">
+            <button id="nextLabButton" style="display: none;"></button>
+            <button id="nextExerciseButton" style="display: none;"></button>
+        </div>
+    </div>
+
+    
+
+    <script>
+        const exercises = [
+            {
+                title: "Lab 1 Fitt's Law",
+                labGoals: "<ul><li>How target size and distance affect movement time.</li></ul>",
+                background: "<p>Fitts' Law predicts selection time based on size and distance.</p>",
+                expectedResults: "<p>Time increases with distance and decreases with size.</p>",
+                possibleSourcesOfDeviation: "<p>Task familiarity and trial count.</p>",
+                application: "<p>Influence on button sizes and UI placement.</p>",
+                gameUrl: "lab1.html"
+            },
+            {
+                title: "Lab 2 Hick's Law",
+                labGoals: "<ul><li>Reaction time vs number of choices.</li></ul>",
+                background: "<p>Decision time increases logarithmically with the number of options.</p>",
+                expectedResults: "<p>Sorted lists yield faster times than random lists.</p>",
+                possibleSourcesOfDeviation: "<p>Familiarity with categories.</p>",
+                application: "<p>Categorizing choices to reduce complexity.</p>",
+                gameUrl: "lab2.html"
+            },
+            {
+                title: "Lab 3 Principle of Consistency",
+                labGoals: "<ul><li>Impact of consistent vs inconsistent stimuli.</li></ul>",
+                background: "<p>Users should not wonder if different actions mean the same thing.</p>",
+                expectedResults: "<p>Inconsistent conditions lead to longer response times.</p>",
+                possibleSourcesOfDeviation: "<p>Rule complexity.</p>",
+                application: "<p>Standardizing navigation and interaction elements.</p>",
+                gameUrl: "lab3con.html"
+            },
+            {
+                title: "Lab 4 Law of Common Region",
+                labGoals: "<ul><li>Perception of elements within boundaries.</li></ul>",
+                background: "<p>Elements in the same visual container are seen as a group.</p>",
+                expectedResults: "<p>Grouping based on enclosed regions.</p>",
+                possibleSourcesOfDeviation: "<p>Focus variations.</p>",
+                application: "<p>Using borders and backgrounds to define relationships.</p>",
+                gameUrl: "lab4.html"
+            },
+            {
+                title: "Lab 5 Weber's Law",
+                labGoals: "<ul><li>Detecting just noticeable differences.</li></ul>",
+                background: "<p>Perception of change depends on original stimulus intensity.</p>",
+                expectedResults: "<p>Different attributes (size vs brightness) have different thresholds.</p>",
+                possibleSourcesOfDeviation: "<p>Individual visual sensitivity.</p>",
+                application: "<p>Making minor, incremental UI updates to satisfy users.</p>",
+                gameUrl: "lab5.html"
+            },
+            {
+                title: "Lab 6 Law of Similarity",
+                labGoals: "<ul><li>Grouping elements by shared attributes.</li></ul>",
+                background: "<p>Similar shapes or colors are seen as a coherent whole.</p>",
+                gameUrl: "lab6.html"
+            }
+        ];
+
+        let currentLabIndex = 0;
+        let currentPageIndex = 0;
+
+        // FIXED: Navigation logic that hides/shows without deleting
+        function showHomepage() {
+            document.querySelectorAll('body > div, body > form').forEach(el => el.style.display = 'none');
+            document.getElementById('content').style.display = 'block';
+        }
+
+        function showUserGuide() {
+            showHomepage();
+            document.getElementById('content').style.display = 'none';
+            document.getElementById('user-guide').style.display = 'block';
+        }
+
+        function showConsentForm() {
+            showHomepage();
+            document.getElementById('content').style.display = 'none';
+            document.getElementById('consentform').style.display = 'block';
+        }
+
+        function validateForm() {
+            const name = document.getElementById('name').value.trim();
+            const sid = document.getElementById('SID').value.trim();
+            const checked = document.getElementById('checkBox').checked;
+
+            if (name && sid && checked) {
+                // saveconsentform(); // Add your PHP logic if needed
+                startPreSurvey();
+            } else {
+                alert("Please fill all fields and agree to participate.");
+            }
+        }
+
+        function startPreSurvey() {
+            document.getElementById('consentform').style.display = 'none';
+            document.getElementById('containerings').style.display = 'block';
+            startCountdown('countdown', 'nextButton', 'preb');
+        }
+
+        function startCountdown(timerId, btnId, boxId) {
+            let timeLeft = 10;
+            const btn = document.getElementById(btnId);
+            const box = document.getElementById(boxId);
+            const txt = document.getElementById(timerId);
+            
+            box.style.opacity = "0.2";
+            const interval = setInterval(() => {
+                timeLeft--;
+                txt.innerText = `This button will activate in (${timeLeft}) seconds.`;
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    btn.disabled = false;
+                    box.style.opacity = "1";
+                    txt.innerText = "Active.";
+                }
+            }, 1000);
+        }
+
+        function finishPreSurvey() {
+            document.getElementById('containerings').style.display = 'none';
+            document.getElementById('labContent').style.display = 'block';
+            loadLabPage(0);
+        }
+
+        function loadLabPage(index) {
+            currentLabIndex = index;
+            setupNextButton(0);
+        }
+
+        function setupNextButton(page) {
+            const lab = exercises[currentLabIndex];
+            const labBody = document.getElementById('labBody');
+            const nextBtn = document.getElementById('nextLabButton');
+            const exerciseBtn = document.getElementById('nextExerciseButton');
+            
+            nextBtn.style.display = 'none';
+            exerciseBtn.style.display = 'none';
+
+            const content = [
+                `<h2>Goals</h2>${lab.labGoals}`,
+                `<h2>Background</h2>${lab.background}`,
+                `<h2>Exercise</h2><iframe src="${lab.gameUrl}" width="100%" height="500px"></iframe>`,
+                `<h2>Summary</h2>${lab.application}`
+            ];
+
+            labBody.innerHTML = content[page];
+
+            if (page < content.length - 1) {
+                nextBtn.innerText = "Next Section";
+                nextBtn.style.display = 'block';
+                nextBtn.onclick = () => setupNextButton(page + 1);
+                
+                // If it's the game page, hide button until 'finish' signal is received
+                if (page === 2) {
+                    nextBtn.style.opacity = 0;
+                    window.onmessage = (e) => { if (e.data === 'finish') nextBtn.style.opacity = 1; };
+                } else {
+                    nextBtn.style.opacity = 1;
+                }
+            } else {
+                exerciseBtn.style.display = 'block';
+                exerciseBtn.innerText = currentLabIndex < 5 ? "Next Lab" : "Finish Labs";
+                exerciseBtn.onclick = () => {
+                    if (currentLabIndex < 5) loadLabPage(currentLabIndex + 1);
+                    else showPostSurvey();
+                };
+            }
+        }
+
+        function showPostSurvey() {
+            document.getElementById('labContent').style.display = 'none';
+            document.getElementById('post-test-container').style.display = 'block';
+            startCountdown('countdown2', 'postNextButton', 'postb');
+        }
+
+        function thankyou() {
+            document.getElementById('post-test-container').style.display = 'none';
+            document.getElementById('thank').style.display = 'block';
+        }
+
+        // Set date
+        document.getElementById('date').innerText = new Date().toLocaleDateString();
+    </script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COMP3423 Human Computer Interaction</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+</head>
+<body>
+<header>
+    <div class="toolbar">
+        <img src="logo.png" alt="Logo" />
+        <div>
+            <a onclick="showHomepage(); window.scrollTo(0, 0);" style="cursor: pointer;">Home</a>
+            <a onclick="showUserGuide(); window.scrollTo(0, 0);" style="cursor: pointer;">User Guide</a>
+            <div class="dropdown">
+                <div class="dropbtn" onclick="toggleDropdown()">Labs<span class="arrow">▼</span></div>
+                <div class="dropdown-content" id="servicesDropdown">
+                    <div class="unlocked" onclick="askQuestion(1); window.scrollTo(0, 0);">Lab 1</div>
+                    <div class="unlocked" onclick="askQuestion(2);">Lab 2</div>
+                    <div class="unlocked" onclick="askQuestion(3);">Lab 3</div>
+                    <div class="unlocked" onclick="askQuestion(4);">Lab 4</div>
+                    <div class="unlocked" onclick="askQuestion(5);">Lab 5</div>
+                    <div class="unlocked" onclick="askQuestion(6);">Lab 6</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- User Guide -->
+<div id="user-guide" class="notice-container" style="display: block;">
+    <h1>Welcome to the Human-Computer Interaction Labs</h1>
+    <h2 class="center">Instructions for Use</h2>
+    <img src="instructionOfUse.png" alt="Instructions of Use">
+    <h2 class="center">Technical Guide</h2>
+    <div class="technicalGuide">
+        <ol>
+            <li>Use the latest versions of <b>Chrome, Firefox, or Edge</b> for the best experience.</li>
+            <li>Ensure your <b>device and network connection</b> are stable.</li>
+            <li>For support, contact: <a href="mailto:yandi.lu@connect.polyu.hk">yandi.lu@connect.polyu.hk</a></li>
+        </ol>
+    </div>
+    <div class="contentbutton">
+        <button onclick="pretest(); window.scrollTo(0, 0);"><b>Let's Play!</b></button>
+    </div>
+</div>
+
+<!-- Pre-Test Survey Container -->
+<div id="pre-test-container" style="display: none;">
+    <h1 class="centerword">Pre-survey</h1>
+    <p class="centerword">Before starting the labs, please complete the following survey:</p>
+    <a href="http://www.polyu.edu.hk" target="_blank"><p class="centerword">www.xxxxxx.com</p></a>
+    <p class="centerword">Thank you for your cooperation!</p>
+    <p id="countdown" class="centerword">This button will activate in (10) seconds.</p>
+    <div class="contentbutton">
+        <button id="nextButton" disabled onclick="finishPreSurvey();"><b>I've finished.</b></button>
+    </div>
+</div>
+
+<!-- Lab Content -->
+<div id="labContent" style="display: none;">
+    <h2 id="labHeader"></h2>
+    <div id="labBody"></div>
+    <button id="nextLabButton" style="display: none;"></button>
+    <button id="nextExerciseButton" style="display: none;"></button>
+</div>
+
+<script>
+    const exercises = [
+        {
+            title: "Lab 1 Fitt's Law",
+            labGoals: "<p>In this lab, you will learn:<br></p><ul><li>The background knowledge, theoretical support, and practical applications of Fitts' Law.</li><li>Why it is important to understand Fitts' Law in the context of human-computer interaction.</li><li>How target size and distance affect movement time through an interactive module.</li></ul><br><p>Click \"Next\" to start!</p>",
+            background: "<p>In 1954, psychologist Paul Fitts, examining the human motor system, showed that the time required to move to a target depends on the distance to it, yet relates inversely to its size. By his law, fast movements and small targets result in greater error rates, due to the speed-accuracy trade-off. <br><br></p><p>Where <b>t</b> is time to select a target<br><b>a</b>  and b are constants set by the type of device<br><b>b</b>  is the distance from the starting point to the target<br><b>w</b>  is the width of target along axis of motion</p>", 
+            expectedResults: "<p>Response Time will increase as the Distance from the Previous Circle increases and decrease as the Circle Diameter increases.</p>",
+            possibleSourcesOfDeviation: "<p><b>Task Familiarity:</b> Initial unfamiliarity with the task may result in data that does not meet expectations during the early stages.</p><p><b>Number of Trials</b>: Conducting only 20 trials may be insufficient to draw stable conclusions. You can try a few more times to obtain more reliable data.</p>",
+            application: "<p>Fitts' law is widely applied in user experience (UX) and user interface (UI) design. For example, this law <b> influenced the convention of making interactive buttons large (especially on finger-operated mobile</b> devices)—smaller buttons are more difficult (and time-consuming) to click. Likewise, the distance between a user’s task/attention area and the task-related button should be kept as short as possible.</p>",
+            description: "Lab Rule:<br><br>1. Circles of random sizes and positions will appear on the screen one by one<br>2. Each time a circle appears, click on it immediately. The circle will disappear, and the next circle will appear<br>3. Repeat this process until all circles have been clicked.",
+            gameUrl: "lab1.html"
+        },
+        // Additional lab data can be added here...
+    ];
+
+    let currentLabIndex = 0; // Variable to track the current lab index
+    let currentPageIndex = 0; // Variable to track the current page index
+
+    function pretest() {
+        document.getElementById('user-guide').style.display = 'none'; // Hide user guide
+        document.getElementById('pre-test-container').style.display = 'block'; // Show pre-test container
+        startCountdown(); // Start the countdown
+    }
+
+    function startCountdown() {
+        let countdown = 10; // Countdown from 10 seconds
+        const countdownElement = document.getElementById('countdown');
+        const nextButton = document.getElementById('nextButton');
+
+        countdownElement.textContent = `This button will activate in (${countdown}) seconds.`;
+        const timer = setInterval(() => {
+            countdown--;
+            countdownElement.textContent = `This button will activate in (${countdown}) seconds.`;
+
+            if (countdown <= 0) {
+                clearInterval(timer);
+                nextButton.disabled = false; // Enable button
+                nextButton.classList.add('active'); // Change button color
+                nextButton.style.cursor = 'pointer'; // Change cursor
+                countdownElement.textContent = 'This button is now active.';
+            }
+        }, 1000); // Update every second
+    }
+
+    function finishPreSurvey() {
+        document.getElementById('pre-test-container').style.display = 'none'; // Hide pre-test container
+        document.getElementById('labContent').style.display = 'block'; // Show lab content
+        loadLabPage(0); // Load the first lab
+    }
+
+    function loadLabPage(index) {
+        currentLabIndex = index; // Set the current index to the selected lab
+        currentPageIndex = 0; // Reset the page index
+        const lab = exercises[currentLabIndex];
+
+        //tested - can print the data, not well formatted
+        const contentArray = [
+            `<h2>Lab Goals</h2>${lab.labGoals}`, // Goals
+            `<h2>Background</h2>${lab.background}`, // Background
+            `<h2>Exercise</h2><p>${lab.description}</p>`, // Exercise
+            `<h2>Summary</h2>
+                <h3>Expected Results</h3>${lab.expectedResults}
+                <h3>Possible Sources of Deviation</h3>${lab.possibleSourcesOfDeviation}
+                <h3>Application</h3>${lab.application}` // Summary
+        ];
+
+        //not tested
+        document.getElementById('labHeader').innerText = lab.title; // Set the lab title
+        document.getElementById('labBody').innerHTML = contentArray[currentPageIndex]; // Display content
+
+        setupNextButton(contentArray.length); // Setup navigation buttons
+    }
+
+    function setupNextButton(totalPages) {
+        const nextLabButton = document.getElementById('nextLabButton');
+        const nextExerciseButton = document.getElementById('nextExerciseButton');
+
+        nextLabButton.style.display = 'none'; // Hide until needed
+        nextExerciseButton.style.display = 'none'; // Hide until needed
+
+        // Show the next button if there are more pages
+        if (currentPageIndex < totalPages - 1) {
+            nextLabButton.innerText = 'Next';
+            nextLabButton.onclick = () => {
+                currentPageIndex++;
+                loadLabPage(currentLabIndex); // Load the next page
+            };
+            nextLabButton.style.display = 'block'; // Show next button
+        } else {
+            // When finished with all pages, show the next lab button
+            nextExerciseButton.innerText = 'Next Lab';
+            nextExerciseButton.onclick = () => {
+                currentLabIndex++;
+                if (currentLabIndex < exercises.length) {
+                    loadLabPage(currentLabIndex); // Load the next lab
+                } else {
+                    alert("All labs completed!"); // Handle completion
+                }
+            };
+            nextExerciseButton.style.display = 'block'; // Show next exercise button
+        }
+    }
+
+    // Show the homepage initially
+    window.onload = function() {
+        showHomepage(); // Show the homepage on page load
+    };
+
+    function showHomepage() {
+        document.getElementById('user-guide').style.display = 'block';
+        document.getElementById('pre-test-container').style.display = 'none';
+        document.getElementById('labContent').style.display = 'none';
+    }
+
+    function showUserGuide() {
+        document.getElementById('user-guide').style.display = 'block';
+        document.getElementById('pre-test-container').style.display = 'none';
+        document.getElementById('labContent').style.display = 'none';
+    }
+</script>
+</body>
+</html>

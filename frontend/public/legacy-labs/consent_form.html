@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        form {
+            margin-top: auto;
+            display: block;
+            flex-direction: column;
+            width: 800px;
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        input, button {
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <form id="consent-form" class="consent-container">
+        <h2 id="consentform-title">Consent Form</h2>
+        <p class="center"><b>CONSENT TO PARTICIPATE IN RESEARCH</b></p>
+        <p class="center"><b>Experiential Learning: HCI Playground</b></p>
+        <p class="center"><b>As part of the project “Development of Engaging and Interactive Tutorial Materials to Enhance Learning in Human-Computer Interactions (HCI) Lecture”</b></p>
+    
+        <p class="left">
+            Name of participant:
+            <input type="text" id="name" placeholder="Your Name..." required>
+        </p>
+        <p class="left">
+            Student Number of participant:
+            <input type="text" id="SID" placeholder="Your SID..." required>
+        </p>
+        <p class="left">Name of researchers: Jeff Tang, Johan Hoorn, Yandi Lu</p>
+        <p class="left">
+            Date: <span id="date"></span>
+        </p>
+        
+        <p class="left"><br>I hereby consent to participate in the captioned research conducted by Dr. Jeff Tang, Prof. Johan Hoorn, and his research team.</p>
+        <p class="left"><br>I understand that information obtained from this research may be used in future research and published. However, my right to privacy will be retained, i.e., my personal details will not be revealed.</p>
+        <p class="left"><br>The procedure has been fully explained by the researchers. I understand the benefits and risks involved. My participation in the project is voluntary.</p>
+        <p class="left"><br>I acknowledge that I have the right to question any part of the procedure and can withdraw at any time without penalty of any kind.</p>
+        <p class="left">
+            <input type="checkbox" id="checkBox" required>
+            <label for="checkBox">I agree to the above statements and start the playground!</label>
+        </p>
+        
+        <button type="submit">Agree and Start!</button>
+    </form>
+
+<script>
+    document.getElementById('consent-form').addEventListener('submit', function(event) {
+        event.preventDefault(); 
+        window.location.href = 'index.html'; // Ensure this path is correct
+    });
+
+    function saveconsentform() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sid = urlParams.get('sid') || "00000000";
+
+        const json_data = {
+            sid: sid,
+            labId: "consent",
+            results: {
+                agreement: document.getElementById("checkBox").checked,
+                timestamp: new Date().toISOString()
+            }
+        };
+
+        $.ajax({
+            type: 'POST',
+            url: '/api/save-lab', // Your new Next.js API
+            data: JSON.stringify(json_data),
+            contentType: 'application/json'
+        }).done(function (data) {
+            // Redirect back to the modern dashboard
+            // The SID is already saved in the Next.js Zustand store
+            window.top.location.href = '/dashboard'; 
+        });
+    }
+</script>
+
+
+</body>
+</html>

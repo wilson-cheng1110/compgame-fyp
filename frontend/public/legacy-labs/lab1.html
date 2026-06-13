@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <title>Circle Click Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            font-size: 20px;
+        }
+
+        #game {
+            text-align: center;
+            position: relative;
+            width: 100%;
+        }
+
+        #startButton {
+            padding: 15px 30px;
+            font-size: 20px;
+            color: #262626;
+            background-color: #ffffff;
+            cursor: pointer;
+            border-radius: 50px;
+        }
+
+        .circle {
+            position: absolute;
+            border-radius: 50%;
+            background-color: #357858;
+            display: none;
+        }
+
+        #counter {
+            font-size: 24px;
+            position: fixed;
+            top: 10px;
+            left: 20px; /* Adjusted for visibility */
+            display: none;
+        }
+
+        #description {
+            font-size: 24px;
+            position: fixed;
+            top: 10px;
+            right: 20px; /* Adjusted for visibility */
+            display: none;
+        }
+
+        table {
+            margin-top: 20px;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #fff;
+        }
+
+        .LabRule {
+            font-size: 20px;
+            text-align: justify;
+            line-height: 2;
+            margin-left: 10%;
+            margin-right: 10%;
+        }
+        
+        .LabRule h1 {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="counter">Rounds: <b><span id="circleCount"></span> / 15</b></div>
+        <div id="description">Click on the circles as quickly as possible.</div>
+        <div id="LabRule" class="LabRule">
+            <h1>Lab Rules</h1>
+            <ol>
+                <li>Circles of random sizes and positions will appear on the screen one by one.</li>
+                <li>Each time a circle appears, click on it immediately. The circle will disappear, and the next circle will appear.</li>
+                <li>Repeat this process until all the circles have been clicked.</li>
+            </ol>
+        </div>
+        <button id="startButton" onclick="hideRule()"><b>Let's Play!</b></button>
+        <div id="scoreBoard" style="margin-top: 20px; display: none;"></div>
+    </div>
+
+    <script>
+        let circlesClicked = 0;
+        let startTime;
+        const totalCircles = 15;
+        const responseTimes = [];
+        let previousCirclePosition = { x: null, y: null };
+
+        function hideRule() {
+            document.getElementById('LabRule').style.display = 'none';
+        }
+
+        document.getElementById('startButton').addEventListener('click', startGame);
+
+        function startGame() {
+            circlesClicked = 1;
+            previousCirclePosition = { x: null, y: null };
+            startTime = Date.now();
+            responseTimes.length = 0;
+            document.getElementById('scoreBoard').style.display = 'none';
+            document.getElementById('startButton').style.display = 'none';
+            document.getElementById('counter').style.display = 'block'; // Show counter
+            document.getElementById('description').style.display = 'block'; // Show description
+            document.getElementById('circleCount').innerText = 1;
+            spawnCircle();
+        }
+
+        function getRandomSize() {
+            return Math.floor(Math.random() * (150 - 30 + 1)) + 30; // Random Size
+        }
+
+        function spawnCircle() {
+            if (circlesClicked >= totalCircles) {
+                endGame();
+                return;
+            }
+
+            const circle = document.createElement('div');
+            circle.classList.add('circle');
+            document.body.appendChild(circle);
+
+            const circleSize = getRandomSize();
+            const x = Math.random() * (window.innerWidth - circleSize);
+            const y = Math.random() * (window.innerHeight - circleSize);
+            circle.style.left = `${x}px`;
+            circle.style.top = `${y}px`;
+            circle.style.width = `${circleSize}px`;
+            circle.style.height = `${circleSize}px`;
+            circle.style.display = 'block';
+
+            const circleStartTime = Date.now();
+
+            circle.addEventListener('click', () => {
+                const responseTime = ((Date.now() - circleStartTime) / 1000).toFixed(2);
+                const diameter = circleSize;
+                let distance = 0;
+
+                if (previousCirclePosition.x !== null && previousCirclePosition.y !== null) {
+                    distance = Math.sqrt(Math.pow(x - previousCirclePosition.x, 2) + Math.pow(y - previousCirclePosition.y, 2)).toFixed(2);
+                }
+
+                responseTimes.push({
+                    circleNumber: circlesClicked + 1,
+                    responseTime,
+                    distance,
+                    diameter
+                });
+                circlesClicked++;
+                previousCirclePosition = { x, y };
+                circle.remove();
+
+                // Update the counter
+                const circlesLeft = circlesClicked;
+                document.getElementById('circleCount').innerText = circlesLeft;
+
+                // Hide counter and description if all circles are clicked
+                if (circlesLeft === totalCircles) {
+                    document.getElementById('counter').style.display = 'none';
+                    document.getElementById('description').style.display = 'none';
+                }
+
+                spawnCircle();
+            });
+
+            setTimeout(() => {
+                if (circle.parentNode) {
+                    circle.remove();
+                    spawnCircle();
+                }
+            }, 5000);
+        }
+
+        function endGame() {
+            const timeTaken = ((Date.now() - startTime) / 1000).toFixed(2);
+            let responseDetails = responseTimes.map(rt =>
+                `<tr>
+                    <td>${rt.circleNumber}</td>
+                    <td>${rt.responseTime} seconds</td>
+                    <td>${rt.distance} px</td>
+                    <td>${rt.diameter} px</td>
+                </tr>`
+            ).join('');
+
+            document.getElementById('scoreBoard').innerHTML =
+                `<h2>Results</h2>
+                <p>Circles Clicked: ${circlesClicked}</p>
+                <p>Time Taken: ${timeTaken} seconds</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Number of rounds</th>
+                            <th>Response Time (s)</th>
+                            <th>Distance from previous circle(px)</th>
+                            <th>Diameter of circle(px)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${responseDetails}
+                    </tbody>
+                </table>`;
+
+            document.getElementById('scoreBoard').style.display = 'block';
+            document.getElementById('startButton').style.display = 'none';
+            document.getElementById('counter').style.display = 'none'; // Hide counter when game ends
+            document.getElementById('description').style.display = 'none'; // Hide description when game ends
+            finishGame();
+            window.top.postMessage('finish', '*');
+        }
+
+        //document.getElementById('finishButton').addEventListener('click', finishGame);
+
+        function finishGame() {
+            // Get SID from the URL parameters passed by the Next.js Iframe
+            const urlParams = new URLSearchParams(window.location.search);
+            const sid = urlParams.get('sid') || "00000000";
+
+            // Prepare data matching the app/api/save-lab/route.ts requirements
+            const json_data = {
+                sid: sid,
+                labId: "lab1", 
+                results: {
+                    responseTimes: responseTimes,
+                    totalCircles: circlesClicked,
+                    timeTaken: Math.floor((Date.now() - startTime) / 1000)
+                }
+            };
+
+            // Send data to the Next.js API endpoint
+            $.ajax({
+                type: 'POST',
+                url: '/api/save-lab',
+                data: JSON.stringify(json_data),
+                contentType: 'application/json'
+            })
+            .done(function (data) {
+                console.log('Successfully saved to Next.js server');
+            })
+            .fail(function (err) {
+                console.error('Failed to save:', err);
+            });
+        }
+    </script>
+</body>
+</html>

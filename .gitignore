@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+
+# RAG — generated, not source
+backend/hci_chroma_db_local/
+
+# Course PDFs — copyright PolyU, rebuild via backend/requirements.txt
+backend/*.pdf
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Node
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.js
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
