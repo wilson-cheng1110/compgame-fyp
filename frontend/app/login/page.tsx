@@ -57,6 +57,12 @@ export default function LoginPage() {
     }
   }
 
+  const handleResetPassword = () => {
+    Cookies.remove("user")
+    Cookies.remove("users")
+    router.push("/signup")
+  }
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -213,6 +219,16 @@ export default function LoginPage() {
                 <Link href="/signup" className="text-[#0099db] hover:underline font-bold">
                   Sign up here
                 </Link>
+              </div>
+
+              <div className="text-center font-pixelify-sans mt-2">
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="text-[#0099db] hover:underline font-bold"
+                >
+                  Forgot password?
+                </button>
               </div>
             </form>
           </div>
