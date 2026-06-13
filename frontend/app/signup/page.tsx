@@ -83,7 +83,8 @@ export default function SignupPage() {
       badges: [],
       createdAt: new Date().toISOString(),
       // Adding a temporary username to prevent errors in other components
-      username: `User_${sid.slice(-4)}` 
+      username: `User_${sid.slice(-4)}`,
+      avatarId: 1, // Default avatar
     }
 
     // Save updated users list to persistent cookies
@@ -94,6 +95,8 @@ export default function SignupPage() {
       "user",
       JSON.stringify({
         sid,
+        username: users[sid].username,
+        avatarId: users[sid].avatarId,
         needsOnboarding: true,
       }),
       { expires: 7 },
