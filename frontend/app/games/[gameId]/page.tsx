@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import GameLayout from "@/components/game-layout"
 import dynamic from "next/dynamic"
-import { useUserStore } from "@/lib/store"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 
@@ -18,6 +17,14 @@ import HicksLawUnderstandingWrapper from "./hicks-law-understanding-wrapper"
 import HicksLawAssessmentWrapper from "./hicks-law-assessment-wrapper"
 import MemoryUnderstandingWrapper from "./memory-understanding-wrapper"
 import MemoryAssessmentWrapper from "./memory-assessment-wrapper"
+import StroopUnderstandingWrapper from "./stroop-understanding-wrapper"
+import StroopAssessmentWrapper from "./stroop-assessment-wrapper"
+import WebersLawUnderstandingWrapper from "./webers-law-understanding-wrapper"
+import WebersLawAssessmentWrapper from "./webers-law-assessment-wrapper"
+import NormanUnderstandingWrapper from "./norman-understanding-wrapper"
+import NormanAssessmentWrapper from "./norman-assessment-wrapper"
+import MentalModelUnderstandingWrapper from "./mental-model-understanding-wrapper"
+import MentalModelAssessmentWrapper from "./mental-model-assessment-wrapper"
 
 // Load fonts
 const pixelifySans = Pixelify_Sans({
@@ -136,55 +143,59 @@ const GAMES = [
     ],
   },
 
-  /* --- Legacy HTML Labs --- */
   {
-    id: "lab1",
-    title: "Lab 1: Fitts' Law Experiment",
-    description: "Traditional Fitts' Law study focusing on target acquisition speed.",
-    controls: [{ type: "mouse", description: "Click the appearing circles immediately" }],
-    isLegacy: true,
+    id: "stroop-understanding",
+    title: "Consistency — Learning",
+    description: "Experience how consistent vs inconsistent stimulus-response mappings affect reaction time",
+    controls: [{ type: "mouse", description: "Click to respond to the traffic light signals" }],
   },
   {
-    id: "lab2",
-    title: "Lab 2: Hick's Law Experiment",
-    description: "Testing reaction time based on the number of choices.",
-    controls: [{ type: "mouse", description: "Find the given country in the list" }],
-    isLegacy: true,
+    id: "stroop-assessment",
+    title: "Consistency — Assessment",
+    description: "Name the colour, not the word — and answer quiz questions on UI consistency",
+    controls: [{ type: "mouse", description: "Click the correct colour and select quiz answers" }],
   },
   {
-    id: "lab3con",
-    title: "Lab 3: Consistent Mapping",
-    description: "Reaction test with consistent color-to-action mapping.",
-    controls: [{ type: "mouse", description: "Click Start for Go, Brake for Stop" }],
-    isLegacy: true,
+    id: "webers-law-understanding",
+    title: "Weber's Law — Learning",
+    description: "Discover your personal just-noticeable-difference threshold across size, brightness and count",
+    controls: [{ type: "mouse", description: "Drag the slider until you notice a change" }],
   },
   {
-    id: "lab3incon",
-    title: "Lab 3: Inconsistent Mapping",
-    description: "Reaction test with conflicting color-to-action mapping.",
-    controls: [{ type: "mouse", description: "Click Start for Red, Brake for Green" }],
-    isLegacy: true,
+    id: "webers-law-assessment",
+    title: "Weber's Law — Assessment",
+    description: "Spot the odd shape in a timed detection game with shrinking JND thresholds",
+    controls: [{ type: "mouse", description: "Click the shape that differs from the rest" }],
   },
   {
-    id: "lab4",
-    title: "Lab 4: Common Region",
-    description: "HCI experiment on how boundaries affect grouping perception.",
-    controls: [{ type: "mouse", description: "Select how many groups you see" }],
-    isLegacy: true,
+    id: "norman-understanding",
+    title: "Norman's Action Cycle — Learning",
+    description: "Walk through the 7 stages of action and learn where UIs create gulfs",
+    controls: [{ type: "mouse", description: "Click to progress through the scenario" }],
   },
   {
-    id: "lab5",
-    title: "Lab 5: Weber's Law",
-    description: "Detecting the threshold of change in visual stimuli.",
-    controls: [{ type: "mouse", description: "Click the shape that is changing" }],
-    isLegacy: true,
+    id: "norman-assessment",
+    title: "Norman's Action Cycle — Assessment",
+    description: "Identify which stage broke down in real UI failure scenarios",
+    controls: [{ type: "mouse", description: "Select the broken stage and gulf type" }],
+  },
+  {
+    id: "mental-model-understanding",
+    title: "Mental Models & Affordances — Learning",
+    description: "Discover how affordances shape user expectations and where designs mislead",
+    controls: [{ type: "mouse", description: "Drag elements and click to explore examples" }],
+  },
+  {
+    id: "mental-model-assessment",
+    title: "Mental Models & Affordances — Assessment",
+    description: "Rank UI elements by affordance clarity and answer scenario questions",
+    controls: [{ type: "mouse", description: "Drag to sort and click to select answers" }],
   },
 ]
 
 export default function GamePage() {
   const params = useParams()
   const router = useRouter()
-  const { user } = useUserStore() // Pull SID from the updated store
   useForceScrollbar()
   const [game, setGame] = useState<any>(null)
 
@@ -206,33 +217,28 @@ export default function GamePage() {
   return (
     <div className={`${pixelifySans.variable} ${pressStart2P.variable}`}>
       <GameLayout title={game.title} controls={game.controls} className="min-h-screen">
-        {game.isLegacy ? (
-          /* Wrap the legacy HTML files in an iframe for the retro layout */
-          <div className="w-full h-full bg-white flex items-center justify-center relative">
-            <iframe
-              src={`/legacy-labs/${game.id}.html?sid=${user?.sid || "0000"}&name=${user?.username || "Guest"}`}
-              className="w-full h-full border-0 shadow-inner"
-              style={{ minHeight: "500px" }}
-              title={game.title}
-            />
-          </div>
-        ) : (
-          /* Original Next.js Component Rendering */
-          <>
-            {game.id === "fitts-law-understanding" && <FittsLawGameWrapper />}
-            {game.id === "fitts-law-assessment" && <FittsLawAssessmentWrapper />}
-            {game.id === "gestalt-understanding" && <GestaltUnderstandingWrapper />}
-            {game.id === "gestalt-assessment" && <GestaltAssessmentWrapper />}
-            {game.id === "cpu-scheduling-understanding" && <CPUSchedulingUnderstandingWrapper />}
-            {game.id === "cpu-scheduling-assessment" && <CPUSchedulingAssessmentWrapper />}
-            {game.id === "page-replacement-understanding" && <PageReplacementUnderstandingWrapper />}
-            {game.id === "page-replacement-assessment" && <PageReplacementAssessmentWrapper />}
-            {game.id === "hicks-law-understanding" && <HicksLawUnderstandingWrapper />}
-            {game.id === "hicks-law-assessment" && <HicksLawAssessmentWrapper />}
-            {game.id === "memory-understanding" && <MemoryUnderstandingWrapper />}
-            {game.id === "memory-assessment" && <MemoryAssessmentWrapper />}
-          </>
-        )}
+        <>
+          {game.id === "fitts-law-understanding" && <FittsLawGameWrapper />}
+          {game.id === "fitts-law-assessment" && <FittsLawAssessmentWrapper />}
+          {game.id === "gestalt-understanding" && <GestaltUnderstandingWrapper />}
+          {game.id === "gestalt-assessment" && <GestaltAssessmentWrapper />}
+          {game.id === "cpu-scheduling-understanding" && <CPUSchedulingUnderstandingWrapper />}
+          {game.id === "cpu-scheduling-assessment" && <CPUSchedulingAssessmentWrapper />}
+          {game.id === "page-replacement-understanding" && <PageReplacementUnderstandingWrapper />}
+          {game.id === "page-replacement-assessment" && <PageReplacementAssessmentWrapper />}
+          {game.id === "hicks-law-understanding" && <HicksLawUnderstandingWrapper />}
+          {game.id === "hicks-law-assessment" && <HicksLawAssessmentWrapper />}
+          {game.id === "memory-understanding" && <MemoryUnderstandingWrapper />}
+          {game.id === "memory-assessment" && <MemoryAssessmentWrapper />}
+          {game.id === "stroop-understanding" && <StroopUnderstandingWrapper />}
+          {game.id === "stroop-assessment" && <StroopAssessmentWrapper />}
+          {game.id === "webers-law-understanding" && <WebersLawUnderstandingWrapper />}
+          {game.id === "webers-law-assessment" && <WebersLawAssessmentWrapper />}
+          {game.id === "norman-understanding" && <NormanUnderstandingWrapper />}
+          {game.id === "norman-assessment" && <NormanAssessmentWrapper />}
+          {game.id === "mental-model-understanding" && <MentalModelUnderstandingWrapper />}
+          {game.id === "mental-model-assessment" && <MentalModelAssessmentWrapper />}
+        </>
       </GameLayout>
     </div>
   )

@@ -35,6 +35,42 @@ export const TOPICS = [
     understandingGameId: "memory-understanding",
     assessmentGameId: "memory-assessment",
   },
+  {
+    id: "stroop",
+    title: "Principle of Consistency",
+    description: "How stimulus-response compatibility affects reaction time and error rate",
+    category: "hci" as const,
+    icon: "🚦",
+    understandingGameId: "stroop-understanding",
+    assessmentGameId: "stroop-assessment",
+  },
+  {
+    id: "webers-law",
+    title: "Weber's Law",
+    description: "The smallest detectable change is a constant fraction of the stimulus",
+    category: "hci" as const,
+    icon: "🔍",
+    understandingGameId: "webers-law-understanding",
+    assessmentGameId: "webers-law-assessment",
+  },
+  {
+    id: "norman",
+    title: "Norman's Action Cycle",
+    description: "Seven stages from goal to evaluation — and where UIs break down",
+    category: "hci" as const,
+    icon: "🔄",
+    understandingGameId: "norman-understanding",
+    assessmentGameId: "norman-assessment",
+  },
+  {
+    id: "mental-model",
+    title: "Mental Models & Affordances",
+    description: "How users predict system behaviour and what cues guide their actions",
+    category: "hci" as const,
+    icon: "🗺️",
+    understandingGameId: "mental-model-understanding",
+    assessmentGameId: "mental-model-assessment",
+  },
 ]
 
 export type TopicId = (typeof TOPICS)[number]["id"]
