@@ -173,7 +173,8 @@ export default function StroopAssessment() {
             <button
               key={color}
               onClick={() => handleColorClick(color)}
-              className="w-20 h-10 border-2 border-black font-pixelify-sans text-white text-xs hover:opacity-80 transition shadow-[2px_2px_0px_0px_#000]"
+              aria-label={`${color} — click if the word above is written in ${color}`}
+              className="w-20 h-10 border-2 border-black font-pixelify-sans text-black text-xs font-bold hover:opacity-80 transition shadow-[2px_2px_0px_0px_#000]"
               style={{ backgroundColor: COLOR_HEX[color] }}
             >
               {color}

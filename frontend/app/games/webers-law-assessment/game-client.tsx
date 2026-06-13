@@ -114,6 +114,12 @@ export default function WebersLawAssessment() {
         </p>
         <p className="font-pixelify-sans text-gray-500 text-xs mb-6">{currentConfig.label}</p>
 
+        {currentConfig.attr === "hue" && (
+          <p className="font-pixelify-sans text-[10px] text-gray-400 mb-3 text-center max-w-xs">
+            Hue round — requires color perception. Screen readers: buttons are labelled A–F.
+          </p>
+        )}
+
         {lastCorrect !== null && (
           <div className={`font-press-start-2p text-sm mb-4 ${lastCorrect ? "text-green-600" : "text-red-600"}`}>
             {lastCorrect ? "✓ Correct!" : "✗ Missed"}
@@ -129,6 +135,7 @@ export default function WebersLawAssessment() {
               key={i}
               onClick={() => handleCellClick(i)}
               disabled={lastCorrect !== null}
+              aria-label={`Shape ${String.fromCharCode(65 + i)} — ${currentConfig.attr === "size" ? `size ${cell.size}px` : currentConfig.attr === "brightness" ? `brightness sample` : `hue sample`}`}
               className="flex items-center justify-center border-2 transition hover:scale-105 disabled:cursor-default"
               style={{
                 width: 80,

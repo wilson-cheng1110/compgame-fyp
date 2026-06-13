@@ -35,8 +35,8 @@ function getSpeechBubble(progress: ReturnType<typeof useProgress>["progress"], u
   const doneCount = total.filter((p) => p?.assessmentCompleted).length
   const learningCount = total.filter((p) => p?.understandingCompleted && !p?.assessmentCompleted).length
 
-  if (doneCount === 4) return `Amazing, ${username}! You've mastered all 4 topics! 🏆`
-  if (doneCount === 3) return `Almost there, ${username}! One more topic to go! 💪`
+  if (doneCount === TOPICS.length) return `Amazing, ${username}! You've mastered all ${TOPICS.length} topics! 🏆`
+  if (doneCount >= TOPICS.length - 1) return `Almost there, ${username}! One more topic to go! 💪`
   if (learningCount > 0) return `Good progress, ${username}! Now put your knowledge to the test! 🎯`
   if (doneCount > 0) return `Keep it up, ${username}! You're on a roll! ⚡`
   return `Welcome, ${username}! Start with Understanding — learn before you leap! 📚`
@@ -301,7 +301,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Completion Banner */}
-            {Object.values(progress).filter((p) => p?.assessmentCompleted).length === 4 && (
+            {Object.values(progress).filter((p) => p?.assessmentCompleted).length === TOPICS.length && (
               <div className="mt-8 p-6 rounded-xl bg-[#fef9c3] border-2 border-[#facc15] text-center shadow-[4px_4px_0px_0px_#a16207]">
                 <div className="font-press-start-2p text-xl mb-2">🏆 Journey Complete! 🏆</div>
                 <p className="font-pixelify-sans text-sm">You've mastered all topics. Export your data below for the research study.</p>

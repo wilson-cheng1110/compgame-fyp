@@ -25,6 +25,16 @@ import NormanUnderstandingWrapper from "./norman-understanding-wrapper"
 import NormanAssessmentWrapper from "./norman-assessment-wrapper"
 import MentalModelUnderstandingWrapper from "./mental-model-understanding-wrapper"
 import MentalModelAssessmentWrapper from "./mental-model-assessment-wrapper"
+import ProblemSolvingUnderstandingWrapper from "./problem-solving-understanding-wrapper"
+import ProblemSolvingAssessmentWrapper from "./problem-solving-assessment-wrapper"
+import VisualPerceptionUnderstandingWrapper from "./visual-perception-understanding-wrapper"
+import VisualPerceptionAssessmentWrapper from "./visual-perception-assessment-wrapper"
+import LanguageUnderstandingWrapper from "./language-understanding-wrapper"
+import LanguageAssessmentWrapper from "./language-assessment-wrapper"
+import ErgonomicsUnderstandingWrapper from "./ergonomics-understanding-wrapper"
+import ErgonomicsAssessmentWrapper from "./ergonomics-assessment-wrapper"
+import ExperimentDesignUnderstandingWrapper from "./experiment-design-understanding-wrapper"
+import ExperimentDesignAssessmentWrapper from "./experiment-design-assessment-wrapper"
 
 // Load fonts
 const pixelifySans = Pixelify_Sans({
@@ -191,6 +201,66 @@ const GAMES = [
     description: "Rank UI elements by affordance clarity and answer scenario questions",
     controls: [{ type: "mouse", description: "Drag to sort and click to select answers" }],
   },
+  {
+    id: "problem-solving-understanding",
+    title: "Problem Solving — Learning",
+    description: "Solve a means-end-analysis puzzle and watch your search through the problem space",
+    controls: [{ type: "mouse", description: "Click operators to move toward the goal state" }],
+  },
+  {
+    id: "problem-solving-assessment",
+    title: "Problem Solving — Assessment",
+    description: "Identify problem-solving strategies and problem representations in scenarios",
+    controls: [{ type: "mouse", description: "Click to select answers" }],
+  },
+  {
+    id: "visual-perception-understanding",
+    title: "Visual Perception — Learning",
+    description: "Experience colour blindness, after-images and depth cues first-hand",
+    controls: [{ type: "mouse", description: "Click and toggle to explore perceptual demos" }],
+  },
+  {
+    id: "visual-perception-assessment",
+    title: "Visual Perception — Assessment",
+    description: "Test your knowledge of the visual system, colour vision and reading mechanics",
+    controls: [{ type: "mouse", description: "Click to select answers" }],
+  },
+  {
+    id: "language-understanding",
+    title: "Language & Ambiguity — Learning",
+    description: "Disambiguate sentences across syntax, semantics and pragmatics",
+    controls: [{ type: "mouse", description: "Pick interpretations of ambiguous sentences" }],
+  },
+  {
+    id: "language-assessment",
+    title: "Language & Ambiguity — Assessment",
+    description: "Classify ambiguities and resolve coreference in conversational UI scenarios",
+    controls: [{ type: "mouse", description: "Click to select answers" }],
+  },
+  {
+    id: "ergonomics-understanding",
+    title: "Ergonomics & I/O — Learning",
+    description: "Spot ergonomic hazards and explore haptic resolution across the body",
+    controls: [{ type: "mouse", description: "Click hazards and body regions to explore" }],
+  },
+  {
+    id: "ergonomics-assessment",
+    title: "Ergonomics & I/O — Assessment",
+    description: "Test your knowledge of physical ergonomics, RSI and I/O devices",
+    controls: [{ type: "mouse", description: "Click to select answers" }],
+  },
+  {
+    id: "experiment-design-understanding",
+    title: "HCI Experiment Design — Learning",
+    description: "Build an experiment — choose IV/DV, design type, and control confounds",
+    controls: [{ type: "mouse", description: "Click to assemble and run a study" }],
+  },
+  {
+    id: "experiment-design-assessment",
+    title: "HCI Experiment Design — Assessment",
+    description: "Spot confounds and order effects, and choose the right design and controls",
+    controls: [{ type: "mouse", description: "Click to select answers" }],
+  },
 ]
 
 export default function GamePage() {
@@ -238,6 +308,16 @@ export default function GamePage() {
           {game.id === "norman-assessment" && <NormanAssessmentWrapper />}
           {game.id === "mental-model-understanding" && <MentalModelUnderstandingWrapper />}
           {game.id === "mental-model-assessment" && <MentalModelAssessmentWrapper />}
+          {game.id === "problem-solving-understanding" && <ProblemSolvingUnderstandingWrapper />}
+          {game.id === "problem-solving-assessment" && <ProblemSolvingAssessmentWrapper />}
+          {game.id === "visual-perception-understanding" && <VisualPerceptionUnderstandingWrapper />}
+          {game.id === "visual-perception-assessment" && <VisualPerceptionAssessmentWrapper />}
+          {game.id === "language-understanding" && <LanguageUnderstandingWrapper />}
+          {game.id === "language-assessment" && <LanguageAssessmentWrapper />}
+          {game.id === "ergonomics-understanding" && <ErgonomicsUnderstandingWrapper />}
+          {game.id === "ergonomics-assessment" && <ErgonomicsAssessmentWrapper />}
+          {game.id === "experiment-design-understanding" && <ExperimentDesignUnderstandingWrapper />}
+          {game.id === "experiment-design-assessment" && <ExperimentDesignAssessmentWrapper />}
         </>
       </GameLayout>
     </div>
