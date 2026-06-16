@@ -30,13 +30,17 @@ if (!fs.existsSync(screenshotDir)) {
 
     // STEP 2: FILL SIGNUP FORM
     console.log('\nSTEP 2: Fill signup form and submit');
-    const sidInput = await page.waitForSelector('input[placeholder*="22000000D"]');
+    await page.waitForTimeout(1000); // Wait for page to fully load
+    const sidInput = await page.waitForSelector('input[placeholder*="22000000D"]', { timeout: 10000 });
     await sidInput.fill(testSID);
-    const pwInput = await page.waitForSelector('input[type="password"]');
+    await page.waitForTimeout(300);
+    const pwInput = await page.waitForSelector('input[type="password"]', { timeout: 10000 });
     await pwInput.fill(testPassword);
-    const signupBtn = await page.$('button:has-text("Sign Up for Free")');
+    await page.waitForTimeout(300);
+    const signupBtn = await page.waitForSelector('button:has-text("Sign Up for Free")', { timeout: 10000 });
     await signupBtn.click();
-    await page.waitForURL(/\/onboarding/, { timeout: 5000 });
+    console.log('✅ Signup clicked, waiting for onboarding redirect...');
+    await page.waitForURL(/\/onboarding/, { timeout: 15000 });
     console.log('✅ Signup successful, redirected to onboarding');
 
     // STEP 3: ONBOARDING - AVATAR SELECTION

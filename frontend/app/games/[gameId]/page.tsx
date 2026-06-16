@@ -6,6 +6,7 @@ import GameLayout from "@/components/game-layout"
 import dynamic from "next/dynamic"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
+import Cookies from "js-cookie"
 
 // Modern Game Wrappers
 import GestaltAssessmentWrapper from "./gestalt-assessment-wrapper"
@@ -268,8 +269,17 @@ export default function GamePage() {
   const router = useRouter()
   useForceScrollbar()
   const [game, setGame] = useState<any>(null)
+  const [authChecked, setAuthChecked] = useState(false)
 
   useEffect(() => {
+    const user = Cookies.get("user")
+    if (!user) {
+      router.replace("/login")
+      return
+    }
+
+    setAuthChecked(true)
+
     const gameId = params.gameId as string
     const foundGame = GAMES.find((g) => g.id === gameId)
 
@@ -280,7 +290,7 @@ export default function GamePage() {
     }
   }, [params, router])
 
-  if (!game) {
+  if (!authChecked || !game) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   }
 

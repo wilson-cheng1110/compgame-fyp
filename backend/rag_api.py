@@ -10,11 +10,10 @@ os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_community.vectorstores import Chroma
-from langchain.chains import create_retrieval_chain
+from langchain.chains.retrieval import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -45,12 +44,10 @@ def get_rag_chain():
     vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING))
     llm = ChatOllama(model=OLLAMA_LLM, temperature=0)
 
-    base_retriever = vectorstore.as_retriever(
+    retriever = vectorstore.as_retriever(
         search_type="mmr",
         search_kwargs={"k": 8, "fetch_k": 30}
     )
-    
-    retriever = MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
 
     system_prompt = (
         "You are an expert teaching assistant for the COMP3423 Human-Computer Interaction course. "

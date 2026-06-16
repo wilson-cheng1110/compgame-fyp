@@ -1,0 +1,121 @@
+═══════════════════════════════════════════════════════════════════
+🚀 QUICK START — Get Live RAG AI Responses (5 minutes)
+═══════════════════════════════════════════════════════════════════
+
+✅ VERIFIED:
+   • Ollama installed with gemma4 + nomic-embed-text
+   • ChromaDB database ready with COMP3423 PDFs
+   • RAG API code (rag_api.py) ready
+   • Frontend RAG widget working
+
+═══════════════════════════════════════════════════════════════════
+OPTION 1: Automated Start (Recommended)
+═══════════════════════════════════════════════════════════════════
+
+Run this PowerShell script (opens 3 terminal windows automatically):
+
+   powershell -ExecutionPolicy Bypass -File START_ALL_SERVICES.ps1
+
+Then wait 15 seconds for all services to initialize.
+
+═══════════════════════════════════════════════════════════════════
+OPTION 2: Manual Start (3 Terminal Windows)
+═══════════════════════════════════════════════════════════════════
+
+Terminal 1 - Start Ollama:
+   ollama serve
+
+Terminal 2 - Start RAG Backend (in backend folder):
+   cd backend
+   python rag_api.py
+
+Terminal 3 - Start Frontend (in frontend folder):
+   npm run dev
+
+═══════════════════════════════════════════════════════════════════
+VERIFY EVERYTHING IS RUNNING
+═══════════════════════════════════════════════════════════════════
+
+✓ Ollama ready:     Watch Terminal 1 for "Listening on 127.0.0.1:11434"
+✓ RAG API ready:    Watch Terminal 2 for "✅ API Server is ready"
+✓ Frontend ready:   Watch Terminal 3 for "✓ Ready in X.XXs"
+
+═══════════════════════════════════════════════════════════════════
+TEST IT
+═══════════════════════════════════════════════════════════════════
+
+1. Open: http://localhost:3000
+2. Log in (or create test account)
+3. Go to any game (e.g., "Fitts' Law - Understanding")
+4. Click blue chat bubble (bottom-right corner)
+5. Type: "What is Fitts' Law?"
+6. Wait 3-5 seconds
+7. See AI response with sources!
+
+═══════════════════════════════════════════════════════════════════
+EXAMPLE QUESTIONS TO TRY
+═══════════════════════════════════════════════════════════════════
+
+On Miller's Law game:
+   → "What is Miller's Law and why is 7±2 important?"
+   → "How does chunking work?"
+   → "Explain the difference between STM and LTM"
+
+On Gestalt game:
+   → "What are Gestalt principles?"
+   → "Explain the law of proximity"
+   → "How do we perceive visual groups?"
+
+═══════════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════
+
+Problem: "Cannot reach the AI backend"
+→ Make sure Terminal 2 shows "✅ API Server is ready"
+→ Restart Python: Ctrl+C in Terminal 2, then "python rag_api.py"
+
+Problem: Port 8080 already in use
+→ Find: netstat -ano | findstr :8080
+→ Or edit rag_api.py to use port 8081
+
+Problem: Ollama not responding
+→ Check Terminal 1 is running "ollama serve"
+→ If stuck, close and rerun
+
+Problem: Response is very slow (>10 seconds)
+→ RTX 5060 Ti is slow (8GB VRAM limit)
+→ First inference takes longer (model warmup)
+→ Subsequent queries are faster (cached)
+
+═══════════════════════════════════════════════════════════════════
+DEMO DAY CHECKLIST (June 24 EDC Exhibition)
+═══════════════════════════════════════════════════════════════════
+
+□ Run START_ALL_SERVICES.ps1 (or manual start)
+□ Verify all 3 terminals show ready messages
+□ Open http://localhost:3000 and log in
+□ Test one RAG question before demoing
+□ Have 2-3 questions prepared
+□ Show: Game → RAG Widget → Question → Answer + Sources
+
+═══════════════════════════════════════════════════════════════════
+FILES REFERENCE
+═══════════════════════════════════════════════════════════════════
+
+Frontend:
+   app/                    → All Next.js pages and games
+   components/ai-chat-widget.tsx  → RAG chat UI component
+   lib/topic-definitions.ts       → Game-to-topic mapping
+
+Backend:
+   backend/rag_api.py      → FastAPI server (port 8080)
+   backend/hci_chroma_db_local/   → Pre-built vector database
+   backend/requirements.txt        → Python dependencies
+
+Startup:
+   START_ALL_SERVICES.ps1  → Auto-start everything
+   START_RAG_BACKEND.md    → Detailed startup guide
+
+═══════════════════════════════════════════════════════════════════
+Ready? Let's go! 🚀
+═══════════════════════════════════════════════════════════════════
