@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import { Volume2, VolumeX, Home } from "lucide-react"
 import Link from "next/link"
+import { useProgress } from "@/lib/progress-context"
 
 // Load Press Start 2P font
 const pressStart2P = Press_Start_2P({
@@ -190,7 +191,13 @@ function SoundToggle({ className = "" }: { className?: string }) {
 export default function GestaltUnderstandingWrapper() {
   const musicInitialized = useState(false)[0]
   const router = useRouter()
+  const { markGameComplete } = useProgress()
   const [hoveredItem, setHoveredItem] = useState<number | null>(null)
+
+  const finishLearning = () => {
+    markGameComplete("gestalt-understanding")
+    router.push("/games/gestalt-assessment")
+  }
 
   // Initialize sounds on component mount
   useEffect(() => {
@@ -296,6 +303,14 @@ export default function GestaltUnderstandingWrapper() {
                   ))}
                 </ul>
               </div>
+
+              {/* Completion CTA — records understanding progress + unlocks the assessment */}
+              <button
+                onClick={finishLearning}
+                className="mt-6 w-full bg-[#FFE100] border-2 border-[#a16207] text-black font-mono text-lg md:text-xl py-3 px-4 hover:bg-[#fde047] transition-colors font-bold"
+              >
+                ✓ I&apos;ve learned these — Take the Assessment →
+              </button>
             </div>
           </div>
         </div>
