@@ -50,8 +50,10 @@ function buildRound(config: typeof ROUND_CONFIGS[0]) {
       const hex = `rgb(${b},${b - 20},${b - 50})`
       return { size: BASE_SIZE, color: hex, borderColor: "#000" }
     }
-    // hue
-    const hue = isOdd ? BASE_HUE + config.jndPct * 360 : BASE_HUE
+    // hue — jndPct encodes the shift in degrees as a percentage point
+    // (0.15 → 15°, 0.08 → 8°), matching the round labels. (Was *360, which
+    // produced 54°/29° shifts that contradicted the "15°"/"8°" labels.)
+    const hue = isOdd ? BASE_HUE + config.jndPct * 100 : BASE_HUE
     return { size: BASE_SIZE, color: hslToHex(hue, 70, 55), borderColor: "#000" }
   })
   return { cells, oddIdx }
