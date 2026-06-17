@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useEarlyRecord } from "@/lib/use-early-record"
 
 // Mental Models & Affordances Assessment
 // Phase 1: Intro
@@ -116,14 +117,19 @@ export default function MentalModelAssessment() {
     })
   }, [rankSubmitted])
 
+  const recordEarly = useEarlyRecord()
+
   const submitRank = useCallback(() => {
     const quizCorrect = quizAnswers.filter((a, i) => a === QUESTIONS[i].answer).length
     const rankCorrect = rankOrder.filter((id, i) => id === CORRECT_ORDER[i]).length
     const total = quizCorrect + rankCorrect
     const max = QUESTIONS.length + RANK_ITEMS.length
-    setScore(Math.round((total / max) * 100))
+    const computed = Math.round((total / max) * 100)
+    setScore(computed)
     setRankSubmitted(true)
-  }, [quizAnswers, rankOrder])
+    // Submitting the ranking is the final action → record now, before "See Results".
+    recordEarly("mental-model-assessment", computed)
+  }, [quizAnswers, rankOrder, recordEarly])
 
   if (phase === "intro") {
     return (

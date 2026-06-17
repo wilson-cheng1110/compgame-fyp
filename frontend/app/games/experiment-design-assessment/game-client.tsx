@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
 import { shuffleQuestions } from "@/lib/quiz-utils"
+import { useEarlyRecord } from "@/lib/use-early-record"
 
 // HCI Experiment Design — Assessment
 // 6 MCQ: IV/DV, H0/HA, between vs within, confounds, order effects, counter-balancing.
@@ -86,12 +87,19 @@ export default function ExperimentDesignAssessment() {
   const [selected, setSelected] = useState<number | null>(null)
   const [showExplanation, setShowExplanation] = useState(false)
   const [score, setScore] = useState(0)
+  const recordEarly = useEarlyRecord()
 
   const handleSelect = useCallback((i: number) => {
     if (selected !== null) return
     setSelected(i)
     setShowExplanation(true)
-  }, [selected])
+    // Last question answered → record now so leaving before "See Results" still counts.
+    if (idx + 1 >= questions.length) {
+      const finalAnswers = [...answers, i]
+      const correct = finalAnswers.filter((a, j) => a === questions[j].answer).length
+      recordEarly("experiment-design-assessment", Math.round((correct / QUESTIONS.length) * 100))
+    }
+  }, [selected, idx, answers, questions, recordEarly])
 
   const next = useCallback(() => {
     const newAnswers = [...answers, selected ?? -1]

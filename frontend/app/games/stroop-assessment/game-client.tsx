@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react"
 import GameDebrief from "@/components/game-debrief"
 import { shuffleQuestions } from "@/lib/quiz-utils"
+import { useEarlyRecord } from "@/lib/use-early-record"
 
 // Stroop Assessment
 // Phase 1: Intro
@@ -137,11 +138,20 @@ export default function StroopAssessment() {
     return () => clearInterval(id)
   }, [phase, stroopIdx, advance])
 
+  const recordEarly = useEarlyRecord()
+
   const handleQuizSelect = useCallback((idx: number) => {
     if (selectedOption !== null) return
     setSelectedOption(idx)
     setShowExplanation(true)
-  }, [selectedOption])
+    // Last question answered → record now so leaving before "See Results" still counts.
+    if (quizIdx + 1 >= quizQuestions.length) {
+      const finalAnswers = [...quizAnswers, idx]
+      const quizCorrect = finalAnswers.filter((a, j) => a === quizQuestions[j].answer).length
+      const total = stroopCorrect + quizCorrect
+      recordEarly("stroop-assessment", Math.round((total / (STROOP_ROUNDS + QUIZ_QUESTIONS.length)) * 100))
+    }
+  }, [selectedOption, quizIdx, quizAnswers, quizQuestions, stroopCorrect, recordEarly])
 
   const nextQuiz = useCallback(() => {
     const newAnswers = [...quizAnswers, selectedOption ?? -1]

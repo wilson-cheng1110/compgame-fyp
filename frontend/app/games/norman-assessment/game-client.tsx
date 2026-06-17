@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useEarlyRecord } from "@/lib/use-early-record"
 
 // Norman's Action Cycle Assessment
 // 5 scenario questions: given a UI failure, identify which stage broke down + which gulf
@@ -73,12 +74,19 @@ export default function NormanAssessment() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [showExplanation, setShowExplanation] = useState(false)
   const [score, setScore] = useState(0)
+  const recordEarly = useEarlyRecord()
 
   const handleSelect = useCallback((i: number) => {
     if (selectedOption !== null) return
     setSelectedOption(i)
     setShowExplanation(true)
-  }, [selectedOption])
+    // Last question answered → record now so leaving before "See Results" still counts.
+    if (quizIdx + 1 >= QUESTIONS.length) {
+      const finalAnswers = [...quizAnswers, i]
+      const correct = finalAnswers.filter((a, j) => a === QUESTIONS[j].answer).length
+      recordEarly("norman-assessment", Math.round((correct / QUESTIONS.length) * 100))
+    }
+  }, [selectedOption, quizIdx, quizAnswers, recordEarly])
 
   const nextQ = useCallback(() => {
     const newAnswers = [...quizAnswers, selectedOption ?? -1]
