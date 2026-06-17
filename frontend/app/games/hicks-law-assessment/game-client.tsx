@@ -21,7 +21,9 @@ const COLORS = [
   "#3a0ca3","#4361ee","#7209b7","#b5179e","#560bad","#023e8a",
 ]
 
-type Phase = "intro" | "fixation" | "playing" | "between" | "results"
+type Phase = "intro" | "warmupReady" | "warmupPlay" | "warmupDone" | "fixation" | "playing" | "between" | "results"
+
+const WARMUP_N = 3
 
 interface RoundResult {
   n: number
@@ -44,9 +46,22 @@ export default function HicksLawAssessment() {
   const [roundIdx, setRoundIdx] = useState(0)
   const [targetIdx, setTargetIdx] = useState(0)
   const [results, setResults] = useState<RoundResult[]>([])
+  const [warmupTarget, setWarmupTarget] = useState(0)
   const startRef = useRef<number>(0)
 
   const currentRound = ROUNDS[roundIdx]
+
+  // Unscored practice round so the first SCORED round isn't inflated by
+  // the player still figuring out the mechanic.
+  const startWarmup = useCallback(() => {
+    setWarmupTarget(Math.floor(Math.random() * WARMUP_N))
+    setPhase("warmupPlay")
+  }, [])
+
+  const handleWarmupClick = useCallback((idx: number) => {
+    if (idx === warmupTarget) setPhase("warmupDone")
+    else setWarmupTarget(Math.floor(Math.random() * WARMUP_N))
+  }, [warmupTarget])
 
   const startRound = useCallback(() => {
     const n = ROUNDS[roundIdx].n
@@ -119,10 +134,51 @@ export default function HicksLawAssessment() {
           At the end, your data will be plotted against the Hick's Law curve.
         </p>
         <button
-          onClick={startRound}
+          onClick={startWarmup}
           className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-base py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Start
+        </button>
+      </div>
+    )
+  }
+
+  // ── Warmup (unscored practice) ──────────────────────────────────────────────
+  if (phase === "warmupPlay") {
+    return (
+      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-4 text-black">
+        <p className="font-press-start-2p text-[#a16207] text-[10px] mb-1">Practice — not scored</p>
+        <p className="font-pixelify-sans text-gray-600 text-xs mb-6">Warm up: click the glowing button</p>
+        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${WARMUP_N}, minmax(0, 1fr))` }}>
+          {Array.from({ length: WARMUP_N }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => handleWarmupClick(i)}
+              className={`transition-all duration-75 border-2 ${
+                i === warmupTarget
+                  ? "border-[#facc15] scale-110 shadow-[0_0_20px_#facc15] animate-pulse"
+                  : "border-transparent opacity-80 hover:opacity-100"
+              }`}
+              style={{ width: 90, height: 90, backgroundColor: COLORS[i] }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (phase === "warmupDone") {
+    return (
+      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+        <p className="font-press-start-2p text-green-700 text-lg mb-2">Nice — you've got it!</p>
+        <p className="font-pixelify-sans text-gray-600 text-center max-w-md mb-8">
+          That was a practice round. The next 4 rounds are scored and plotted against the Hick's Law curve.
+        </p>
+        <button
+          onClick={startRound}
+          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-base py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+        >
+          Begin scored rounds →
         </button>
       </div>
     )
