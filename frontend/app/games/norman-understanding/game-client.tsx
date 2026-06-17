@@ -204,8 +204,23 @@ export default function NormanUnderstanding() {
         </div>
 
         {showFeedback && (
-          <div className="w-full max-w-xl bg-[#dbeafe] border-2 border-[#0099db] p-4 font-pixelify-sans text-sm text-gray-800 leading-relaxed mb-4">
-            {step.feedback}
+          <div
+            className={`w-full max-w-xl border-2 p-4 font-pixelify-sans text-sm leading-relaxed mb-4 ${
+              selected === step.correct
+                ? "bg-[#dbeafe] border-[#0099db] text-gray-800"
+                : "bg-orange-50 border-orange-500 text-gray-800"
+            }`}
+          >
+            {selected === step.correct ? (
+              <>{step.feedback}</>
+            ) : (
+              <>
+                <span className="font-press-start-2p text-orange-700 text-[9px] block mb-2">
+                  Not quite — the best choice is &ldquo;{step.options[step.correct]}&rdquo;
+                </span>
+                {step.feedback}
+              </>
+            )}
           </div>
         )}
 
