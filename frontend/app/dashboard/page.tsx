@@ -108,6 +108,12 @@ export default function DashboardPage() {
         avatarId: user.avatarId,
         badges: userData.badges ?? [],
         topicProgress: userData.topicProgress ?? {},
+        // Pre-test baseline (captured at signup — key DV control for the paper)
+        preTest: {
+          score: userData.preTestScore ?? null,
+          answers: userData.preTestAnswers ?? null,
+          completedAt: userData.preTestCompletedAt ?? null,
+        },
         // Flip-learning metrics for paper
         flipMetrics: Object.fromEntries(
           TOPICS.map((t) => {
