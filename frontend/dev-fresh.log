@@ -1,0 +1,347 @@
+
+> my-v0-project@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use, trying 3001 instead.
+ ⚠ Port 3001 is in use, trying 3002 instead.
+ ⚠ Port 3002 is in use, trying 3003 instead.
+ ⚠ Port 3003 is in use, trying 3004 instead.
+ ⚠ Port 3004 is in use, trying 3005 instead.
+   ▲ Next.js 15.2.4
+   - Local:        http://localhost:3005
+   - Network:      http://10.14.0.2:3005
+   - Environments: .env.local
+   - Experiments (use with caution):
+     ✓ webpackBuildWorker
+     ✓ parallelServerCompiles
+     ✓ parallelServerBuildTraces
+
+ ✓ Starting...
+ ⚠ Invalid next.config.mjs options detected: 
+ ⚠     Unrecognized key(s) in object: 'appDir' at "experimental"
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ ✓ Ready in 6.7s
+ ✓ Compiled /middleware in 99ms (101 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 2.5s (839 modules)
+ ✓ Compiled in 247ms (362 modules)
+ GET /login 200 in 2723ms
+ ✓ Compiled in 199ms (362 modules)
+ ✓ Compiled in 85ms (362 modules)
+ GET /login 200 in 91ms
+ GET /login 200 in 27ms
+ GET /login 200 in 25ms
+ GET /login 200 in 24ms
+ GET /login 200 in 24ms
+ GET /login 200 in 25ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 59ms (362 modules)
+ ✓ Compiled in 70ms (362 modules)
+ ✓ Compiled in 71ms (362 modules)
+ ✓ Compiled in 71ms (362 modules)
+ ✓ Compiled in 67ms (362 modules)
+ ✓ Compiled in 77ms (362 modules)
+ ✓ Compiled in 73ms (362 modules)
+ ✓ Compiled in 67ms (362 modules)
+ ✓ Compiled in 68ms (362 modules)
+ ✓ Compiled in 67ms (362 modules)
+ ✓ Compiled in 64ms (362 modules)
+ ✓ Compiled in 87ms (362 modules)
+ ✓ Compiled in 70ms (362 modules)
+ ✓ Compiled in 66ms (362 modules)
+ ✓ Compiled in 63ms (362 modules)
+ ✓ Compiled in 65ms (362 modules)
+ ✓ Compiled in 70ms (362 modules)
+ ✓ Compiled in 67ms (362 modules)
+ ✓ Compiled in 69ms (362 modules)
+ ✓ Compiled in 70ms (362 modules)
+ ✓ Compiled in 61ms (362 modules)
+ GET /login 200 in 27ms
+ ✓ Compiled in 69ms (362 modules)
+ GET /login 200 in 27ms
+ ✓ Compiled /_not-found in 119ms (793 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/7e176a918aeba214.webpack.hot-update.json 404 in 175ms
+ GET /login 200 in 40ms
+ ✓ Compiled in 72ms (365 modules)
+ GET /login 200 in 14ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/da8489ab93c087b8.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 14ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/2bbd323a9d015908.webpack.hot-update.json 404 in 21ms
+ GET /login 200 in 24ms
+ ✓ Compiled in 72ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/83e034bfff06a343.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 67ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/f6bfa020cdfd4b6f.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/31caaedf5eda9d4e.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/d7e9ec6cd4eac119.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/e83002b69de37a6f.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/88603bb26c2aed43.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 29ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 11ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/c55ca673af452c59.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 67ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/77b31984e7082f2c.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/94a2959f9b3352b2.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 71ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/3343b4b86901a570.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/14eb1e2f87d200da.webpack.hot-update.json 404 in 21ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/88775b0154b431ba.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 72ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/4817dc2e052646b2.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 28ms
+ ✓ Compiled in 66ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/f4dad48d0be04813.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/51362b6916906d06.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 67ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/b5b694c66056046d.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 65ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/301ff0d4f2ad437b.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 14ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/99257aed37b98b3d.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 11ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/8f355faabdb290d2.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/afe9b0e1c950a0b7.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 24ms
+ ✓ Compiled in 71ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/6251dc819339171a.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 28ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/f94411f2a3c2db35.webpack.hot-update.json 404 in 23ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/00e2d95ec5237cff.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 66ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/42a38bb4ed4242ad.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 70ms (365 modules)
+ GET /login 200 in 11ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/5500aa532652992e.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 67ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/7ac03c602b53714e.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 70ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/6ceb12e02edfcefe.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 29ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/fcfb90e88133a03d.webpack.hot-update.json 404 in 20ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/271fef3ed50118eb.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 29ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/29c8b3a45caaba38.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 71ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/d0eefb2777e82bc0.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 70ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/dbd71e8522315dfd.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/795a04e50a05c7f4.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 66ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/8f7578d8bd481ec5.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 67ms (365 modules)
+ GET /login 200 in 11ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/653bddd76ecc4ebc.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/ba59c53a618fd826.webpack.hot-update.json 404 in 20ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 67ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/0b0871a226f27623.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 30ms
+ ✓ Compiled in 139ms (365 modules)
+ GET /login 200 in 11ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/81bc76030a9596e1.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 25ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 11ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/a609fa4dde0ff789.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 26ms
+ ✓ Compiled in 68ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/9fd8b789e7baea81.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 28ms
+ ✓ Compiled in 77ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/f6a0f96651377950.webpack.hot-update.json 404 in 21ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 70ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/e144bb97a8b0afc2.webpack.hot-update.json 404 in 20ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 69ms (365 modules)
+ GET /login 200 in 10ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/2476d062bbf4b806.webpack.hot-update.json 404 in 20ms
+ GET /login 200 in 29ms
+ ✓ Compiled in 67ms (365 modules)
+ GET /login 200 in 11ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/4e9ed921599bbaa4.webpack.hot-update.json 404 in 19ms
+ GET /login 200 in 28ms
+ ✓ Compiled in 65ms (365 modules)
+ GET /login 200 in 12ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/921872123241155c.webpack.hot-update.json 404 in 18ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 72ms (365 modules)
+ GET /login 200 in 13ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/80cae32ec74a02a9.webpack.hot-update.json 404 in 21ms
+ GET /login 200 in 27ms
+ ✓ Compiled in 71ms (365 modules)
+ ✓ Compiled in 65ms (365 modules)
+ ✓ Compiled in 71ms (365 modules)
+ ✓ Compiled in 66ms (365 modules)
+ ✓ Compiled in 67ms (365 modules)
+ ✓ Compiled in 66ms (365 modules)
+ ✓ Compiled in 74ms (365 modules)
+ ✓ Compiled in 68ms (365 modules)
+ ✓ Compiled in 66ms (365 modules)
+ ✓ Compiled in 64ms (365 modules)
+ ✓ Compiled in 69ms (365 modules)
+ ✓ Compiled in 66ms (365 modules)
+ ✓ Compiled in 65ms (365 modules)
+ ✓ Compiled in 65ms (365 modules)
+ ✓ Compiled in 70ms (365 modules)
+ ✓ Compiled in 63ms (365 modules)
+ ✓ Compiled in 64ms (365 modules)
+ ✓ Compiled in 68ms (365 modules)
+ ✓ Compiled in 67ms (365 modules)
+ ✓ Compiled in 69ms (365 modules)
+ ✓ Compiled in 69ms (365 modules)
+ ✓ Compiled in 69ms (365 modules)
+ ✓ Compiled in 65ms (365 modules)
+ ✓ Compiled in 66ms (365 modules)
+ ✓ Compiled in 67ms (365 modules)
+ ✓ Compiled in 68ms (365 modules)
+ ✓ Compiled in 65ms (365 modules)
+ ✓ Compiled in 66ms (365 modules)
+ ✓ Compiled in 63ms (365 modules)
+ ✓ Compiled in 69ms (365 modules)
+ ✓ Compiled in 67ms (365 modules)
+ ✓ Compiled in 68ms (365 modules)
+ ✓ Compiled in 69ms (365 modules)
+ ✓ Compiled in 67ms (365 modules)
+ ✓ Compiled in 67ms (365 modules)
+ ✓ Compiled in 375ms (807 modules)
+ ✓ Compiled in 84ms (365 modules)
+ ✓ Compiled in 67ms (365 modules)
+ ✓ Compiled in 69ms (365 modules)
+ ✓ Compiled in 68ms (365 modules)
+ ✓ Compiled in 68ms (365 modules)
+ ✓ Compiled in 70ms (365 modules)
