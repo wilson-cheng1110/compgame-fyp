@@ -17,6 +17,18 @@ export default function ResultsScreen() {
 
   const pct = Math.round((score / 10) * 100)
 
+  // Tell the parent wrapper the assessment is complete so it records progress
+  // (unlocks the topic) and awards a star badge. Fires once on mount.
+  useEffect(() => {
+    const stars = hasFiveStarBadge ? 5 : hasFourStarBadge ? 4 : score >= 5 ? 3 : 2
+    try {
+      window.parent?.postMessage({ type: "gestaltComplete", score: pct, stars }, "*")
+    } catch {
+      /* not in an iframe — ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen w-full bg-black p-2 md:p-4">
       {/* Left Panel — score */}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Cookies from "js-cookie"
 import { useBadges } from "@/lib/badge-context"
+import { useProgress } from "@/lib/progress-context"
 import dynamic from "next/dynamic"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 
@@ -30,6 +31,7 @@ export default function GestaltAssessmentWrapper() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const { refreshBadges, addBadge } = useBadges()
+  const { markGameComplete } = useProgress()
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
@@ -62,9 +64,19 @@ export default function GestaltAssessmentWrapper() {
   }
 
   useEffect(() => {
-    // Listen for messages from the game iframe about badge achievements
+    // Listen for messages from the game iframe about completion / badges
     const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === "badgeAchieved") {
+      if (!event.data) return
+      // New: fires on every completion (records progress + unlocks topic)
+      if (event.data.type === "gestaltComplete") {
+        const stars = event.data.stars ?? 4
+        markGameComplete("gestalt-assessment", event.data.score)
+        const name = `Gestalt Principles (${"★".repeat(stars)}${"☆".repeat(5 - stars)})`
+        addBadge("gestalt-assessment", name, stars)
+        setTimeout(refreshBadges, 300)
+      }
+      // Backward-compat with the older badge-only message
+      if (event.data.type === "badgeAchieved") {
         handleBadgeAchieved(true, event.data.stars || 4)
       }
     }
