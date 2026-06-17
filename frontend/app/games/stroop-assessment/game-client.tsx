@@ -163,7 +163,7 @@ export default function StroopAssessment() {
   if (phase === "intro") {
     return (
       <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
-        <h1 className="font-press-start-2p text-2xl text-black mb-3">Stroop Assessment</h1>
+        <h1 className="font-press-start-2p text-2xl text-black mb-3">Consistency (Stroop Test)</h1>
         <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#a16207]">
           <p className="font-press-start-2p text-[#a16207] text-sm">Click the COLOUR — not the word</p>
         </div>

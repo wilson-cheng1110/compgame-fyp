@@ -97,7 +97,7 @@ export default function NormanAssessment() {
   if (phase === "intro") {
     return (
       <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
-        <h1 className="font-press-start-2p text-xl text-black mb-3">Norman Assessment</h1>
+        <h1 className="font-press-start-2p text-xl text-black mb-3">Norman's Action Cycle</h1>
         <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#a16207]">
           <p className="font-press-start-2p text-[#a16207] text-[10px]">Which stage broke down?</p>
         </div>
