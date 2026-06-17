@@ -31,7 +31,7 @@ export default function GameCanvas({
   const [lineLength, setLineLength] = useState(100)
   const [fixedAngle, setFixedAngle] = useState<number | null>(null)
   const gameAreaRef = useRef<HTMLDivElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number | undefined>(undefined)
   const timerRef = useRef<number>(0)
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const swingDirectionRef = useRef<1 | -1>(-1)

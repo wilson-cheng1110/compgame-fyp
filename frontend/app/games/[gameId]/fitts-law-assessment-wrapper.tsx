@@ -5,7 +5,7 @@ import { useEffect } from "react"
 export default function FittsLawAssessmentWrapper() {
   useEffect(() => {
     // Redirect to the standalone game
-    window.location.href = "/games/fitts-law-assessment/app"
+    window.location.href = "/games/fitts-law-assessment"
   }, [])
 
   return (

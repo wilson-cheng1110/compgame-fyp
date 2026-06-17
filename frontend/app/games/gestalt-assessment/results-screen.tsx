@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { useProgress } from "@/lib/progress-context"
+import { useBadges } from "@/lib/badge-context"
 
 export default function ResultsScreen() {
   const searchParams = useSearchParams()
@@ -15,17 +17,25 @@ export default function ResultsScreen() {
   const [showTips, setShowTips] = useState(false)
   const [showAnswer, setShowAnswer] = useState(false)
 
+  const { markGameComplete } = useProgress()
+  const { addBadge, refreshBadges } = useBadges()
+  const recordedRef = useRef(false)
+
   const pct = Math.round((score / 10) * 100)
 
-  // Tell the parent wrapper the assessment is complete so it records progress
-  // (unlocks the topic) and awards a star badge. Fires once on mount.
+  // Record completion directly via the shared progress/badge contexts — same
+  // path every other game uses. This used to rely on postMessage to the iframe
+  // parent, which was fragile (broke on deep-link / direct visits and used a
+  // wildcard target). Recording here is self-contained and writes the shared
+  // cookies the dashboard reads. Fires once on mount.
   useEffect(() => {
+    if (recordedRef.current) return
+    recordedRef.current = true
     const stars = hasFiveStarBadge ? 5 : hasFourStarBadge ? 4 : score >= 5 ? 3 : 2
-    try {
-      window.parent?.postMessage({ type: "gestaltComplete", score: pct, stars }, "*")
-    } catch {
-      /* not in an iframe — ignore */
-    }
+    markGameComplete("gestalt-assessment", pct)
+    const name = `Gestalt Principles (${"★".repeat(stars)}${"☆".repeat(5 - stars)})`
+    addBadge("gestalt-assessment", name, stars)
+    setTimeout(refreshBadges, 300)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

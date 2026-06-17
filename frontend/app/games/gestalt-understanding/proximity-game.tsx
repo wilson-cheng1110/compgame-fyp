@@ -156,7 +156,7 @@ const ProximityGame = () => {
 
     return (
       <div
-        ref={drag}
+        ref={(node) => { drag(node) }}
         style={{
           opacity: isDragging ? 0.5 : 1,
           width: "100%",
@@ -196,7 +196,7 @@ const ProximityGame = () => {
 
     return (
       <div
-        ref={drop}
+        ref={(node) => { drop(node) }}
         style={{
           position: "relative",
           width: "100%",

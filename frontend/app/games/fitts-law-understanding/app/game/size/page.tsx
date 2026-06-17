@@ -11,12 +11,14 @@ import ResponsiveContainer from "../../../components/ResponsiveContainer"
 import type { Fish } from "./types"
 import { playCongratsSound, initAudioContext } from "../../../utils/sound"
 import SoundToggle from "../../../components/SoundToggle"
+import { useProgress } from "@/lib/progress-context"
 
 // Add this check to prevent server-side rendering issues with window
 const isClient = typeof window !== "undefined"
 
 export default function SizeGame() {
   const router = useRouter()
+  const { markGameComplete } = useProgress()
   const [gameState, setGameState] = useState<"playing" | "finished">("playing")
   const [timer, setTimer] = useState<number>(0)
   const [records, setRecords] = useState<{ [key: string]: number }>({})
@@ -30,6 +32,26 @@ export default function SizeGame() {
   useEffect(() => {
     initAudioContext()
   }, [])
+
+  // Record understanding-module progress once BOTH Fitts sub-games (distance +
+  // size) have been completed. Each sub-game is a separate full-page route, so
+  // we coordinate via localStorage flags. This drives the flip-learning
+  // playedUnderstandingFirst metric and the topic unlock.
+  useEffect(() => {
+    if (!showCompletion) return
+    try {
+      localStorage.setItem("fitts-understanding-size-done", "1")
+      if (
+        localStorage.getItem("fitts-understanding-distance-done") === "1" &&
+        localStorage.getItem("fitts-understanding-recorded") !== "1"
+      ) {
+        markGameComplete("fitts-law-understanding")
+        localStorage.setItem("fitts-understanding-recorded", "1")
+      }
+    } catch {
+      /* localStorage unavailable — non-fatal */
+    }
+  }, [showCompletion, markGameComplete])
 
   // Constants for fish sizes
   const FISH_SIZE_A = 100 // Increased from 60
