@@ -10,6 +10,7 @@ import {
   getTopicFromGameId,
   getDefaultTopicProgress,
 } from "@/lib/topic-definitions"
+import { logResearchEvent } from "@/lib/research-log"
 
 interface ProgressContextType {
   progress: AllTopicProgress
@@ -81,7 +82,6 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           }
         } else {
           // assessment
-          const flippedCorrectly = current.understandingCompleted && !current.assessmentCompleted
           existing[topicId] = {
             ...current,
             assessmentCompleted: true,
@@ -94,6 +94,16 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         users[sid].topicProgress = existing
         Cookies.set("users", JSON.stringify(users), { expires: 365 })
         setProgress({ ...existing })
+
+        // Mirror to the centralised research sink (best-effort, never blocks UI).
+        logResearchEvent({
+          event_type: mode === "understanding" ? "understanding_complete" : "assessment_complete",
+          topic_id: topicId,
+          mode,
+          score: mode === "assessment" ? score : undefined,
+          played_understanding_first:
+            mode === "assessment" ? current.understandingCompleted : undefined,
+        })
       } catch (e) {
         console.error("markGameComplete error", e)
       }

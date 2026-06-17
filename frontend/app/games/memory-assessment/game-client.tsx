@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useEarlyRecord } from "@/lib/use-early-record"
 
 // ── Miller's Law: STM = 7 ± 2 chunks
 // Phase 1: digit-span game (experience the limit)
@@ -106,11 +107,19 @@ export default function MemoryAssessment() {
     }
   }, [spanRound])
 
+  const recordEarly = useEarlyRecord()
+
   const handleQuizSelect = useCallback((optionIdx: number) => {
     if (selectedOption !== null) return
     setSelectedOption(optionIdx)
     setShowExplanation(true)
-  }, [selectedOption])
+    // Last question answered → record now so leaving before "See Results" still counts.
+    if (quizIdx + 1 >= QUIZ_QUESTIONS.length) {
+      const finalAnswers = [...quizAnswers, optionIdx]
+      const correct = finalAnswers.filter((a, j) => a === QUIZ_QUESTIONS[j].answer).length
+      recordEarly("memory-assessment", Math.round((correct / QUIZ_QUESTIONS.length) * 100))
+    }
+  }, [selectedOption, quizIdx, quizAnswers, recordEarly])
 
   const nextQuiz = useCallback(() => {
     const newAnswers = [...quizAnswers, selectedOption ?? -1]
