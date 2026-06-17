@@ -10,10 +10,6 @@ import Cookies from "js-cookie"
 
 // Modern Game Wrappers
 import GestaltAssessmentWrapper from "./gestalt-assessment-wrapper"
-import CPUSchedulingUnderstandingWrapper from "./cpu-scheduling-understanding-wrapper"
-import CPUSchedulingAssessmentWrapper from "./cpu-scheduling-assessment-wrapper"
-import PageReplacementUnderstandingWrapper from "./page-replacement-understanding-wrapper"
-import PageReplacementAssessmentWrapper from "./page-replacement-assessment-wrapper"
 import HicksLawUnderstandingWrapper from "./hicks-law-understanding-wrapper"
 import HicksLawAssessmentWrapper from "./hicks-law-assessment-wrapper"
 import MemoryUnderstandingWrapper from "./memory-understanding-wrapper"
@@ -91,39 +87,6 @@ const GAMES = [
     controls: [
       { type: "mouse", description: "Click on targets" },
       { type: "keyboard", description: "Arrow keys to navigate" },
-    ],
-  },
-  {
-    id: "cpu-scheduling-understanding",
-    title: "CPU Scheduling - Learning",
-    description: "Learn about CPU scheduling algorithms",
-    controls: [{ type: "mouse", description: "Drag processes to schedule" }],
-  },
-  {
-    id: "cpu-scheduling-assessment",
-    title: "CPU Scheduling - Assessment",
-    description: "Test your knowledge of CPU scheduling",
-    controls: [
-      { type: "mouse", description: "Drag processes to schedule" },
-      { type: "keyboard", description: "Number keys to set priority" },
-    ],
-  },
-  {
-    id: "page-replacement-understanding",
-    title: "Page Replacement - Learning",
-    description: "Learn about memory allocation strategies",
-    controls: [
-      { type: "mouse", description: "Click to allocate memory blocks" },
-      { type: "keyboard", description: "Enter values for block sizes" },
-    ],
-  },
-  {
-    id: "page-replacement-assessment",
-    title: "Page Replacement - Assessment",
-    description: "Test your knowledge of page replacement algorithms",
-    controls: [
-      { type: "mouse", description: "Click to allocate memory blocks" },
-      { type: "keyboard", description: "Enter values for block sizes" },
     ],
   },
   {
@@ -302,10 +265,6 @@ export default function GamePage() {
           {game.id === "fitts-law-assessment" && <FittsLawAssessmentWrapper />}
           {game.id === "gestalt-understanding" && <GestaltUnderstandingWrapper />}
           {game.id === "gestalt-assessment" && <GestaltAssessmentWrapper />}
-          {game.id === "cpu-scheduling-understanding" && <CPUSchedulingUnderstandingWrapper />}
-          {game.id === "cpu-scheduling-assessment" && <CPUSchedulingAssessmentWrapper />}
-          {game.id === "page-replacement-understanding" && <PageReplacementUnderstandingWrapper />}
-          {game.id === "page-replacement-assessment" && <PageReplacementAssessmentWrapper />}
           {game.id === "hicks-law-understanding" && <HicksLawUnderstandingWrapper />}
           {game.id === "hicks-law-assessment" && <HicksLawAssessmentWrapper />}
           {game.id === "memory-understanding" && <MemoryUnderstandingWrapper />}
