@@ -20,8 +20,14 @@ body {
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
   image-rendering: pixelated;
-  overflow-y: auto !important; /* Allow content to determine scrolling */
+  overflow-y: auto !important;
+  font-size: 18px;
 }
+
+/* Ensure game content is readable */
+.text-sm { font-size: 1rem; }
+.text-base { font-size: 1.125rem; }
+.text-lg { font-size: 1.25rem; }
 
 /* Font classes with !important to ensure they're applied */
 .font-press-start-2p {

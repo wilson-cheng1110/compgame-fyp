@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-06-17T16:32:13.785Z",
+  "issuesSummary": {
+    "navigation": 8,
+    "stateManagement": 0,
+    "scoring": 0,
+    "ui": 0,
+    "hci": 0
+  },
+  "details": {
+    "navigation": [
+      "Fitts (A): Can't load page",
+      "Hicks (A): Can't load page",
+      "Miller (A): Can't load page",
+      "Gestalt (A): Can't load page",
+      "Stroop (A): Can't load page",
+      "Weber (A): Can't load page",
+      "Norman (A): Can't load page",
+      "Mental Model (A): Can't load page"
+    ],
+    "stateManagement": [],
+    "scoring": [],
+    "ui": [],
+    "hci": []
+  }
+}
