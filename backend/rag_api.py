@@ -1,8 +1,23 @@
 import os
+import sys
 import warnings
+
+# The startup/status prints contain emoji; on Windows the default console codec
+# is cp1252, which raises UnicodeEncodeError and crashes server startup. Force
+# UTF-8 so the backend boots regardless of the host console encoding.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+from typing import Optional, Any
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+import research_store
 
 # Suppress annoying warnings
 warnings.filterwarnings("ignore")
@@ -13,8 +28,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_community.vectorstores import Chroma
-from langchain.chains.retrieval import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
+# langchain 1.x moved the retrieval/combine helper chains into langchain_classic.
+# (Under langchain 0.x these lived at langchain.chains.* — which no longer exists.)
+from langchain_classic.chains.retrieval import create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 
 # Configuration
@@ -38,6 +55,18 @@ rag_chain = None
 
 class QuestionRequest(BaseModel):
     question: str
+
+
+class ResearchEvent(BaseModel):
+    participant_id: str
+    event_type: str
+    topic_id: Optional[str] = None
+    mode: Optional[str] = None
+    score: Optional[float] = None
+    played_understanding_first: Optional[bool] = None
+    duration_ms: Optional[int] = None
+    client_ts: Optional[str] = None
+    meta: Optional[Any] = None
 
 def get_rag_chain():
     print(f"🔌 Initializing database and Ollama '{OLLAMA_LLM}' model...")
@@ -68,9 +97,18 @@ def get_rag_chain():
 @app.on_event("startup")
 async def startup_event():
     global rag_chain
-    # Load the model into memory when the server starts
-    rag_chain = get_rag_chain()
-    print("✅ API Server is ready to receive questions!")
+    # Research-event store is independent of the RAG model — init it first so
+    # data collection works even if Ollama/Chroma fails to load.
+    research_store.init_db()
+    print("🗃️  Research event store ready.")
+    # Load the model into memory when the server starts. Don't let an Ollama/
+    # Chroma failure crash the whole server — the research sink must stay up.
+    try:
+        rag_chain = get_rag_chain()
+        print("✅ API Server is ready to receive questions!")
+    except Exception as e:
+        rag_chain = None
+        print(f"⚠️  RAG model failed to load ({e}). /api/ask disabled; research sink still active.")
 
 @app.post("/api/ask")
 async def ask_question(req: QuestionRequest):
@@ -90,6 +128,48 @@ async def ask_question(req: QuestionRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── Flip-learning research data sink ──────────────────────────────────────────
+# Cookie storage still drives the live app; these endpoints give the PAPER a
+# centralised, aggregatable record of learning events across participants.
+
+@app.post("/api/research/event")
+async def research_event(event: ResearchEvent):
+    try:
+        row_id = research_store.record_event(event.model_dump())
+        return {"ok": True, "id": row_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/research/summary")
+async def research_summary():
+    return research_store.summary()
+
+
+@app.get("/api/research/export")
+async def research_export(format: str = "json"):
+    """Dump all collected events for analysis. format=json (default) or csv."""
+    rows = research_store.fetch_all()
+    if format == "csv":
+        import csv
+        import io
+        cols = [
+            "id", "participant_id", "event_type", "topic_id", "mode", "score",
+            "played_understanding_first", "duration_ms", "client_ts", "server_ts", "meta",
+        ]
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=cols)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({c: r.get(c) for c in cols})
+        return PlainTextResponse(
+            buf.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=research_events.csv"},
+        )
+    return JSONResponse(rows)
+
 
 if __name__ == "__main__":
     import uvicorn
