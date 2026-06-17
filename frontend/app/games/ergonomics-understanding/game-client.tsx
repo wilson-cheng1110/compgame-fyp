@@ -72,27 +72,47 @@ export default function ErgonomicsUnderstanding() {
         <h2 className="font-press-start-2p text-lg text-black mb-1">Spot the ergonomic hazards</h2>
         <p className="font-pixelify-sans text-gray-500 text-sm mb-6">Found {found.length} / {HAZARDS.length}</p>
 
-        {/* Simple stylised slumped-at-laptop figure */}
-        <div className="relative bg-white border-2 border-black w-72 h-56 mb-6 shadow-[4px_4px_0px_0px_#a16207] flex items-end justify-center">
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 text-5xl rotate-12">🙇</div>
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-4xl">💻</div>
-          {/* hotspots */}
+        <p className="font-pixelify-sans text-gray-500 text-xs mb-4 max-w-md text-center">
+          A person slumped at a laptop. Click each <span className="font-bold">⚠ body zone</span> to reveal what&apos;s wrong with it.
+        </p>
+
+        {/* Labeled side-view workstation — each hotspot sits on its body region */}
+        <div className="relative bg-white border-2 border-black w-80 h-72 mb-6 shadow-[4px_4px_0px_0px_#a16207]">
+          {/* head bent toward a low screen */}
+          <div className="absolute top-4 left-10 text-5xl rotate-[25deg]">🧑</div>
+          <div className="absolute top-20 left-2 text-4xl">🖥️</div>
+          {/* arms/desk */}
+          <div className="absolute top-32 left-1/2 -translate-x-1/2 w-64 h-2 bg-[#a16207]" />
+          <div className="absolute top-28 right-10 text-3xl">🖐️</div>
+          {/* dangling feet */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-3xl">🦶</div>
+
           {HAZARDS.map((h, i) => {
-            const pos = [
-              "top-2 left-1/2 -translate-x-1/2",
-              "top-24 right-4",
-              "bottom-16 left-6",
-              "bottom-2 right-10",
+            // hotspot positioned ON the relevant body region, with its body-part label
+            const spot = [
+              { pos: "top-3 left-24", part: "Neck" },     // head bent forward
+              { pos: "top-20 left-1", part: "Screen" },    // screen too low
+              { pos: "top-28 right-6", part: "Wrists" },   // bent wrists
+              { pos: "bottom-4 left-1/2 -translate-x-1/2", part: "Feet" }, // dangling feet
             ][i]
             const got = found.includes(h.id)
             return (
               <button
                 key={h.id}
                 onClick={() => findHazard(h.id)}
-                className={`absolute ${pos} w-7 h-7 rounded-full border-2 font-press-start-2p text-[9px] ${got ? "bg-red-500 border-black text-white" : "bg-[#facc15] border-black animate-pulse"}`}
-                aria-label={`Hazard hotspot ${i + 1}`}
+                className={`absolute ${spot.pos} flex flex-col items-center`}
+                aria-label={`Hazard: ${spot.part}`}
               >
-                {got ? "!" : "?"}
+                <span
+                  className={`w-7 h-7 rounded-full border-2 font-press-start-2p text-[10px] flex items-center justify-center ${
+                    got ? "bg-red-500 border-black text-white" : "bg-[#facc15] border-black animate-pulse"
+                  }`}
+                >
+                  {got ? "!" : "?"}
+                </span>
+                <span className={`font-press-start-2p text-[7px] mt-0.5 px-1 ${got ? "text-red-700" : "text-black bg-white/80"}`}>
+                  {spot.part}
+                </span>
               </button>
             )
           })}
