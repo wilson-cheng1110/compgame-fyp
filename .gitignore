@@ -7,11 +7,9 @@ venv/
 *.egg-info/
 dist/
 
-# RAG — generated, not source
-backend/hci_chroma_db_local/
-
-# Course PDFs — copyright PolyU, rebuild via backend/requirements.txt
-backend/*.pdf
+# NOTE: the vector DB (hci_chroma_db_local/) and the COMP3423 lecture PDFs are
+# intentionally committed (Wilson, 2026-06-18) so a fresh clone runs RAG with no
+# out-of-band files. PUBLIC repo — these are PolyU course materials.
 
 # Next.js
 frontend/.next/
