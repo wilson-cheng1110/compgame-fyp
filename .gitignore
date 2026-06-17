@@ -40,3 +40,12 @@ Thumbs.db
 # Logs & local debug scripts (build noise, not source)
 *.log
 frontend/test-*.mjs
+
+# Research sink — local runtime data (participant events), not source
+backend/research_events.db
+# DB backup left by rebuild_db.py — redundant with the regenerable DB
+backend/hci_chroma_db_local.bak/
+# Render-verification artifacts — screenshots + reports are generated, not source
+frontend/scripts/shots/
+frontend/scripts/render-report.json
+frontend/scripts/vlm-report.json

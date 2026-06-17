@@ -111,7 +111,7 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
                 Cookies.set("users", JSON.stringify(users), { expires: 365 })
 
                 // Update local state
-                setBadges([...badges.filter((b) => b.gameId !== gameId), userBadges[existingBadgeIndex]])
+                setBadges(prev => [...prev.filter((b) => b.gameId !== gameId), userBadges[existingBadgeIndex]])
                 setBadgeCount(userBadges.length)
 
                 console.log("Badge upgraded successfully:", gameId)
@@ -137,7 +137,7 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
               Cookies.set("users", JSON.stringify(users), { expires: 365 })
 
               // Update local state
-              setBadges([...badges, newBadge])
+              setBadges(prev => [...prev, newBadge])
               setBadgeCount(userBadges.length)
 
               console.log("Badge added successfully:", gameId)
@@ -151,7 +151,11 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
         return false
       }
     },
-    [badges],
+    // No deps: addBadge reads cookies fresh and uses functional setBadges(prev=>…),
+    // so it never closes over `badges`. Keeping the array empty gives addBadge a
+    // stable identity, so consumers that capture it in a mount-only effect
+    // (e.g. GameDebrief) never hold a stale reference.
+    [],
   )
 
   // Initial load of badges

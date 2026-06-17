@@ -32,11 +32,19 @@ from langchain_community.vectorstores import Chroma
 # (Under langchain 0.x these lived at langchain.chains.* — which no longer exists.)
 from langchain_classic.chains.retrieval import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+# Hybrid retrieval: semantic (vector) + lexical (BM25), ensembled. nomic-embed
+# is very phrasing-sensitive — a query naming "Fitts Law" embeds toward generic
+# intro slides and misses the device-evaluation slide that actually holds the
+# IoD/IoP formula (it never prints "Fitts" next to it). BM25 catches those exact
+# terms; the ensemble guarantees both kinds of match surface.
+from langchain_community.retrievers import BM25Retriever
+from langchain_classic.retrievers import EnsembleRetriever
+from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 
 # Configuration
 DB_DIR = "./hci_chroma_db_local"
-OLLAMA_LLM = "gemma4"              
+OLLAMA_LLM = "gemma4:e2b"
 OLLAMA_EMBEDDING = "nomic-embed-text" 
 
 app = FastAPI(title="HCI RAG API")
@@ -73,9 +81,24 @@ def get_rag_chain():
     vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING))
     llm = ChatOllama(model=OLLAMA_LLM, temperature=0)
 
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 8, "fetch_k": 30}
+    # Vector (semantic) leg.
+    vector_retriever = vectorstore.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": 8},
+    )
+    # BM25 (lexical) leg — built from the chunks already in the collection, so
+    # there's no second source of truth to keep in sync.
+    collection = vectorstore._collection.get(include=["documents", "metadatas"])
+    bm25_docs = [
+        Document(page_content=t, metadata=m)
+        for t, m in zip(collection["documents"], collection["metadatas"])
+    ]
+    bm25_retriever = BM25Retriever.from_documents(bm25_docs)
+    bm25_retriever.k = 8
+
+    retriever = EnsembleRetriever(
+        retrievers=[bm25_retriever, vector_retriever],
+        weights=[0.5, 0.5],
     )
 
     system_prompt = (

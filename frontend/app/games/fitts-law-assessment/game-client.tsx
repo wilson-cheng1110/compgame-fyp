@@ -167,6 +167,15 @@ export default function FittsLawAssessment() {
     const { a, b, r2 } = linearRegression(xs, ys)
     const ip = b > 0 ? 1000 / b : 0 // bits per second (1/b, b in ms/bit)
 
+    // Performance score (0-100) → badge stars. Completing the experiment earns a
+    // 3-star floor (60); faster pointing (higher Index of Performance) and a
+    // cleaner Fitts fit (R²) lift it toward 5 stars. IP 3→floor, IP 6+→full.
+    // Generous by design — a learning tool, not a motor-skill exam. Also gives
+    // the flip-learning paper a non-null assessmentScore for this topic.
+    const ipNorm = Math.max(0, Math.min(1, (ip - 3) / 3))
+    const fitNorm = Math.max(0, Math.min(1, r2))
+    const score = Math.round(60 + (0.7 * ipNorm + 0.3 * fitNorm) * 40)
+
     const W = 340, H = 210
     const padL = 52, padB = 32, padT = 18, padR = 18
     const chartW = W - padL - padR
@@ -219,7 +228,7 @@ export default function FittsLawAssessment() {
           </button>
         </div>
 
-        <GameDebrief gameId="fitts-law-assessment" />
+        <GameDebrief gameId="fitts-law-assessment" score={score} totalQuestions={results.length} />
       </div>
     )
   }

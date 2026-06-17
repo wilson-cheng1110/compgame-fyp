@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Home, RotateCcw } from "lucide-react"
+import { Home, RotateCcw, BookOpen } from "lucide-react"
 import GameCanvas from "./components/game-canvas"
 import Timer from "./components/timer"
 import TimeRecord from "./components/time-record"
@@ -114,9 +114,12 @@ export default function DistanceGame() {
     [caughtFish.length, fishes.length, initialFishPositions],
   )
 
-  // Navigate to the game menu page instead of dashboard
   const navigateToGameMenu = () => {
     router.push("/games/fitts-law-understanding/app")
+  }
+
+  const navigateToDebrief = () => {
+    router.push("/games/fitts-law-understanding/debrief")
   }
 
   return (
@@ -212,6 +215,18 @@ export default function DistanceGame() {
                 position: "absolute",
                 left: "1232px",
                 top: "112px",
+                width: "200px",
+                height: "50px",
+              }}
+            />
+            <CustomButton
+              onClick={navigateToDebrief}
+              icon={BookOpen}
+              text="DEBRIEF"
+              style={{
+                position: "absolute",
+                left: "1232px",
+                top: "190px",
                 width: "200px",
                 height: "50px",
               }}

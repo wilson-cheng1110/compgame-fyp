@@ -252,6 +252,14 @@ export default function HicksLawAssessment() {
     const ys = results.map((r) => r.rtMs)
     const { a, b } = linearRegression(xs, ys)
 
+    // Performance score (0-100) → badge stars. Completing earns a 3-star floor
+    // (60); faster mean reaction time lifts it toward 5 stars (800ms→floor,
+    // 350ms→full). Generous by design — a learning tool, not a reflex exam. Also
+    // gives the flip-learning paper a non-null assessmentScore for this topic.
+    const meanRt = ys.length ? ys.reduce((s, y) => s + y, 0) / ys.length : 800
+    const rtNorm = Math.max(0, Math.min(1, (800 - meanRt) / (800 - 350)))
+    const score = Math.round(60 + rtNorm * 40)
+
     const W = 320; const H = 200
     const padL = 50; const padB = 30; const padT = 20; const padR = 20
     const chartW = W - padL - padR
@@ -304,7 +312,7 @@ export default function HicksLawAssessment() {
           </button>
         </div>
 
-        <GameDebrief gameId="hicks-law-assessment" />
+        <GameDebrief gameId="hicks-law-assessment" score={score} totalQuestions={results.length} />
       </div>
     )
   }
