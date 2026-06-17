@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { shuffleQuestions } from "@/lib/quiz-utils"
 
 // Stroop Assessment
 // Phase 1: Intro
@@ -91,6 +92,7 @@ export default function StroopAssessment() {
   )
   const [stroopIdx, setStroopIdx] = useState(0)
   const [stroopCorrect, setStroopCorrect] = useState(0)
+  const [quizQuestions] = useState(() => shuffleQuestions(QUIZ_QUESTIONS))
   const [quizIdx, setQuizIdx] = useState(0)
   const [quizAnswers, setQuizAnswers] = useState<number[]>([])
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
@@ -121,8 +123,8 @@ export default function StroopAssessment() {
     setQuizAnswers(newAnswers)
     setSelectedOption(null)
     setShowExplanation(false)
-    if (quizIdx + 1 >= QUIZ_QUESTIONS.length) {
-      const quizCorrect = newAnswers.filter((a, i) => a === QUIZ_QUESTIONS[i].answer).length
+    if (quizIdx + 1 >= quizQuestions.length) {
+      const quizCorrect = newAnswers.filter((a, i) => a === quizQuestions[i].answer).length
       const total = stroopCorrect + quizCorrect
       const maxTotal = STROOP_ROUNDS + QUIZ_QUESTIONS.length
       setScore(Math.round((total / maxTotal) * 100))
@@ -187,7 +189,7 @@ export default function StroopAssessment() {
 
   // ── Quiz ──────────────────────────────────────────────────────────────────
   if (phase === "quiz") {
-    const q = QUIZ_QUESTIONS[quizIdx]
+    const q = quizQuestions[quizIdx]
     return (
       <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-12 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-4">

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { shuffleQuestions } from "@/lib/quiz-utils"
 
 // HCI Experiment Design — Assessment
 // 6 MCQ: IV/DV, H0/HA, between vs within, confounds, order effects, counter-balancing.
@@ -79,6 +80,7 @@ const QUESTIONS = [
 
 export default function ExperimentDesignAssessment() {
   const [phase, setPhase] = useState<Phase>("intro")
+  const [questions] = useState(() => shuffleQuestions(QUESTIONS))
   const [idx, setIdx] = useState(0)
   const [answers, setAnswers] = useState<number[]>([])
   const [selected, setSelected] = useState<number | null>(null)
@@ -96,8 +98,8 @@ export default function ExperimentDesignAssessment() {
     setAnswers(newAnswers)
     setSelected(null)
     setShowExplanation(false)
-    if (idx + 1 >= QUESTIONS.length) {
-      const correct = newAnswers.filter((a, i) => a === QUESTIONS[i].answer).length
+    if (idx + 1 >= questions.length) {
+      const correct = newAnswers.filter((a, i) => a === questions[i].answer).length
       setScore(Math.round((correct / QUESTIONS.length) * 100))
       setPhase("results")
     } else {
@@ -126,7 +128,7 @@ export default function ExperimentDesignAssessment() {
   }
 
   if (phase === "quiz") {
-    const q = QUESTIONS[idx]
+    const q = questions[idx]
     return (
       <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-12 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-4">Question {idx + 1} / {QUESTIONS.length}</p>

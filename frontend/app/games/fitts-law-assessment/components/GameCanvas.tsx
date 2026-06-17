@@ -78,7 +78,7 @@ export default function GameCanvas({ circles, onCircleClick, onStartClick, gameS
         })}
       </div>
 
-      <div className="absolute bottom-10 left-0 right-0 flex justify-center">
+      <div className="w-full flex justify-center py-6">
         <button
           onClick={onStartClick}
           className={`px-6 py-2 md:px-8 md:py-3 text-lg md:text-xl font-bold rounded-lg transition-colors duration-200 ${
@@ -86,7 +86,7 @@ export default function GameCanvas({ circles, onCircleClick, onStartClick, gameS
               ? "bg-[#E35126] hover:bg-[#fd5252] text-white"
               : "bg-gray-300 text-gray-600 cursor-not-allowed"
           }`}
-          style={{ fontFamily: "Arial, sans-serif", zIndex: 50 }}
+          style={{ fontFamily: "Arial, sans-serif" }}
           disabled={gameState !== "waiting"}
         >
           Start
