@@ -63,7 +63,7 @@ export default function ExperimentDesignUnderstanding() {
           (DV)</span>, while controlling everything else. This is also exactly how a flip-learning study is run.
         </p>
         <div className="w-full max-w-2xl grid md:grid-cols-2 gap-4 mb-8 font-pixelify-sans text-sm text-gray-700">
-          <div className="border-2 border-black bg-white p-4"><p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">H₀ vs Hₐ</p>H₀ = no effect; Hₐ = there is an effect. You collect data to reject H₀.</div>
+          <div className="border-2 border-black bg-white p-4"><p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">H₀ vs H₁ (Hₐ)</p><strong>H₀</strong> (null) = &ldquo;no difference&rdquo;, e.g. <em>layout B is NOT faster than A</em>. <strong>H₁</strong> (alternative, also written Hₐ) = &ldquo;there is a difference&rdquo;, e.g. <em>B IS faster</em>. You gather data and try to <strong>reject H₀</strong>.</div>
           <div className="border-2 border-black bg-white p-4"><p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">Between vs within</p>Between = different people per condition (no order effects, more variance). Within = same people all conditions (less variance, but order effects).</div>
           <div className="border-2 border-black bg-white p-4"><p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">Confound</p>An uncontrolled variable that co-varies with the IV, so you can&apos;t tell what caused the effect.</div>
           <div className="border-2 border-black bg-white p-4"><p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">Order effects</p>Practice and fatigue bias within-subjects results — controlled by counter-balancing.</div>
@@ -117,7 +117,17 @@ export default function ExperimentDesignUnderstanding() {
 
         {step === 2 && (
           <div className="w-full max-w-xl space-y-3">
-            <p className="font-press-start-2p text-[10px] text-[#a16207] mb-1">Step 3 — assign participants</p>
+            {/* Between-subjects skips the order-control step, so this is Step 2
+                for them and Step 3 for within-subjects — number it accordingly
+                to avoid a confusing "Step 1 → Step 3" jump. */}
+            {design === "between" && (
+              <p className="font-pixelify-sans text-xs text-gray-500 italic">
+                (Order control is skipped — in a between-subjects design no one sees both layouts, so there are no order effects to control.)
+              </p>
+            )}
+            <p className="font-press-start-2p text-[10px] text-[#a16207] mb-1">
+              {design === "between" ? "Step 2" : "Step 3"} — assign participants
+            </p>
             <Option onClick={() => chooseAssign("random")} title="Random assignment, matched groups" sub="Balance age, experience, and demographics across conditions." />
             <Option onClick={() => chooseAssign("convenience")} title="Convenience sample" sub="Recruit friends, family, and whoever scans a QR code online." />
           </div>
