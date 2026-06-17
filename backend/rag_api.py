@@ -93,6 +93,19 @@ def get_rag_chain():
         Document(page_content=t, metadata=m)
         for t, m in zip(collection["documents"], collection["metadatas"])
     ]
+    # A fresh clone has NO vector DB (hci_chroma_db_local/ is gitignored as a
+    # generated artifact, and the source PDFs are gitignored too — PolyU
+    # copyright). An empty collection makes BM25 fail with a cryptic
+    # "not enough values to unpack" error, so surface the real cause + the fix.
+    if not bm25_docs:
+        raise RuntimeError(
+            f"Vector DB at '{DB_DIR}' is empty/missing. This repo does not ship "
+            f"the DB or the lecture PDFs. Either: (a) get the prebuilt "
+            f"'{DB_DIR}' folder from a teammate and drop it in backend/, or "
+            f"(b) put the COMP3423 lecture PDFs in backend/ and run "
+            f"'python rebuild_db.py'. Also ensure Ollama has '{OLLAMA_EMBEDDING}' "
+            f"and '{OLLAMA_LLM}' pulled."
+        )
     bm25_retriever = BM25Retriever.from_documents(bm25_docs)
     bm25_retriever.k = 8
 
