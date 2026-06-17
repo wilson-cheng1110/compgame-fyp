@@ -36,3 +36,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Logs & local debug scripts (build noise, not source)
+*.log
+frontend/test-*.mjs

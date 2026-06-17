@@ -33,7 +33,7 @@ export const DEBRIEF_CONTENT: Record<string, DebriefContent> = {
   },
   "fitts-law-assessment": {
     topicTitle: "Fitts' Law",
-    principle: "Index of Difficulty (ID) predicts pointing time. Lower ID = easier target. Always sort UI interactions easiest-first to respect human motor limits.",
+    principle: "Pointing time rises with the Index of Difficulty (ID = log₂(A/W + 0.5)) — far, small targets are slowest. Make frequent controls big and close, or park them at screen edges and corners (effectively infinite width).",
     formula: "ID = log₂(A/W + 0.5)  ·  T = a + b·ID",
     examTip: "Know both formulas. IP (Index of Performance) = 1/b. Mouse: a=1.03, b=0.096. The Shannon reformulation (Fitts, 1954) adds 0.5 to avoid log of zero.",
     examQuestion: "What is the Index of Performance for a mouse with movement time = 1.03 + 0.096 × ID seconds?",

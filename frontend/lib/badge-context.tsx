@@ -50,7 +50,7 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
           setBadges(userBadges)
           setBadgeCount(userBadges.length)
           console.log("Badges refreshed:", userBadges.length)
-          console.log("Badge details:", userBadges.map((b) => b.name).join(", "))
+          console.log("Badge details:", userBadges.map((b: { name: string }) => b.name).join(", "))
         }
       }
     } catch (error) {

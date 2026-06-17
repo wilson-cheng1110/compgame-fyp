@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type ReactElement } from "react"
 import { ChevronLeft, ChevronRight, Home } from "lucide-react"
 import Link from "next/link"
 
@@ -12,7 +12,7 @@ interface Question {
   id: number
   answer: Principle
   caption: string
-  render: () => JSX.Element
+  render: () => ReactElement
 }
 
 // ── Inline SVG Illustrations ─────────────────────────────────────────────────

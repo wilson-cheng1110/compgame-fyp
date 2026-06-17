@@ -113,48 +113,50 @@ function playBackgroundMusic() {
     return // Don't try to play if we're already in the process
   }
 
+  const bgm = backgroundMusic
   try {
     // Store the play promise
-    backgroundMusic.playPromise = backgroundMusic.play()
+    bgm.playPromise = bgm.play()
 
     // Handle the promise properly
-    if (backgroundMusic.playPromise !== undefined) {
-      backgroundMusic.playPromise
+    if (bgm.playPromise !== undefined) {
+      bgm.playPromise
         .then(() => {
           // Playback started successfully
-          backgroundMusic.playPromise = null
+          bgm.playPromise = null
         })
         .catch((error) => {
           // Handle the error
           console.error("Failed to play background music:", error)
-          backgroundMusic.playPromise = null
+          bgm.playPromise = null
         })
     }
   } catch (err) {
     console.error("Failed to play background music:", err)
-    backgroundMusic.playPromise = null
+    bgm.playPromise = null
   }
 }
 
 function pauseBackgroundMusic() {
   if (!backgroundMusic) return
 
+  const bgm = backgroundMusic
   try {
     // If there's a pending play operation, wait for it to complete or fail before pausing
-    if (backgroundMusic.playPromise) {
-      backgroundMusic.playPromise
+    if (bgm.playPromise) {
+      bgm.playPromise
         .then(() => {
-          backgroundMusic.pause()
-          backgroundMusic.playPromise = null
+          bgm.pause()
+          bgm.playPromise = null
         })
         .catch(() => {
           // If play failed, we can still try to pause
-          backgroundMusic.pause()
-          backgroundMusic.playPromise = null
+          bgm.pause()
+          bgm.playPromise = null
         })
     } else {
       // No pending play operation, safe to pause
-      backgroundMusic.pause()
+      bgm.pause()
     }
   } catch (err) {
     console.error("Failed to pause background music:", err)

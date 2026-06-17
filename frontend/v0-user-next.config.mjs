@@ -17,11 +17,8 @@ const nextConfig = {
   },
   // Add output option to ensure proper build
   output: 'standalone',
-  // Disable experimental features that might cause issues
-  experimental: {
-    // Keep only the essential experimental features
-    appDir: true,
-  }
+  // (Removed experimental.appDir — App Router has been stable since Next 13.4
+  //  and the obsolete key triggered an "Unrecognized key" warning on every boot.)
 }
 
 export default nextConfig;
