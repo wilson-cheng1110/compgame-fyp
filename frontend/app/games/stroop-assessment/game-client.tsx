@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import GameDebrief from "@/components/game-debrief"
 import { shuffleQuestions } from "@/lib/quiz-utils"
 
@@ -31,6 +31,9 @@ function makeStroopRound() {
 }
 
 const STROOP_ROUNDS = 10
+// Time pressure is what makes the Stroop interference bite — without it the
+// task is trivial and drags. Each round must be answered within this window.
+const STROOP_TIME_MS = 2500
 
 const QUIZ_QUESTIONS = [
   {
@@ -98,11 +101,11 @@ export default function StroopAssessment() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [showExplanation, setShowExplanation] = useState(false)
   const [score, setScore] = useState(0)
+  const [timeLeft, setTimeLeft] = useState(STROOP_TIME_MS)
 
   const currentRound = stroopRounds[stroopIdx]
 
-  const handleColorClick = useCallback((color: string) => {
-    const correct = color === currentRound.fontColor
+  const advance = useCallback((correct: boolean) => {
     if (correct) setStroopCorrect((c) => c + 1)
     const next = stroopIdx + 1
     if (next >= STROOP_ROUNDS) {
@@ -110,7 +113,29 @@ export default function StroopAssessment() {
     } else {
       setStroopIdx(next)
     }
-  }, [stroopIdx, currentRound])
+  }, [stroopIdx])
+
+  const handleColorClick = useCallback((color: string) => {
+    advance(color === currentRound.fontColor)
+  }, [advance, currentRound])
+
+  // Per-round countdown — running out counts as a miss and auto-advances.
+  useEffect(() => {
+    if (phase !== "stroop") return
+    setTimeLeft(STROOP_TIME_MS)
+    const start = performance.now()
+    const id = setInterval(() => {
+      const remaining = STROOP_TIME_MS - (performance.now() - start)
+      if (remaining <= 0) {
+        clearInterval(id)
+        setTimeLeft(0)
+        advance(false)
+      } else {
+        setTimeLeft(remaining)
+      }
+    }, 50)
+    return () => clearInterval(id)
+  }, [phase, stroopIdx, advance])
 
   const handleQuizSelect = useCallback((idx: number) => {
     if (selectedOption !== null) return
@@ -160,9 +185,19 @@ export default function StroopAssessment() {
   if (phase === "stroop") {
     return (
       <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
-        <p className="font-press-start-2p text-gray-500 text-[9px] mb-6">
+        <p className="font-press-start-2p text-gray-500 text-[9px] mb-3">
           {stroopIdx + 1} / {STROOP_ROUNDS}
         </p>
+        {/* Countdown bar — turns red as time runs low to create pressure */}
+        <div className="w-56 h-3 bg-gray-200 border-2 border-black mb-8 overflow-hidden">
+          <div
+            className="h-full transition-[width] duration-75 ease-linear"
+            style={{
+              width: `${(timeLeft / STROOP_TIME_MS) * 100}%`,
+              backgroundColor: timeLeft < STROOP_TIME_MS * 0.35 ? "#ef4444" : "#22c55e",
+            }}
+          />
+        </div>
         <p
           className="font-press-start-2p text-4xl mb-10"
           style={{ color: COLOR_HEX[currentRound.fontColor] }}

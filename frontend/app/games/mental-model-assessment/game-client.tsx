@@ -206,34 +206,48 @@ export default function MentalModelAssessment() {
           </p>
         )}
 
+        {/* Items visibly reorder as you rank: ranked ones rise to the top in
+            chosen order, unranked sink below. Clicking a ranked item removes it. */}
         <div className="w-full max-w-xl space-y-3 mb-6">
-          {RANK_ITEMS.map((item) => {
-            const rankPos = rankOrder.indexOf(item.id)
-            const isRanked = rankPos !== -1
-            const isCorrect = rankSubmitted && rankOrder[rankPos] === CORRECT_ORDER[rankPos]
-            return (
-              <button
-                key={item.id}
-                onClick={() => toggleRankItem(item.id)}
-                disabled={rankSubmitted}
-                className={`w-full text-left border-2 p-3 font-pixelify-sans text-sm transition flex items-center gap-3 ${
-                  rankSubmitted
-                    ? isCorrect ? "bg-green-100 border-green-600" : "bg-red-100 border-red-500"
-                    : isRanked ? "bg-[#facc15] border-[#a16207]" : "bg-white border-black hover:bg-[#f8f6ee]"
-                }`}
-              >
-                <span className={`font-press-start-2p text-lg w-8 text-center ${isRanked ? "text-black" : "text-gray-300"}`}>
-                  {isRanked ? `#${rankPos + 1}` : "—"}
-                </span>
-                <span>{item.label}</span>
-                {rankSubmitted && (
-                  <span className="ml-auto font-press-start-2p text-[9px]">
-                    {isCorrect ? "✓" : `→ #${CORRECT_ORDER.indexOf(item.id) + 1}`}
+          {[...RANK_ITEMS]
+            .sort((a, b) => {
+              const ra = rankOrder.indexOf(a.id)
+              const rb = rankOrder.indexOf(b.id)
+              if (ra === -1 && rb === -1) return 0
+              if (ra === -1) return 1
+              if (rb === -1) return -1
+              return ra - rb
+            })
+            .map((item) => {
+              const rankPos = rankOrder.indexOf(item.id)
+              const isRanked = rankPos !== -1
+              const isCorrect = rankSubmitted && rankOrder[rankPos] === CORRECT_ORDER[rankPos]
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => toggleRankItem(item.id)}
+                  disabled={rankSubmitted}
+                  className={`w-full text-left border-2 p-3 font-pixelify-sans text-sm transition flex items-center gap-3 ${
+                    rankSubmitted
+                      ? isCorrect ? "bg-green-100 border-green-600" : "bg-red-100 border-red-500"
+                      : isRanked ? "bg-[#facc15] border-[#a16207]" : "bg-white border-black hover:bg-[#f8f6ee]"
+                  }`}
+                >
+                  <span className={`font-press-start-2p text-lg w-8 text-center ${isRanked ? "text-black" : "text-gray-300"}`}>
+                    {isRanked ? `#${rankPos + 1}` : "—"}
                   </span>
-                )}
-              </button>
-            )
-          })}
+                  <span className="flex-1">{item.label}</span>
+                  {isRanked && !rankSubmitted && (
+                    <span className="font-pixelify-sans text-xs text-[#a16207]">tap to remove</span>
+                  )}
+                  {rankSubmitted && (
+                    <span className="ml-auto font-press-start-2p text-[9px]">
+                      {isCorrect ? "✓" : `→ #${CORRECT_ORDER.indexOf(item.id) + 1}`}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
         </div>
 
         {!rankSubmitted ? (

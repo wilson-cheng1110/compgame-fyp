@@ -19,6 +19,33 @@ type SortItem = {
   explanation: string
 }
 
+// A small live preview of each UI element so learners SEE the affordance,
+// not just read its name. Keyed by SortItem.id.
+function ElementPreview({ id }: { id: string }) {
+  switch (id) {
+    case "raised-btn":
+      return (
+        <button className="bg-[#facc15] border-2 border-[#a16207] rounded-md px-4 py-1.5 font-pixelify-sans text-sm text-black shadow-[3px_3px_0px_0px_#000]">
+          Submit
+        </button>
+      )
+    case "flat-link":
+      return <span className="text-blue-600 underline font-pixelify-sans text-sm cursor-pointer">View details</span>
+    case "flat-icon":
+      return <div className="w-7 h-7 bg-gray-300 rounded-sm" />
+    case "drag-handle":
+      return <span className="text-gray-500 text-xl leading-none select-none">⠿</span>
+    case "disabled-btn":
+      return (
+        <button disabled className="bg-gray-200 border-2 border-gray-300 rounded-md px-4 py-1.5 font-pixelify-sans text-sm text-gray-400 cursor-not-allowed">
+          Submit
+        </button>
+      )
+    default:
+      return null
+  }
+}
+
 const SORT_ITEMS: SortItem[] = [
   {
     id: "raised-btn",
@@ -159,7 +186,12 @@ export default function MentalModelUnderstanding() {
             const isCorrect = answer === (item.isGoodAffordance ? "good" : "bad")
             return (
               <div key={item.id} className="bg-white border-2 border-black p-4">
-                <p className="font-pixelify-sans text-sm font-bold text-black mb-1">{item.label}</p>
+                <div className="flex items-center gap-4 mb-1">
+                  <div className="shrink-0 w-24 flex items-center justify-center min-h-[2.5rem] bg-[#f8f6ee] border border-gray-200 rounded">
+                    <ElementPreview id={item.id} />
+                  </div>
+                  <p className="font-pixelify-sans text-sm font-bold text-black">{item.label}</p>
+                </div>
                 <p className="font-pixelify-sans text-xs text-gray-500 mb-3">{item.description}</p>
                 <div className="flex gap-2">
                   <button
