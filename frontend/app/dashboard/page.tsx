@@ -22,12 +22,10 @@ const AVATAR_URLS: Record<number, string> = {
 
 const CATEGORY_LABELS: Record<string, string> = {
   hci: "Human-Computer Interaction",
-  os: "Operating Systems",
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
   hci: "bg-[#0099db] text-white border-[#0077a9]",
-  os: "bg-[#7c3aed] text-white border-[#5b21b6]",
 }
 
 function getSpeechBubble(progress: ReturnType<typeof useProgress>["progress"], username: string): string {
