@@ -5,7 +5,6 @@ import type { Fish } from "../types"
 import { useScale } from "../../../../components/ResponsiveContainer"
 import { playCatchSound, initAudioContext, playRollingSound, stopRollingSound } from "../../../../utils/sound"
 
-// Add this check to prevent server-side rendering issues with window
 const isClient = typeof window !== "undefined"
 
 interface GameCanvasProps {
@@ -35,33 +34,34 @@ export default function GameCanvas({
   const timerRef = useRef<number>(0)
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const swingDirectionRef = useRef<1 | -1>(-1)
+  const prevSwingTimeRef = useRef<number>(0)
   const { scale } = useScale()
 
-  // Constants
-  const SWING_SPEED = 2
-  const EXTENSION_SPEED = 5
-  const RETRACTION_SPEED = 0.5
-  const SLOW_RETRACTION_SPEED = 0.2
+  // Per-second rates — frame-rate independent (equivalent to original 2/5/0.5/0.2 per frame at 60 fps)
+  const SWING_SPEED_DEG_S = 120
+  const EXTENSION_SPEED_PX_S = 300
+  const RETRACTION_SPEED_PX_S = 30
+  const SLOW_RETRACTION_SPEED_PX_S = 12
   const MIN_ANGLE = -65
   const MAX_ANGLE = 65
   const BASE_LINE_LENGTH = 100
-  const MAX_LINE_LENGTH = 1000 // Increased from 800 to reach the new position
+  const MAX_LINE_LENGTH = 1000
   const ROD_START_X = 745
   const ROD_START_Y = 82
-  const HOOK_SIZE = 40
-  const CATCH_DISTANCE_A = 50 // Half of fish A size
-  const CATCH_DISTANCE_B = 150 // Half of fish B size
+  const CATCH_DISTANCE_A = 50
+  const CATCH_DISTANCE_B = 150
 
-  // Initialize sounds on component mount
   useEffect(() => {
     initAudioContext()
   }, [])
 
   useEffect(() => {
-    const animate = () => {
+    const animate = (timestamp: number) => {
       if (!isExtending && !isRetracting && fixedAngle === null && gameState === "playing" && !showExplanation) {
+        const delta = prevSwingTimeRef.current ? (timestamp - prevSwingTimeRef.current) / 1000 : 0
+        prevSwingTimeRef.current = timestamp
         setCurrentAngle((prevAngle) => {
-          let newAngle = prevAngle + SWING_SPEED * swingDirectionRef.current
+          let newAngle = prevAngle + SWING_SPEED_DEG_S * delta * swingDirectionRef.current
           if (newAngle <= MIN_ANGLE) {
             newAngle = MIN_ANGLE
             swingDirectionRef.current = 1
@@ -71,6 +71,8 @@ export default function GameCanvas({
           }
           return newAngle
         })
+      } else {
+        prevSwingTimeRef.current = 0
       }
       animationRef.current = requestAnimationFrame(animate)
     }
@@ -105,6 +107,7 @@ export default function GameCanvas({
     timerRef.current = 0
     onTimeUpdate(0)
     swingDirectionRef.current = -1
+    prevSwingTimeRef.current = 0
   }
 
   useEffect(() => {
@@ -133,32 +136,28 @@ export default function GameCanvas({
   const handleClick = () => {
     if (isExtending || isRetracting || fixedAngle !== null || gameState === "finished" || showExplanation) return
 
-    // Initialize audio context on first interaction (needed for mobile browsers)
     initAudioContext()
 
     setFixedAngle(currentAngle)
     setIsExtending(true)
-    // Play rolling sound when extending
     playRollingSound()
     startTimer()
 
     let currentLength = BASE_LINE_LENGTH
-    const extendLine = () => {
+    let extendPrevTime = 0
+    const extendLine = (timestamp: number) => {
+      const delta = extendPrevTime ? (timestamp - extendPrevTime) / 1000 : 1 / 60
+      extendPrevTime = timestamp
       if (currentLength < MAX_LINE_LENGTH) {
-        currentLength += EXTENSION_SPEED
+        currentLength = Math.min(currentLength + EXTENSION_SPEED_PX_S * delta, MAX_LINE_LENGTH)
         setLineLength(currentLength)
 
-        // Get the hook element
         const hookElement = document.querySelector(".hook-hitbox") as HTMLElement
         if (hookElement) {
-          // Get the game area's position and dimensions
           const gameAreaRect = gameAreaRef.current?.getBoundingClientRect()
           if (!gameAreaRect) return
 
-          // Get the hook's position relative to the game area
           const hookRect = hookElement.getBoundingClientRect()
-
-          // Calculate the hook's center position in the original coordinate system
           const hookCenterX = (hookRect.left - gameAreaRect.left) / scale + hookRect.width / 2
           const hookCenterY = (hookRect.top - gameAreaRect.top) / scale + hookRect.height / 2
 
@@ -173,9 +172,7 @@ export default function GameCanvas({
 
               if (distance < catchDistance) {
                 stopTimer()
-                // Stop rolling sound
                 stopRollingSound()
-                // Play catch sound
                 playCatchSound()
                 onFishCatch(fish.id, timerRef.current)
                 setIsExtending(false)
@@ -185,10 +182,8 @@ export default function GameCanvas({
             }
           }
 
-          // Check if hook is out of bounds
           if (hookCenterX < 0 || hookCenterX > 1524 || hookCenterY < 0 || hookCenterY > 854) {
             stopTimer()
-            // Stop rolling sound
             stopRollingSound()
             setIsExtending(false)
             retractLine(false)
@@ -199,7 +194,6 @@ export default function GameCanvas({
         animationRef.current = requestAnimationFrame(extendLine)
       } else {
         stopTimer()
-        // Stop rolling sound
         stopRollingSound()
         retractLine(false)
       }
@@ -214,11 +208,14 @@ export default function GameCanvas({
 
     let currentLength = lineLength
     let slowRetractionDistance = withFish ? 500 : 0
+    let retractPrevTime = 0
 
-    const retract = () => {
+    const retract = (timestamp: number) => {
+      const delta = retractPrevTime ? (timestamp - retractPrevTime) / 1000 : 1 / 60
+      retractPrevTime = timestamp
       if (currentLength > BASE_LINE_LENGTH) {
-        const speed = slowRetractionDistance > 0 ? SLOW_RETRACTION_SPEED : RETRACTION_SPEED
-        const step = Math.min(speed, currentLength - BASE_LINE_LENGTH)
+        const speed = slowRetractionDistance > 0 ? SLOW_RETRACTION_SPEED_PX_S : RETRACTION_SPEED_PX_S
+        const step = Math.min(speed * delta, currentLength - BASE_LINE_LENGTH)
         currentLength -= step
         slowRetractionDistance = Math.max(0, slowRetractionDistance - step)
         setLineLength(currentLength)
@@ -226,14 +223,12 @@ export default function GameCanvas({
       } else {
         setIsRetracting(false)
         setLineLength(BASE_LINE_LENGTH)
-
-        // Stop rolling sound when retraction is complete
         stopRollingSound()
 
         if (!showExplanation) {
           setFixedAngle(null)
           setCurrentAngle((prevAngle) => {
-            const newAngle = prevAngle + SWING_SPEED * swingDirectionRef.current
+            const newAngle = prevAngle + (SWING_SPEED_DEG_S / 60) * swingDirectionRef.current
             if (newAngle <= MIN_ANGLE || newAngle >= MAX_ANGLE) {
               swingDirectionRef.current *= -1
             }
@@ -250,7 +245,6 @@ export default function GameCanvas({
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current)
       }
-      // Make sure to stop rolling sound when component unmounts
       stopRollingSound()
     }
   }, [])
@@ -294,9 +288,8 @@ export default function GameCanvas({
         />
       </div>
 
-      {/* Render fish B first so it appears behind fish A */}
       {fishes
-        .sort((a, b) => (a.id === "B" ? -1 : 1)) // Ensure fish B is rendered first
+        .sort((a, b) => (a.id === "B" ? -1 : 1))
         .map(
           (fish) =>
             !fish.caught && (
