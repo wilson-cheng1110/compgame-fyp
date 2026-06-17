@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server"
-import fs from "fs"
-import path from "path"
 
+// Proxy the research data export from the FastAPI backend.
+// The legacy-labs .txt export that lived here has been removed.
+// Usage:
+//   GET /api/export-data          → JSON (all participant events)
+//   GET /api/export-data?format=csv → CSV download
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const sid = searchParams.get("sid")
-
-  if (!sid) return NextResponse.json({ error: "SID required" }, { status: 400 })
-
-  const resultsDir = path.join(process.cwd(), "public", "legacy-labs", "results")
+  const format = searchParams.get("format") ?? "json"
 
   try {
-    if (!fs.existsSync(resultsDir)) return NextResponse.json({ data: [] })
+    const res = await fetch(`http://localhost:8080/api/research/export?format=${encodeURIComponent(format)}`)
+    if (!res.ok) {
+      return NextResponse.json({ error: "Research backend unavailable" }, { status: 502 })
+    }
 
-    const files = fs.readdirSync(resultsDir)
-    // Filters for files like "22077541D_lab1.txt"
-    const userFiles = files.filter(file => file.startsWith(sid))
-
-    const allResults = userFiles.map(file => {
-      const content = fs.readFileSync(path.join(resultsDir, file), "utf8")
-      return JSON.parse(content)
-    })
-
-    return NextResponse.json({ sid, exportDate: new Date().toISOString(), data: allResults })
-  } catch (error) {
-    return NextResponse.json({ error: "Export failed" }, { status: 500 })
+    const body = await res.text()
+    const contentType = format === "csv" ? "text/csv" : "application/json"
+    const headers: Record<string, string> = { "Content-Type": contentType }
+    if (format === "csv") {
+      headers["Content-Disposition"] = "attachment; filename=research_events.csv"
+    }
+    return new NextResponse(body, { status: 200, headers })
+  } catch {
+    return NextResponse.json({ error: "Research backend unavailable — is it running on port 8080?" }, { status: 502 })
   }
 }
