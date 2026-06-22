@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
+import { getUsers, setUsers } from "@/lib/user-store"
 import { ChevronLeft } from "lucide-react"
 
 const pixelifySans = Pixelify_Sans({
@@ -73,15 +74,12 @@ export default function UsernameSelectionPage() {
       userData.needsOnboarding = false // Remove the onboarding flag
       Cookies.set("user", JSON.stringify(userData), { expires: 7 })
 
-      // Update in users storage too
-      const existingUsers = Cookies.get("users")
-      if (existingUsers) {
-        const users = JSON.parse(existingUsers)
-        if (users[userData.email]) {
-          users[userData.email].username = username
-          users[userData.email].avatarId = userData.avatarId
-          Cookies.set("users", JSON.stringify(users), { expires: 365 })
-        }
+      // Update in users storage too (keyed by SID — the user cookie has no email)
+      const users = getUsers()
+      if (users[userData.sid]) {
+        users[userData.sid].username = username
+        users[userData.sid].avatarId = userData.avatarId
+        setUsers(users)
       }
     }
 

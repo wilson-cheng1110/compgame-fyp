@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import Cookies from "js-cookie"
+import { getUsers, setUsers } from "@/lib/user-store"
 import {
   type TopicId,
   type GameMode,
@@ -15,6 +16,7 @@ import { logResearchEvent } from "@/lib/research-log"
 interface ProgressContextType {
   progress: AllTopicProgress
   markGameComplete: (gameId: string, score?: number) => void
+  recordReflection: (topicId: TopicId, summary: { turns: number; insight: boolean }) => void
   getTopicProgress: (topicId: TopicId) => TopicProgress
   refreshProgress: () => void
   totalCompleted: number
@@ -23,6 +25,7 @@ interface ProgressContextType {
 const ProgressContext = createContext<ProgressContextType>({
   progress: {},
   markGameComplete: () => {},
+  recordReflection: () => {},
   getTopicProgress: () => getDefaultTopicProgress(),
   refreshProgress: () => {},
   totalCompleted: 0,
@@ -39,9 +42,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       if (!userCookie) return {}
       const { sid } = JSON.parse(userCookie)
       if (!sid) return {}
-      const usersRaw = Cookies.get("users")
-      if (!usersRaw) return {}
-      const users = JSON.parse(usersRaw)
+      const users = getUsers()
       return (users[sid]?.topicProgress as AllTopicProgress) ?? {}
     } catch {
       return {}
@@ -64,9 +65,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         if (!parsed) return
         const { topicId, mode } = parsed
 
-        const usersRaw = Cookies.get("users")
-        if (!usersRaw) return
-        const users = JSON.parse(usersRaw)
+        const users = getUsers()
         if (!users[sid]) return
 
         const existing: AllTopicProgress = users[sid].topicProgress ?? {}
@@ -92,7 +91,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         }
 
         users[sid].topicProgress = existing
-        Cookies.set("users", JSON.stringify(users), { expires: 365 })
+        setUsers(users)
         setProgress({ ...existing })
 
         // Mirror to the centralised research sink (best-effort, never blocks UI).
@@ -106,6 +105,41 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         })
       } catch (e) {
         console.error("markGameComplete error", e)
+      }
+    },
+    []
+  )
+
+  // Persist only the lightweight reflection SUMMARY (turns/insight/completed) —
+  // the full Socratic transcript is sent to the server research sink by the
+  // dialog, never to localStorage. ~80 bytes/topic, safe post-migration.
+  const recordReflection = useCallback(
+    (topicId: TopicId, summary: { turns: number; insight: boolean }) => {
+      try {
+        const userCookie = Cookies.get("user")
+        if (!userCookie) return
+        const { sid } = JSON.parse(userCookie)
+        if (!sid) return
+
+        const users = getUsers()
+        if (!users[sid]) return
+
+        const existing: AllTopicProgress = users[sid].topicProgress ?? {}
+        const current: TopicProgress = existing[topicId] ?? getDefaultTopicProgress()
+
+        existing[topicId] = {
+          ...current,
+          reflectionCompleted: true,
+          reflectionCompletedAt: current.reflectionCompletedAt ?? new Date().toISOString(),
+          reflectionTurns: summary.turns,
+          reflectionInsight: summary.insight || current.reflectionInsight,
+        }
+
+        users[sid].topicProgress = existing
+        setUsers(users)
+        setProgress({ ...existing })
+      } catch (e) {
+        console.error("recordReflection error", e)
       }
     },
     []
@@ -127,7 +161,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [refreshProgress])
 
   return (
-    <ProgressContext.Provider value={{ progress, markGameComplete, getTopicProgress, refreshProgress, totalCompleted }}>
+    <ProgressContext.Provider value={{ progress, markGameComplete, recordReflection, getTopicProgress, refreshProgress, totalCompleted }}>
       {children}
     </ProgressContext.Provider>
   )

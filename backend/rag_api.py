@@ -41,6 +41,8 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+import json
 
 # Configuration
 DB_DIR = "./hci_chroma_db_local"
@@ -60,9 +62,20 @@ app.add_middleware(
 
 # Global variable to store the chain so we don't reload it for every request
 rag_chain = None
+# Socratic reflection uses the SAME retriever but a separate, warmer LLM (so its
+# follow-up questions don't repeat). Both are built once at startup.
+socratic_retriever = None
+socratic_llm = None
 
 class QuestionRequest(BaseModel):
     question: str
+
+
+class SocraticRequest(BaseModel):
+    topic: str
+    # Each item: {"role": "human"|"assistant", "content": str}. The opener the
+    # frontend showed the student is included as the first "assistant" turn.
+    history: list[dict]
 
 
 class ResearchEvent(BaseModel):
@@ -76,11 +89,10 @@ class ResearchEvent(BaseModel):
     client_ts: Optional[str] = None
     meta: Optional[Any] = None
 
-def get_rag_chain():
-    print(f"🔌 Initializing database and Ollama '{OLLAMA_LLM}' model...")
-    vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING))
-    llm = ChatOllama(model=OLLAMA_LLM, temperature=0)
-
+def build_retriever(vectorstore):
+    """Hybrid BM25 + vector ensemble over the lecture chunks. Shared by the
+    /api/ask chain and the Socratic reflection endpoint so there's one retrieval
+    behaviour to reason about."""
     # Vector (semantic) leg.
     vector_retriever = vectorstore.as_retriever(
         search_type="similarity",
@@ -109,10 +121,18 @@ def get_rag_chain():
     bm25_retriever = BM25Retriever.from_documents(bm25_docs)
     bm25_retriever.k = 8
 
-    retriever = EnsembleRetriever(
+    return EnsembleRetriever(
         retrievers=[bm25_retriever, vector_retriever],
         weights=[0.5, 0.5],
     )
+
+
+def get_rag_chain():
+    print(f"🔌 Initializing database and Ollama '{OLLAMA_LLM}' model...")
+    vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING))
+    llm = ChatOllama(model=OLLAMA_LLM, temperature=0)
+
+    retriever = build_retriever(vectorstore)
 
     system_prompt = (
         "You are an expert teaching assistant for the COMP3423 Human-Computer Interaction course. "
@@ -130,9 +150,43 @@ def get_rag_chain():
     question_answer_chain = create_stuff_documents_chain(llm, prompt)
     return create_retrieval_chain(retriever, question_answer_chain)
 
+
+# Socratic system prompt. The model must NOT hand over answers — it probes until
+# the student articulates the concept in their own words. We ask for a tiny JSON
+# envelope so the frontend can tell "still guiding" from "genuine insight shown"
+# without NLP on our side. Parsed defensively (see /api/socratic).
+SOCRATIC_SYSTEM_PROMPT = (
+    "You are a Socratic tutor for the COMP3423 Human-Computer Interaction course. "
+    "The student just finished an assessment on \"{topic}\" and is now reflecting. "
+    "Do NOT give direct answers or definitions. Instead, ask ONE sharp, short follow-up "
+    "question at a time that pushes the student to reason about {topic} and reach the "
+    "insight themselves. Stay strictly grounded in the retrieved lecture context below — "
+    "never invent facts beyond it. Be warm and brief (2-3 sentences max).\n\n"
+    "Reply ONLY with a JSON object, no prose around it:\n"
+    "{{\"response\": \"<your next Socratic question or nudge>\", \"understood\": true|false|null}}\n"
+    "Set \"understood\" to true ONLY when the student has clearly explained {topic} in their "
+    "OWN words AND added an original observation or example of their own. Otherwise use false "
+    "(still developing) or null (not enough signal yet).\n\n"
+    "Lecture context:\n{context}"
+)
+
+
+def get_socratic_chain():
+    """Returns (llm, retriever). The endpoint drives retrieval + history-aware
+    prompting manually — simpler than bending create_retrieval_chain to accept a
+    MessagesPlaceholder, and gives full control over the JSON contract."""
+    print(f"🧠 Initializing Socratic reflection model '{OLLAMA_LLM}'...")
+    vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING))
+    # Warmer than the /api/ask LLM (temperature=0) so repeated reflections don't
+    # ask the same canned question.
+    llm = ChatOllama(model=OLLAMA_LLM, temperature=0.4)
+    retriever = build_retriever(vectorstore)
+    return llm, retriever
+
+
 @app.on_event("startup")
 async def startup_event():
-    global rag_chain
+    global rag_chain, socratic_llm, socratic_retriever
     # Research-event store is independent of the RAG model — init it first so
     # data collection works even if Ollama/Chroma fails to load.
     research_store.init_db()
@@ -141,10 +195,12 @@ async def startup_event():
     # Chroma failure crash the whole server — the research sink must stay up.
     try:
         rag_chain = get_rag_chain()
+        socratic_llm, socratic_retriever = get_socratic_chain()
         print("✅ API Server is ready to receive questions!")
     except Exception as e:
         rag_chain = None
-        print(f"⚠️  RAG model failed to load ({e}). /api/ask disabled; research sink still active.")
+        socratic_llm = socratic_retriever = None
+        print(f"⚠️  RAG model failed to load ({e}). /api/ask + /api/socratic disabled; research sink still active.")
 
 @app.post("/api/ask")
 async def ask_question(req: QuestionRequest):
@@ -162,6 +218,67 @@ async def ask_question(req: QuestionRequest):
             "answer": response['answer'],
             "sources": sorted(list(sources))
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _parse_socratic(raw: str):
+    """Pull {response, understood} out of the model text. The model is told to
+    emit pure JSON, but small local LLMs leak prose or code fences — so fall back
+    to treating the whole reply as the response with understood=null."""
+    text = raw.strip()
+    # Strip ```json ... ``` fences if present.
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lstrip().lower().startswith("json"):
+            text = text.lstrip()[4:]
+    # Try the largest {...} span.
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            obj = json.loads(text[start:end + 1])
+            resp = obj.get("response")
+            understood = obj.get("understood", None)
+            if understood not in (True, False, None):
+                understood = None
+            if isinstance(resp, str) and resp.strip():
+                return resp.strip(), understood
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    return raw.strip(), None
+
+
+@app.post("/api/socratic")
+async def socratic_reflection(req: SocraticRequest):
+    if not socratic_llm or not socratic_retriever:
+        raise HTTPException(status_code=500, detail="Socratic tutor is not initialized yet.")
+
+    try:
+        # Retrieve on topic + the student's latest message for the sharpest context.
+        last_human = next(
+            (m.get("content", "") for m in reversed(req.history) if m.get("role") == "human"),
+            "",
+        )
+        query = f"{req.topic} {last_human}".strip()
+        docs = socratic_retriever.invoke(query)
+        context = "\n\n".join(d.page_content for d in docs)
+
+        messages = [SystemMessage(content=SOCRATIC_SYSTEM_PROMPT.format(topic=req.topic, context=context))]
+        for m in req.history:
+            content = m.get("content", "")
+            if m.get("role") == "human":
+                messages.append(HumanMessage(content=content))
+            else:
+                messages.append(AIMessage(content=content))
+
+        result = socratic_llm.invoke(messages)
+        response, understood = _parse_socratic(result.content)
+
+        sources = sorted({
+            f"{os.path.basename(d.metadata['source'])} (Page {d.metadata['page']})"
+            for d in docs if d.metadata.get("source")
+        })
+        return {"response": response, "sources": sources, "understood": understood}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

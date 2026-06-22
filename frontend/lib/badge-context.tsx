@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import Cookies from "js-cookie"
+import { getUsers, setUsers } from "@/lib/user-store"
 import { getTopicFromGameId, getDefaultTopicProgress } from "@/lib/topic-definitions"
 import type { AllTopicProgress } from "@/lib/topic-definitions"
 
@@ -41,17 +42,13 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
       if (!userCookie) return
 
       const userData = JSON.parse(userCookie)
-      const existingUsers = Cookies.get("users")
-
-      if (existingUsers) {
-        const users = JSON.parse(existingUsers)
-        if (users[userData.sid] && users[userData.sid].badges) {
-          const userBadges = users[userData.sid].badges || []
-          setBadges(userBadges)
-          setBadgeCount(userBadges.length)
-          console.log("Badges refreshed:", userBadges.length)
-          console.log("Badge details:", userBadges.map((b: { name: string }) => b.name).join(", "))
-        }
+      const users = getUsers()
+      if (users[userData.sid] && users[userData.sid].badges) {
+        const userBadges = users[userData.sid].badges || []
+        setBadges(userBadges)
+        setBadgeCount(userBadges.length)
+        console.log("Badges refreshed:", userBadges.length)
+        console.log("Badge details:", userBadges.map((b: { name: string }) => b.name).join(", "))
       }
     } catch (error) {
       console.error("Error refreshing badges:", error)
@@ -65,7 +62,7 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
         if (!userCookie) return false
 
         const userData = JSON.parse(userCookie)
-        const existingUsers = Cookies.get("users")
+        const users = getUsers()
 
         // Also update topic progress whenever a badge is awarded
         const updateTopicProgress = (usersObj: any) => {
@@ -83,9 +80,8 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
           usersObj[userData.sid].topicProgress = existing
         }
 
-        if (existingUsers) {
-          const users = JSON.parse(existingUsers)
-          if (users[userData.sid]) {
+        if (users[userData.sid]) {
+          {
             // Get user's badges
             const userBadges = users[userData.sid].badges || []
 
@@ -108,7 +104,7 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
                 // Update users data + topic progress
                 users[userData.sid].badges = userBadges
                 updateTopicProgress(users)
-                Cookies.set("users", JSON.stringify(users), { expires: 365 })
+                setUsers(users)
 
                 // Update local state
                 setBadges(prev => [...prev.filter((b) => b.gameId !== gameId), userBadges[existingBadgeIndex]])
@@ -134,7 +130,7 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
               // Update users data + topic progress
               users[userData.sid].badges = userBadges
               updateTopicProgress(users)
-              Cookies.set("users", JSON.stringify(users), { expires: 365 })
+              setUsers(users)
 
               // Update local state
               setBadges(prev => [...prev, newBadge])

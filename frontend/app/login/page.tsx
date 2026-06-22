@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
+import { getUsers, removeUsers } from "@/lib/user-store"
 
 const pixelifySans = Pixelify_Sans({
   weight: ["400", "500", "600", "700"],
@@ -59,7 +60,7 @@ export default function LoginPage() {
 
   const handleResetPassword = () => {
     Cookies.remove("user")
-    Cookies.remove("users")
+    removeUsers()
     router.push("/signup")
   }
 
@@ -74,14 +75,8 @@ export default function LoginPage() {
     }
 
     // Retrieve global users list from persistence
-    const existingUsers = Cookies.get("users")
-    if (!existingUsers) {
-      setError("Invalid Student ID or password")
-      return
-    }
+    const users = getUsers()
 
-    const users = JSON.parse(existingUsers)
-    
     /**
      * Logic: We look for a user object where the 'sid' matches.
      * If your store saves users by SID as the key, use: users[sid]
