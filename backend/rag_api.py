@@ -207,11 +207,17 @@ SOCRATIC_SYSTEM_PROMPT = (
     "the smallest possible hint (a single phrase), then immediately ask a question — never a "
     "full definition.\n\n"
     "Reply ONLY with a JSON object, no prose around it:\n"
-    "{{\"response\": \"<your next Socratic question or nudge>\", \"understood\": true|false|null}}\n"
+    "{{\"response\": \"<your next Socratic question or nudge>\", \"understood\": true|false|null, "
+    "\"counts\": true|false}}\n"
     "Set \"understood\" to true ONLY when the student has clearly explained {topic} in their "
     "OWN words AND added an original observation or example of their own. Otherwise use false "
     "(still developing) or null (not enough signal yet). A meta, off-topic, or hostile message "
-    "is never \"understood\": true.\n\n"
+    "is never \"understood\": true.\n"
+    "Set \"counts\" to true when the student's LATEST message is a genuine, on-topic attempt to "
+    "think or reason about {topic} — even if partial, uncertain, or wrong. Set it to false when "
+    "the latest message is off-topic, a meta/identity question (who made you, your model, etc.), "
+    "hostile, spam, empty filler, or just chit-chat. \"counts\" judges only whether THIS message "
+    "is a real reflection attempt on {topic}; it is independent of \"understood\".\n\n"
     "Lecture context:\n{context}"
 )
 
@@ -297,9 +303,15 @@ async def ask_question(req: QuestionRequest):
 
 
 def _parse_socratic(raw: str):
-    """Pull {response, understood} out of the model text. The model is told to
-    emit pure JSON, but small local LLMs leak prose or code fences — so fall back
-    to treating the whole reply as the response with understood=null."""
+    """Pull {response, understood, counts} out of the model text. The model is told
+    to emit pure JSON, but small local LLMs leak prose or code fences — so fall back
+    to treating the whole reply as the response with understood=null, counts=None.
+
+    `counts` is the per-turn quality flag that gates the reflection floor: True =
+    a genuine on-topic reflection attempt, False = off-topic/meta/spam. On any
+    ambiguity (parse failure, field absent) it stays None — the frontend treats
+    only an explicit False as "does not count", so a model hiccup never traps a
+    real student (the floor is intentionally soft)."""
     text = raw.strip()
     # Strip ```json ... ``` fences if present.
     if text.startswith("```"):
@@ -315,11 +327,14 @@ def _parse_socratic(raw: str):
             understood = obj.get("understood", None)
             if understood not in (True, False, None):
                 understood = None
+            counts = obj.get("counts", None)
+            if counts not in (True, False, None):
+                counts = None
             if isinstance(resp, str) and resp.strip():
-                return resp.strip(), understood
+                return resp.strip(), understood, counts
         except (json.JSONDecodeError, AttributeError):
             pass
-    return raw.strip(), None
+    return raw.strip(), None, None
 
 
 @app.post("/api/socratic")
@@ -350,15 +365,27 @@ async def socratic_reflection(req: SocraticRequest):
                 messages.append(AIMessage(content=content))
 
         result = socratic_llm.invoke(messages)
-        response, understood = _parse_socratic(result.content)
+        response, understood, counts = _parse_socratic(result.content)
         # Backstop the system-prompt identity rule (small local model is unreliable).
         response = _scrub_identity(response)
+
+        # Deterministic backstop for the quality gate: an identity / meta probe is
+        # never a reflection turn, regardless of what the model flagged. High
+        # precision (only fires on explicit identity terms in the student's own
+        # latest message), so it won't wrongly reject a genuine reflection.
+        last_human = next(
+            (m.get("content", "") for m in reversed(req.history) if m.get("role") == "human"),
+            "",
+        )
+        if last_human and _IDENTITY_PATTERNS.search(last_human):
+            counts = False
+            understood = False
 
         sources = sorted({
             f"{os.path.basename(d.metadata['source'])} (Page {d.metadata['page']})"
             for d in docs if d.metadata.get("source")
         })
-        return {"response": response, "sources": sources, "understood": understood}
+        return {"response": response, "sources": sources, "understood": understood, "counts": counts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
