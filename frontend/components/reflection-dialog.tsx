@@ -20,6 +20,41 @@ interface Turn {
   content: string
 }
 
+// In-session resume: keep the live reflection in sessionStorage (per tab,
+// ~5MB, cleared on tab close) so "Discuss with tutor" reopens with the prior
+// turns instead of a blank session. Deliberately NOT localStorage — the
+// durable per-user blob must stay lean (the full transcript still goes to the
+// server sink on finish). Cleared on finish; kept on leave so resume works.
+interface SavedReflection {
+  history: Turn[]
+  countedTurns: number
+  insight: boolean
+  turnQuality: { counts: boolean | null; understood: boolean | null }[]
+}
+const reflKey = (topicId: string) => `reflect-session:${topicId}`
+function loadReflection(topicId: string): SavedReflection | null {
+  try {
+    const raw = sessionStorage.getItem(reflKey(topicId))
+    return raw ? (JSON.parse(raw) as SavedReflection) : null
+  } catch {
+    return null
+  }
+}
+function saveReflection(topicId: string, data: SavedReflection) {
+  try {
+    sessionStorage.setItem(reflKey(topicId), JSON.stringify(data))
+  } catch {
+    /* sessionStorage full/blocked — resume is best-effort, never fatal */
+  }
+}
+function clearReflection(topicId: string) {
+  try {
+    sessionStorage.removeItem(reflKey(topicId))
+  } catch {
+    /* ignore */
+  }
+}
+
 export function ReflectionDialog() {
   const { recordReflection } = useProgress()
 
@@ -60,14 +95,24 @@ export function ReflectionDialog() {
       if (!topic) return
       setTopicId(topic.id as TopicId)
       setTopicTitle(topic.title)
-      // Seed with the topic's sharp Socratic opener as the first AI turn.
-      setHistory([{ role: "assistant", content: topic.reflectionQuestion }])
-      setInsight(false)
+      // Resume a prior in-session reflection if one exists (the "Discuss with
+      // tutor" path), else seed with the topic's sharp Socratic opener.
+      const saved = loadReflection(topic.id)
+      if (saved && saved.history && saved.history.length > 1) {
+        setHistory(saved.history)
+        setCountedTurns(saved.countedTurns ?? 0)
+        setInsight(!!saved.insight)
+        setTurnQuality(saved.turnQuality ?? [])
+      } else {
+        setHistory([{ role: "assistant", content: topic.reflectionQuestion }])
+        setCountedTurns(0)
+        setInsight(false)
+        setTurnQuality([])
+      }
       setErrorMsg(null)
-      setCountedTurns(0)
-      setTurnQuality([])
       setLastDidntCount(false)
       setInput("")
+      setIsLoading(false) // never resume onto a disabled input (stale in-flight call)
       setIsOpen(true)
     }
     window.addEventListener("start-reflection", handler)
@@ -77,6 +122,14 @@ export function ReflectionDialog() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [history, isLoading, errorMsg])
+
+  // Persist the live reflection for in-session resume (kept on leave, cleared on
+  // finish). Only after at least one real turn (history > the seeded opener).
+  useEffect(() => {
+    if (isOpen && topicId && history.length > 1) {
+      saveReflection(topicId, { history, countedTurns, insight, turnQuality })
+    }
+  }, [isOpen, topicId, history, countedTurns, insight, turnQuality])
 
   // A11y: this is a modal, so trap focus inside it, move focus to the input on
   // open, and let Esc dismiss it (same as "Leave for now"). Without this,
@@ -171,6 +224,7 @@ export function ReflectionDialog() {
   const finish = () => {
     if (!topicId) return
     const endReason = insight ? "insight" : "floor"
+    clearReflection(topicId) // completed — drop the resume copy
     recordReflection(topicId, { turns: humanTurns, insight })
     logResearchEvent({
       event_type: "reflection_complete",
