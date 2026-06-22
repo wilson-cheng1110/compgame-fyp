@@ -138,9 +138,12 @@ A flip / Group B assessment-only) is simpler to explain — state whichever you 
 
 ### Hypotheses (evidence-calibrated)
 
-- **H1 (performance):** Flipped topics show higher normalized gain than control topics. *(Supported — §5.A.)*
-- **H2 (motivation):** Flipped topics report higher intrinsic motivation. *(Supported.)*
-- **H3 (satisfaction):** **Exploratory / null-expected.** van Alten et al. (2019; 114 studies) found flip does **not** move satisfaction (g = 0.05, *p* = .73). Do **not** hypothesise a satisfaction gain.
+**Decision (2026-06-22): the four constructs are co-equal outcomes** — none is privileged as *the* primary DV. This is the user's framing and it is defensible *if* declared honestly: with four co-equal tests there is no single confirmatory hypothesis, so the study is framed **exploratory**, and the family of construct-level tests is **Holm–Bonferroni corrected** (control family-wise error across H1–H4). Report both raw and adjusted *p*, plus effect sizes with CIs — with focus-group N, effect size and direction carry the inference, not significance.
+
+- **H1 (learning performance):** Flipped topics show higher normalized gain ⟨g⟩ than control topics. *(Supported by prior work — §5.A.)*
+- **H2 (motivation):** Flipped topics report higher intrinsic motivation (IMI). *(Supported.)*
+- **H3 (interaction):** Students rate teaching + social presence of the game-and-AI "teacher" (CoI, reworded) positively; explored for association with ⟨g⟩. *(Exploratory — no signed prior.)*
+- **H4 (satisfaction):** **Exploratory / null-expected.** van Alten et al. (2019; 114 studies) found flip does **not** move satisfaction (g = 0.05, *p* = .73). Do **not** hypothesise a satisfaction gain; report it descriptively.
 
 ---
 
@@ -152,6 +155,21 @@ A flip / Group B assessment-only) is simpler to explain — state whichever you 
 | **Motivation** | ✅ short baseline | ✅ short-form | Reaction is post; baseline gives a delta |
 | **Interaction (game + AI as "teacher")** | ❌ | ✅ only | Can't rate an experience not yet had |
 | **Satisfaction** | ❌ | ✅ only | Post-only by definition |
+
+### Measurement model — LOCKED (2026-06-22)
+
+No more "pick one" / "optional". One instrument per construct, chosen and frozen. This is the answer to "still undecided on how to measure stuff": each construct now has exactly one hypothesis, one instrument, one measurement point, one analysis.
+
+| # | Construct | Hypothesis | Locked instrument | When measured | Analysis |
+|---|-----------|-----------|-------------------|---------------|----------|
+| H1 | Learning performance | H1 | Per-topic concept-inventory MCQs, Form A (pre) / Form B (post), isomorphic | Pre **and** post, per topic | Hake ⟨g⟩; flip vs control within-subject (paired) |
+| H2 | Motivation | H2 | **IMI** short form (interest/enjoyment, perceived competence, effort, value) | Post, per condition | Mean subscale; flip vs control |
+| H3 | Interaction | H3 | **CoI** — Teaching + Social Presence subscales, **reworded** "instructor" → "the game and AI tutor" | Post only | Mean subscale; exploratory correlation with ⟨g⟩ |
+| H4 | Satisfaction | H4 | **ARCS-Satisfaction** subscale + 2–3 global items | Post only | Descriptive mean; expected null |
+
+**Bonus (not a construct hypothesis):** Paas single-item cognitive load (1×9-point per topic) — near-free, reported as context, not in the H-family.
+
+**CoI construct-validity caveat (must disclose):** CoI was validated for human-instructor online courses (Arbaugh et al., 2008). Reattributing "instructor" to a game + AI tutor is a **non-validated adaptation** — the established factor structure and reliability do **not** transfer automatically. Treat H3 as exploratory; report item-level Cronbach's α from this sample and frame results as face-valid perceptions, not a validated CoI score. This is the honest cost of the "CoI reworded" decision and it goes in the limitations section verbatim.
 
 ---
 
@@ -189,17 +207,18 @@ Classed low `< 0.3` / medium `0.3–0.7` / high `> 0.7` (Hake, 1998).
 
 ### 4.3 Questionnaire (post battery — short forms only, ~30 items, ~8 min)
 
-| Construct | Instrument (short form) | Items | Source |
-|-----------|-------------------------|:-----:|--------|
-| **Motivation** *(pick ONE)* | **IMI** (SDT) — interest/enjoyment, competence, effort, value | ~12 | McAuley et al. (1989) |
-| | *or* **IMMS** (ARCS) 12-item reduced | 12 | Loorbach et al. (2015) |
-| **Interaction (game + AI as "teacher")** | **CoI** — Teaching + Social Presence, "instructor" → "the game and AI tutor" | ~8 | Arbaugh et al. (2008) |
-| **AI tutor specifically** | **TAM/TAM3** — Perceived Usefulness + Ease of Use + interaction satisfaction | ~6 | TAM3 chatbot studies (2025) |
-| **Game engagement** *(optional)* | **EGameFlow** — pick 2–3 dimensions (concentration, challenge, knowledge improvement) | ~6 | Fu et al. (2009) |
-| **Satisfaction** | ARCS-Satisfaction subscale (inside IMMS) + 2–3 global items | 5 | (within IMMS) |
-| **Cognitive load** *(near-free bonus)* | **Paas** single-item, 9-point ("mental effort"), per topic | 1×3 | Paas (1992) |
+**Instruments are LOCKED (see §3 measurement model)** — no "pick one", no "optional". This is the frozen post battery:
 
-All Likert **1–5** (or 1–7) for comparability. Don't double-count satisfaction (it sits inside IMMS).
+| Construct | Instrument (LOCKED) | Items | Source |
+|-----------|---------------------|:-----:|--------|
+| **Motivation (H2)** | **IMI** (SDT) — interest/enjoyment, perceived competence, effort, value | ~12 | McAuley et al. (1989) |
+| **Interaction (H3)** | **CoI** — Teaching + Social Presence, "instructor" → "the game and AI tutor" *(non-validated adaptation — see §3 caveat)* | ~8 | Arbaugh et al. (2008) |
+| **Satisfaction (H4)** | **ARCS-Satisfaction** subscale + 2–3 global items | 5 | Keller / Loorbach et al. (2015) |
+| **Cognitive load (bonus)** | **Paas** single-item, 9-point ("mental effort"), per topic | 1×4 | Paas (1992) |
+
+**Dropped on purpose:** IMMS (redundant with IMI for motivation — IMI is the SDT-aligned choice and avoids double-counting satisfaction); standalone TAM/TAM3 (AI-tutor perception is folded into the CoI "teacher = game + AI" reframing rather than run as a separate scale); EGameFlow (engagement is out of scope for the four locked constructs). Recording these as deliberate cuts, not omissions.
+
+All Likert **1–5** for comparability. Satisfaction is measured once (ARCS-S) — not double-counted.
 
 > **Motivation recommendation:** for a *game* study use **IMI** — SDT-grounded, the
 > standard in game-based learning, subscale reliabilities α = .85–.94. Pick **one**
@@ -256,11 +275,23 @@ All Likert **1–5** (or 1–7) for comparability. Don't double-count satisfacti
 
 ---
 
-## 7. Three decisions this evidence drives
+## 7. Decisions this evidence drives
 
 1. **Use within-subjects counterbalanced** (Latin-square topic↔condition) — strongest design for a small class, and the platform already records the per-topic IV.
-2. **Reframe satisfaction as null/exploratory** — flip does not reliably move satisfaction (van Alten, 114 studies).
-3. **Prefer IMI over IMMS** for motivation (game context, SDT, α up to .94); keep total survey to short forms.
+2. **Four co-equal constructs, exploratory framing, Holm–Bonferroni** — no single primary DV; the family of H1–H4 tests is multiplicity-corrected and effect sizes carry the inference (§2).
+3. **One locked instrument per construct** (§3 measurement model): IMI (motivation), CoI-reworded (interaction, with disclosed validity caveat), ARCS-S (satisfaction), concept-inventory Form A/B (performance). IMMS, standalone TAM, EGameFlow dropped on purpose.
+4. **Reframe satisfaction as null/exploratory** — flip does not reliably move satisfaction (van Alten, 114 studies).
+
+### Focus group = formative validation (Stage 1 success criteria)
+
+The focus group is **not** a hypothesis test in miniature — its job is to **validate the instruments and flow before the wide study**. With small N, the scales run as a **dry-run**, not a result. Success = the instruments and protocol are ready to scale, judged by:
+
+- **Item validation:** every concept-inventory item discriminates (no floor/ceiling, P and D in range — see `quiz-item-banks.md` desk-review + pilot); Form A/B pairs behave isomorphically.
+- **Scale function:** IMI / CoI-reworded / ARCS-S have acceptable item-level reliability on this sample (report Cronbach's α, especially for the non-validated CoI adaptation).
+- **Flow + burden:** the intro→games→assessment→chatbot→reflection→questionnaire sequence completes within session budget without dropout; reflection prompts elicit usable text.
+- **Qualitative themes:** thematic coding of reflections surfaces the *why* behind the numbers and any instrument confusion to fix before Stage 2.
+
+Effect sizes/⟨g⟩ from the focus group are reported descriptively as feasibility signal — **not** as confirmatory evidence for H1–H4.
 
 ---
 
@@ -361,7 +392,9 @@ source before submission; URLs are the retrieved ground truth.*
 ## Limitations / honesty note
 
 - Every instrument and effect size is quoted from the linked published sources; **none have been re-validated on the COMPGame population** — the Cronbach's α re-reporting step is done with collected data.
-- The 12-item IMMS, CoI subscale selection, and EGameFlow trimming are **recommended adaptations** for survey burden, **not** drop-in validated short forms — report exactly which items were kept.
+- **CoI reattribution is a non-validated adaptation.** CoI was validated for human-instructor online courses (Arbaugh et al., 2008); rewording "instructor" → "the game and AI tutor" breaks the assumption the factor structure/reliability rest on. H3 is therefore **exploratory** — report this sample's Cronbach's α and treat scores as face-valid perceptions, not a validated CoI measure. (Mirrors the §3 caveat — this is the disclosed cost of the "CoI reworded" decision.)
+- **Four co-equal outcomes → multiplicity.** With no single primary DV, H1–H4 are corrected family-wise (Holm–Bonferroni) and framed exploratory; effect sizes with CIs carry the inference at focus-group N, not *p*-values (§2).
+- The IMI and ARCS-S short forms are **recommended adaptations** for survey burden, **not** drop-in validated short forms — report exactly which items were kept.
 - The 4 study topics' assessment formats and scoring were verified from the game code (§0). The pre/post item banks (`quiz-item-banks.md`) are content-aligned to that code and have passed a **desk review (self-pilot)** — one content-validity bug fixed (Weber A5). A **human pilot (n ≈ 5) protocol is documented and ready** in `quiz-item-banks.md`; run it to confirm difficulty/wording before the main study. The human pilot is the one step that genuinely needs participants and is not yet done.
 - van Alten (2019) full text was 403-blocked; its figures (114 studies; satisfaction g = 0.05, p = .73) are from the publisher portal + secondary reports — verify the exact learning-outcome g against the PDF.
 - Flipped-classroom effect sizes are highly heterogeneous (g = 0.05–1.2) — cite the range.
