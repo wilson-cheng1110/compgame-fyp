@@ -36,6 +36,32 @@ const QUICK_ACTIONS = [
   { label: "📝 Summarise", prompt: "Summarise the key points I need to know" },
 ]
 
+// In-session persistence for the floating tutor (sessionStorage: per-tab, ~5MB,
+// cleared when the tab closes). This keeps a hard reload from wiping the
+// conversation, while deliberately NOT using durable localStorage/cookies — the
+// 4KB cookie cap once silently dropped progress, and full chat transcripts belong
+// in the server research sink, not in a per-user durable blob. Bounded to the last
+// 40 messages so a long session can't bloat storage. All best-effort: any failure
+// (private mode, quota, SSR) is swallowed so the chat still works.
+const CHAT_KEY = "ai-chat-session"
+function loadChat(): Message[] | null {
+  try {
+    const raw = sessionStorage.getItem(CHAT_KEY)
+    if (!raw) return null
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? (arr as Message[]) : null
+  } catch {
+    return null
+  }
+}
+function saveChat(messages: Message[]) {
+  try {
+    sessionStorage.setItem(CHAT_KEY, JSON.stringify(messages.slice(-40)))
+  } catch {
+    /* private mode / quota — non-fatal, the chat still works in-memory */
+  }
+}
+
 export function AiChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState("")
@@ -43,6 +69,9 @@ export function AiChatWidget() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Flips true once the one-time sessionStorage restore has run, so the persist
+  // effect never writes the empty initial array over a real saved conversation.
+  const hydratedRef = useRef(false)
 
   // Detect topic from URL whenever widget opens or route changes
   useEffect(() => {
@@ -54,6 +83,17 @@ export function AiChatWidget() {
     window.addEventListener("popstate", update)
     return () => window.removeEventListener("popstate", update)
   }, [isOpen])
+
+  // One-time client hydration: restore a saved in-tab conversation. Runs before the
+  // greeting effect below (declaration order), so a restored chat wins and the
+  // greeting only seeds when there's genuinely nothing saved. sessionStorage is
+  // touched ONLY here in an effect (never during render) — SSR sees the empty
+  // initial state, so there's no hydration mismatch.
+  useEffect(() => {
+    const saved = loadChat()
+    if (saved && saved.length) setMessages(saved)
+    hydratedRef.current = true
+  }, [])
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return
@@ -128,17 +168,34 @@ export function AiChatWidget() {
     return () => window.removeEventListener("open-ai-chat", handler)
   }, []) // stable — sendMessageRef.current is always current
 
-  // Reset greeting when topic changes
+  // Seed / refresh the greeting on topic change — but NEVER clobber an ongoing
+  // conversation (or a restored session). The general tutor is one continuous chat
+  // across the session; the topic badge + per-message context already convey the
+  // current topic, so navigating topics must not wipe history. Only acts when the
+  // chat is empty or holds just the canned welcome.
   useEffect(() => {
-    setMessages([
-      {
-        id: "welcome",
-        role: "ai",
-        content: getSystemGreeting(currentTopic?.title ?? null),
-        isSourcesOpen: false,
-      },
-    ])
+    setMessages((prev) => {
+      const onlyWelcome = prev.length === 0 || (prev.length === 1 && prev[0].id === "welcome")
+      if (!onlyWelcome) return prev
+      return [
+        {
+          id: "welcome",
+          role: "ai",
+          content: getSystemGreeting(currentTopic?.title ?? null),
+          isSourcesOpen: false,
+        },
+      ]
+    })
   }, [currentTopic])
+
+  // Persist the conversation for in-session resume. Skip the pure-welcome state so
+  // a fresh tab's seed greeting doesn't overwrite a real saved chat before
+  // hydration restores it; gate on hydratedRef so the empty initial array never
+  // clobbers storage either.
+  useEffect(() => {
+    if (!hydratedRef.current) return
+    if (messages.some((m) => m.id !== "welcome")) saveChat(messages)
+  }, [messages])
 
   useEffect(() => {
     if (scrollRef.current) {
