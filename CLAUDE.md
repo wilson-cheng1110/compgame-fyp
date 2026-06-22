@@ -118,7 +118,7 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
 - **Design**: within-subjects, counterbalanced (Latin square). **4 study topics** — Weber's Law, Problem Solving, Gestalt, Miller's Law — split **2 FLIP / 2 CONTROL** per participant.
 - **IV**: `played_understanding_first` (recorded per topic, already in the research sink).
 - **DV (primary)**: normalized gain ⟨g⟩ from a uniform conceptual pre/post (Form A/B). **Secondary**: in-game assessment score, duration, attempts. (Weber's in-game assessment is *perceptual*, not a knowledge quiz → a separate behavioral measure.)
-- **Constructs + instruments**: performance (concept inventory + Hake gain), motivation (IMI), interaction (CoI + TAM), satisfaction (ARCS-S), reflection (open + Likert).
+- **Constructs + instruments (LOCKED 2026-06-22)**: four co-equal — performance (concept inventory Form A/B + Hake gain), motivation (IMI), interaction (CoI *reworded* "instructor"→"game + AI tutor"; non-validated adaptation, exploratory), satisfaction (ARCS-S, null-expected) + reflection (open + Likert) + Paas load bonus. Dropped on purpose: IMMS, standalone TAM, EGameFlow. H1–H4 framed exploratory, Holm–Bonferroni corrected. Full matrix in `docs/experiment-design.md` §3.
 
 ### Measurement is STAGED (decision 2026-06-22)
 - **Stage 1 — focus group (current):** pre/post quizzes + questionnaire run **externally (Google Form / paper-based)**, NOT wired into the app. Small N — validates the instruments and flow first.
