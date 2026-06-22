@@ -32,6 +32,11 @@ export function ReflectionDialog() {
   const [insight, setInsight] = useState(false) // ever reached understood===true
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // Stable handle to the latest `leave` so the focus-trap effect (keyed on isOpen)
+  // doesn't re-register on every render.
+  const leaveRef = useRef<() => void>(() => {})
 
   const humanTurns = history.filter((t) => t.role === "human").length
   const canFinish = humanTurns >= REFLECTION_FLOOR || insight
@@ -60,6 +65,39 @@ export function ReflectionDialog() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [history, isLoading, errorMsg])
 
+  // A11y: this is a modal, so trap focus inside it, move focus to the input on
+  // open, and let Esc dismiss it (same as "Leave for now"). Without this,
+  // keyboard / screen-reader users tab straight out into the page behind it.
+  useEffect(() => {
+    if (!isOpen) return
+    inputRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        leaveRef.current()
+        return
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null)
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [isOpen])
+
   const send = useCallback(
     async (text: string) => {
       if (!text.trim() || isLoading) return
@@ -85,7 +123,7 @@ export function ReflectionDialog() {
         // floor and they're never blocked), and we show the same graceful
         // message the floating tutor uses. "Leave for now" stays enabled.
         setErrorMsg(
-          "⚠️ Cannot reach the AI tutor. Make sure `python rag_api.py` is running on port 8080. You can keep reflecting, or leave and come back later from your dashboard.",
+          "⚠️ The AI tutor is offline right now, so it couldn't reply. Your response was saved — you can keep reflecting and try again in a moment, or leave and come back from your dashboard later.",
         )
       } finally {
         setIsLoading(false)
@@ -124,6 +162,7 @@ export function ReflectionDialog() {
     }
     close()
   }
+  leaveRef.current = leave
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -134,18 +173,23 @@ export function ReflectionDialog() {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg flex flex-col rounded-xl border-2 border-black shadow-[6px_6px_0px_0px_#000] bg-white overflow-hidden"
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Reflect on ${topicTitle}`}
+        className="w-full max-w-lg flex flex-col rounded-xl border-2 border-black shadow-[6px_6px_0px_0px_#000] bg-white overflow-hidden"
         style={{ maxHeight: "90vh" }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#7c3aed] text-white">
+        <div className="flex items-center justify-between px-4 py-3 bg-[#0099db] text-white">
           <div className="flex items-center gap-2">
             <Sparkles size={16} />
             <span className="font-press-start-2p text-[10px] leading-tight">
               Reflect · {topicTitle}
             </span>
           </div>
-          <button onClick={leave} className="p-1 hover:bg-[#6d28d9] rounded transition-colors" aria-label="Leave reflection">
-            <X size={16} />
+          <button onClick={leave} className="p-1.5 hover:bg-[#007cb2] rounded transition-colors" aria-label="Leave reflection">
+            <X size={18} />
           </button>
         </div>
 
@@ -165,7 +209,7 @@ export function ReflectionDialog() {
             <div key={i} className={`flex ${t.role === "human" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm font-pixelify-sans whitespace-pre-wrap leading-relaxed ${
                 t.role === "human"
-                  ? "bg-[#7c3aed] text-white"
+                  ? "bg-[#0099db] text-white"
                   : "bg-white border border-gray-200 text-black shadow-sm"
               }`}>
                 {t.content}
@@ -191,7 +235,7 @@ export function ReflectionDialog() {
 
         {/* Progress hint */}
         <div className="px-3 pt-2 text-center">
-          <span className="font-pixelify-sans text-[11px] text-gray-500">
+          <span className="font-pixelify-sans text-xs text-gray-600">
             {canFinish
               ? "You've reflected enough — finish, or keep going."
               : `Reflect a little more to finish (${humanTurns}/${REFLECTION_FLOOR} responses).`}
@@ -201,17 +245,18 @@ export function ReflectionDialog() {
         {/* Input */}
         <form onSubmit={handleSubmit} className="flex items-center gap-2 p-3 border-t-2 border-black bg-white">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Share your thinking…"
-            className="flex-1 px-3 py-2 rounded-lg border-2 border-gray-300 font-pixelify-sans text-sm focus:outline-none focus:border-[#7c3aed] bg-white text-black"
+            className="flex-1 px-3 py-2 rounded-lg border-2 border-gray-300 font-pixelify-sans text-sm focus:outline-none focus:border-[#0099db] bg-white text-black"
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="p-2 bg-[#7c3aed] text-white rounded-lg border-2 border-[#6d28d9] hover:bg-[#6d28d9] disabled:opacity-50 transition-colors"
+            className="p-2 bg-[#0099db] text-white rounded-lg border-2 border-[#007cb2] hover:bg-[#007cb2] disabled:opacity-50 transition-colors"
             aria-label="Send"
           >
             <Send size={16} />
@@ -229,7 +274,7 @@ export function ReflectionDialog() {
           <button
             onClick={finish}
             disabled={!canFinish}
-            className="flex-1 bg-[#7c3aed] text-white font-pixelify-sans text-sm py-2 px-3 rounded hover:bg-[#6d28d9] transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 bg-[#0099db] text-white font-pixelify-sans text-sm py-2 px-3 rounded hover:bg-[#007cb2] transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {insight ? "⭐ Finish" : "Finish"}
           </button>
