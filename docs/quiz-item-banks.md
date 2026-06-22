@@ -44,8 +44,8 @@ hover darkening, error highlight contrast).
 **A4.** A progress bar jumps from **95% to 96%**. Why do users barely notice?
  a) The colour is wrong  b) Progress bars don't update visually  c) ✓ The 1% change is far below the JND — the ratio is too small to perceive  d) 96% rounds down to 95%
 
-**A5.** Doubling a sound from **10→20** vs **100→110** — which change is easier to notice, and why?
- a) 100→110, it's a bigger absolute jump  b) ✓ 10→20, because the change is a larger *fraction* of the original  c) Both equal — same +10  d) Neither is noticeable
+**A5.** A circle grows **10px→14px** vs **100px→104px** (both +4px) — which change is easier to notice, and why?
+ a) 100→104, it's a bigger circle overall  b) ✓ 10→14, because +4px is a larger *fraction* of the original size  c) Equal — both grew by 4px  d) Neither is noticeable
 
 *Answer key A: A1-b, A2-a, A3-b, A4-c, A5-b*
 
@@ -198,4 +198,32 @@ examples from the assessment so the pre-test doesn't leak answers.
 - **Per-topic normalized gain** `g = (B% − A%)/(100 − A%)`; compare FLIP vs CONTROL topics within-subject (Wilcoxon signed-rank / paired-t).
 - **Report item difficulty (P) and discrimination (D)** on your sample; drop items with D < 0.2 before final analysis.
 - **Validity caveats:** items are content-aligned to the current game code but **not yet piloted** — run a small pilot (n ≈ 5) to catch ambiguous wording and check the A/B forms are equally difficult before the main study.
-- **Burden:** 4 topics pushes the full session to ~90–100 min (4×10-min Understanding + 4 assessments + 2 quiz forms + chatbot + reflection + questionnaire). Consider splitting into two sittings, or shortening the Understanding games, so fatigue doesn't confound the later topics.
+- **Burden:** 4 topics pushes the full session to ~90–100 min. Resolved via the **two-session protocol** in `experiment-design.md` §1.
+
+---
+
+## Desk review (self-pilot) — completed
+
+A desk review of all 40 items was run before any human pilot. Checks and outcomes:
+
+| Check | Outcome |
+|-------|---------|
+| **Content validity** — every item maps to content the game actually teaches | ✅ after fix. **1 bug fixed:** Weber A5 originally used an *auditory* example; the game teaches only size/brightness/count, so it was rewritten to the size domain. |
+| **Isomorphism** — each A↔B pair tests the same concept, different surface | ✅ all 20 pairs (Weber ratio/formula/fraction/UI/scaling; Problem-Solving 3 strategies + problem-space + representation; Gestalt 5 principles; Miller capacity/chunking/STM-LTM/grouping/wizard). |
+| **Answer-leakage** vs the in-game assessment | ✅ Form A avoids the assessment's exact scenarios (no water-jug, notifications, caching-bug, credit-card, or breadcrumb items). |
+| **Distractor plausibility** — wrong options are non-trivial | ✅ distractors are real competing concepts, not filler. |
+| **Answer-key correctness** | ✅ re-checked against game explanations. |
+
+**Known limitations carried into the human pilot:**
+1. **Gestalt construct is narrow** — it is a 5-way "name the principle" classification, so Form A/B and the in-game assessment overlap heavily and items may be *too easy* (low discrimination). Consider adding 1–2 **application** items ("which principle would you *use* to group related form fields?") to add depth.
+2. **Some pre-test priming** of the in-game assessment is unavoidable for narrow constructs (Gestalt, Miller capacity). This is **controlled** — it affects all conditions equally — but note it.
+3. **Capacity items (Miller A1/B1)** are near-identical recall ("7±2") and may show a ceiling. Keep, but expect low discrimination.
+
+## Human pilot protocol (ready to run — closes gap #1)
+
+Run with **n ≈ 5** non-participants before the main study:
+1. Administer Form A then Form B for all 4 topics (no games — just the items).
+2. Record per item: **% correct (difficulty P)** and time-to-answer; collect a "was anything confusing?" free-text note per topic.
+3. **Flag for revision:** any item with P < 0.20 (too hard) or P > 0.95 (too easy/ceiling), discrimination D < 0.20, or ≥ 2 pilots marking it confusing.
+4. **Check A/B equivalence:** the two forms should have similar mean difficulty per topic — if Form A and Form B differ by > ~15 percentage points on a topic, rebalance that pair.
+5. Revise flagged items, then lock the banks for the main study.

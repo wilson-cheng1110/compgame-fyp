@@ -61,22 +61,40 @@ grouping (Gestalt), and memory capacity (Miller). Four also gives a clean
 
 ## 1. Session flow (participant timeline)
 
+**Per-topic gating (not batched).** For each topic the order is **Form A (pre) →
+[Understanding game if FLIP] → Assessment → Form B (post)**. Form B is taken
+immediately after that topic's assessment — never batched to the end, or topic-1
+knowledge decays before its post-test.
+
+**Two-session protocol (recommended)** — splits the ~90–100 min load so late-topic
+fatigue doesn't confound the result, and the gap enables an optional delayed-retention
+check.
+
+**Session 1 (~50 min)**
+
 | Step | Activity | ~Time |
 |------|----------|-------|
 | 1 | Intro + informed consent | 3 min |
-| 2 | Demographics + **signup pre-test** (baseline prior knowledge) | 5 min |
-| 2b | **Per-topic pre-test** (Form A) for the 4 topics (`quiz-item-banks.md`) | 5 min |
-| 3 | 4 topics, each an Understanding learning game (~10 min) — order counterbalanced | 40 min |
-| 4 | Assessment module per topic (secondary DV) | ~10 min |
-| 4b | **Per-topic post-test** (Form B) for the 4 topics | 5 min |
+| 2 | Demographics + **signup pre-test** (baseline) | 5 min |
+| 3 | **Topics 1 & 2**, each: Form A → [Understanding if FLIP] → Assessment → Form B + Paas load | ~38 min |
+
+**Session 2 (~50 min, 2–7 days later)**
+
+| Step | Activity | ~Time |
+|------|----------|-------|
+| 0 | *(optional)* delayed-retention: re-administer Session-1 Form B | 4 min |
+| 4 | **Topics 3 & 4**, each: Form A → [Understanding if FLIP] → Assessment → Form B + Paas load | ~38 min |
 | 5 | Short AI-tutor (chatbot) interaction | 5 min |
 | 6 | **Reflection** (open + Likert) | 3 min |
 | 7 | **Questionnaire** battery (motivation / interaction / satisfaction) | 10 min |
-| | **Total** | **~90–100 min** |
 
-> **Burden flag:** 4 topics pushes the session to ~90–100 min. Consider **two
-> sittings** or shorter Understanding games so fatigue on the later topics doesn't
-> confound the result.
+> **Single-session fallback:** all of the above in one ~90–100 min sitting with a
+> mandatory 5-min break after topic 2. Acceptable if scheduling two sessions is
+> infeasible, but disclose the fatigue risk.
+>
+> **Control-topic note:** for a CONTROL topic the Understanding game is skipped
+> (`played_understanding_first = false`); offer it *after* Form B for fairness — that
+> post-hoc play is not measured.
 
 > **Burden warning.** The session is already long. Do **not** administer full-length
 > IMMS (36) + CoI (34) + EGameFlow (42) = 110+ items, or participants satisfice and
@@ -339,6 +357,6 @@ source before submission; URLs are the retrieved ground truth.*
 
 - Every instrument and effect size is quoted from the linked published sources; **none have been re-validated on the COMPGame population** — the Cronbach's α re-reporting step is done with collected data.
 - The 12-item IMMS, CoI subscale selection, and EGameFlow trimming are **recommended adaptations** for survey burden, **not** drop-in validated short forms — report exactly which items were kept.
-- The 4 study topics' assessment formats and scoring were verified from the game code (§0). The pre/post item banks (`quiz-item-banks.md`) are content-aligned to that code but **not yet piloted** — pilot before the main study.
+- The 4 study topics' assessment formats and scoring were verified from the game code (§0). The pre/post item banks (`quiz-item-banks.md`) are content-aligned to that code and have passed a **desk review (self-pilot)** — one content-validity bug fixed (Weber A5). A **human pilot (n ≈ 5) protocol is documented and ready** in `quiz-item-banks.md`; run it to confirm difficulty/wording before the main study. The human pilot is the one step that genuinely needs participants and is not yet done.
 - van Alten (2019) full text was 403-blocked; its figures (114 studies; satisfaction g = 0.05, p = .73) are from the publisher portal + secondary reports — verify the exact learning-outcome g against the PDF.
 - Flipped-classroom effect sizes are highly heterogeneous (g = 0.05–1.2) — cite the range.
