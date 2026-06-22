@@ -69,11 +69,20 @@ export function AiChatWidget() {
       : ""
     const augmentedQuestion = contextPrefix + text.trim()
 
+    // Send the recent conversation so the tutor has multi-turn memory (follow-ups
+    // like "explain that more" need it). `messages` here is the state BEFORE this
+    // turn — exactly the prior history. Drop the canned greeting and backend-down
+    // error notices, and cap to the last 8 turns to bound payload + latency.
+    const priorHistory = messages
+      .filter((m) => m.id !== "welcome" && !m.content.startsWith("⚠️"))
+      .slice(-8)
+      .map((m) => ({ role: m.role === "user" ? "human" : "assistant", content: m.content }))
+
     try {
       const response = await fetch("http://localhost:8080/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: augmentedQuestion }),
+        body: JSON.stringify({ question: augmentedQuestion, history: priorHistory }),
       })
 
       if (!response.ok) throw new Error("Backend error")
@@ -100,7 +109,7 @@ export function AiChatWidget() {
     } finally {
       setIsLoading(false)
     }
-  }, [isLoading, currentTopic])
+  }, [isLoading, currentTopic, messages])
 
   // Keep a stable ref so the event listener below never needs to re-register
   const sendMessageRef = useRef(sendMessage)

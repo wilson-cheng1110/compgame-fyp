@@ -45,6 +45,15 @@ export default function ResultsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // This screen renders INSIDE the gestalt iframe (gestalt-assessment-wrapper).
+  // A plain <Link href="/dashboard"> navigates the IFRAME to /dashboard, which
+  // re-renders the whole app inside the game frame (and re-opens gestalt in a
+  // nested iframe → infinite loop). Break out to the top-level window instead.
+  // window.top === window when not framed, so this is safe everywhere.
+  const leaveToDashboard = () => {
+    ;(window.top ?? window).location.href = "/dashboard"
+  }
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen w-full bg-black p-2 md:p-4">
       {/* Left Panel — score */}
@@ -69,11 +78,12 @@ export default function ResultsScreen() {
                 RESTART
               </button>
             </Link>
-            <Link href="/dashboard">
-              <button className="font-pixelify-sans text-gray-400 text-sm hover:text-white transition-colors">
-                Dashboard
-              </button>
-            </Link>
+            <button
+              onClick={leaveToDashboard}
+              className="font-pixelify-sans text-gray-400 text-sm hover:text-white transition-colors"
+            >
+              Dashboard
+            </button>
           </div>
         </div>
       </div>
@@ -128,11 +138,12 @@ export default function ResultsScreen() {
                   Retake Quiz
                 </button>
               </Link>
-              <Link href="/dashboard" className="flex-1">
-                <button className="w-full bg-gray-700 text-white font-pixelify-sans text-sm py-2 px-3 rounded hover:bg-gray-600 transition">
-                  Back to Topics
-                </button>
-              </Link>
+              <button
+                onClick={leaveToDashboard}
+                className="flex-1 w-full bg-gray-700 text-white font-pixelify-sans text-sm py-2 px-3 rounded hover:bg-gray-600 transition"
+              >
+                Back to Topics
+              </button>
             </div>
           </div>
         </div>
