@@ -31,6 +31,13 @@ export function ReflectionDialog() {
   const [isLoading, setIsLoading] = useState(false)
   const [insight, setInsight] = useState(false) // ever reached understood===true
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  // Quality gate: only genuine, on-topic reflection turns advance the floor. The
+  // backend tags each turn with `counts` (false = off-topic/meta/spam). Spamming
+  // junk no longer unlocks Finish, and the per-turn record below cleans the
+  // paper's reflection-depth signal. `humanTurns` (raw) is still logged alongside.
+  const [countedTurns, setCountedTurns] = useState(0)
+  const [turnQuality, setTurnQuality] = useState<{ counts: boolean | null; understood: boolean | null }[]>([])
+  const [lastDidntCount, setLastDidntCount] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -39,7 +46,10 @@ export function ReflectionDialog() {
   const leaveRef = useRef<() => void>(() => {})
 
   const humanTurns = history.filter((t) => t.role === "human").length
-  const canFinish = humanTurns >= REFLECTION_FLOOR || insight
+  // Floor is gated on COUNTED (substantive) turns, not raw turns — so spam can't
+  // unlock Finish. Insight still short-circuits, and the floor stays soft (Leave
+  // is always available; nobody is ever trapped).
+  const canFinish = countedTurns >= REFLECTION_FLOOR || insight
 
   // Open from a `start-reflection` event ({topicId}) — dispatched by the
   // assessment debrief (auto) and the dashboard "Discuss with tutor" CTA (resume).
@@ -54,6 +64,9 @@ export function ReflectionDialog() {
       setHistory([{ role: "assistant", content: topic.reflectionQuestion }])
       setInsight(false)
       setErrorMsg(null)
+      setCountedTurns(0)
+      setTurnQuality([])
+      setLastDidntCount(false)
       setInput("")
       setIsOpen(true)
     }
@@ -118,10 +131,24 @@ export function ReflectionDialog() {
         const data = await res.json()
         setHistory((prev) => [...prev, { role: "assistant", content: data.response }])
         if (data.understood === true) setInsight(true)
+        // Quality gate: advance the floor only when the turn is a genuine on-topic
+        // reflection. Only an EXPLICIT `counts === false` blocks the increment, so
+        // a model hiccup (counts absent/null) never traps a real student.
+        const didCount = data.counts !== false
+        if (didCount) setCountedTurns((n) => n + 1)
+        setLastDidntCount(!didCount)
+        setTurnQuality((prev) => [
+          ...prev,
+          { counts: data.counts ?? null, understood: data.understood ?? null },
+        ])
       } catch {
-        // Resilience: the student's turn is kept (so it still counts toward the
-        // floor and they're never blocked), and we show the same graceful
-        // message the floating tutor uses. "Leave for now" stays enabled.
+        // Resilience: the student's turn is kept AND counts toward the floor (so
+        // they're never blocked when the backend is down — no quality signal is
+        // available to gate on), and we show the same graceful message the
+        // floating tutor uses. "Leave for now" stays enabled.
+        setCountedTurns((n) => n + 1)
+        setLastDidntCount(false)
+        setTurnQuality((prev) => [...prev, { counts: null, understood: null }])
         setErrorMsg(
           "⚠️ The AI tutor is offline right now, so it couldn't reply. Your response was saved — you can keep reflecting and try again in a moment, or leave and come back from your dashboard later.",
         )
@@ -136,6 +163,9 @@ export function ReflectionDialog() {
     setIsOpen(false)
     setTopicId(null)
     setHistory([])
+    setCountedTurns(0)
+    setTurnQuality([])
+    setLastDidntCount(false)
   }
 
   const finish = () => {
@@ -147,7 +177,9 @@ export function ReflectionDialog() {
       topic_id: topicId,
       // Full transcript goes to the SERVER sink (the paper needs it); only the
       // lightweight summary lands in localStorage via recordReflection.
-      meta: { turns: humanTurns, insight, endReason, transcript: history },
+      // `countedTurns` + `turnQuality` are the cleaned reflection-depth signal
+      // (substantive on-topic turns), distinct from raw `turns`.
+      meta: { turns: humanTurns, countedTurns, insight, endReason, transcript: history, turnQuality },
     })
     close()
   }
@@ -238,7 +270,9 @@ export function ReflectionDialog() {
           <span className="font-pixelify-sans text-xs text-gray-600">
             {canFinish
               ? "You've reflected enough — finish, or keep going."
-              : `Reflect a little more to finish (${humanTurns}/${REFLECTION_FLOOR} responses).`}
+              : lastDidntCount
+                ? `That one drifted off-topic — reflecting on ${topicTitle} is what moves you forward (${countedTurns}/${REFLECTION_FLOOR}).`
+                : `Reflect a little more to finish (${countedTurns}/${REFLECTION_FLOOR} responses).`}
           </span>
         </div>
 
