@@ -100,6 +100,13 @@ Target: a coherent **learning journey** — the avatar + identity persists acros
 - Must be running locally on port 8080 before frontend can answer questions
 - Ollama must have `gemma4` and `nomic-embed-text` pulled
 - CORS allows all origins (demo/dev setting — acceptable for FYP)
+- The prebuilt vector DB (`hci_chroma_db_local/`) **and** the COMP3423 lecture PDFs are
+  **committed to the repo** (intentional, Wilson 2026-06-18) so a fresh clone runs RAG with no
+  out-of-band files. They are NOT gitignored. If the DB goes empty/missing, restore with
+  `git checkout -- backend/` or rebuild from the committed PDFs via `python rebuild_db.py`.
+- Retrieval is a BM25+vector ensemble at k=12 per leg. `/api/ask` retrieves on the **current
+  question only** (prior turns stay as LLM context, never in the retrieval query — folding the
+  previous answer in buries the right slide).
 
 ### Game structure pattern
 Each game folder has: `layout.tsx` + `page.tsx` + `StartMenuClient.tsx` + `game/` subdir
