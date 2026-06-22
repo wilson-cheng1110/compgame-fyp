@@ -44,11 +44,14 @@ FYP_Submission/
         export-data/     # GET — exports user data as JSON
     components/
       ai-chat-widget.tsx # Floating RAG chatbot (calls localhost:8080)
+      reflection-dialog.tsx # Post-game reflection prompt (open + Likert)
       game-card.tsx
+      game-debrief.tsx   # End-of-game debrief + completion recording
       game-layout.tsx    # Shared wrapper for games (auth check, nav)
     lib/
-      store.ts           # Zustand store (user, badges, login/signup/logout)
+      user-store.ts      # Zustand store (user, badges, login/signup/logout) — was store.ts
       badge-context.tsx  # React context for badge state
+      progress-context.tsx # Per-topic progress + research-sink mirroring
       browser-utils.ts
       navigation.ts
 ```
