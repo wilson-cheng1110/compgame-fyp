@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useProgress } from "@/lib/progress-context"
 import { useBadges } from "@/lib/badge-context"
+import { getTopicFromGameId } from "@/lib/topic-definitions"
 
 // ── Course-accurate content for each topic ────────────────────────────────────
 
@@ -292,6 +293,18 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
       const name = `${content.topicTitle} (${"★".repeat(stars)}${"☆".repeat(5 - stars)})`
       addBadge(gameId, name, stars)
       setTimeout(refreshBadges, 300)
+      // Weave the AI tutor into the flip-learning loop: auto-open a short Socratic
+      // reflection on the topic just tested. Soft-gated — the dialog always lets
+      // the student leave (and resume later from the dashboard), so it never
+      // blocks them even if the Ollama backend is down.
+      const topic = getTopicFromGameId(gameId)
+      if (topic) {
+        const topicId = topic.topicId
+        setTimeout(
+          () => window.dispatchEvent(new CustomEvent("start-reflection", { detail: { topicId } })),
+          600,
+        )
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -359,6 +372,20 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
             className="flex-1 bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-3 px-4 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             {content.nextGameLabel ?? "Next →"}
+          </button>
+        )}
+        {isAssessment && (
+          <button
+            onClick={() => {
+              const topic = getTopicFromGameId(gameId)
+              if (topic)
+                window.dispatchEvent(
+                  new CustomEvent("start-reflection", { detail: { topicId: topic.topicId } }),
+                )
+            }}
+            className="flex-1 bg-[#7c3aed] border-2 border-black text-white font-press-start-2p text-[10px] py-3 px-4 hover:bg-[#6d28d9] transition-colors shadow-[3px_3px_0px_0px_#4c1d95]"
+          >
+            ⭐ Reflect with Tutor
           </button>
         )}
         <button

@@ -7,6 +7,8 @@ export const TOPICS = [
     icon: "🎯",
     understandingGameId: "fitts-law-understanding",
     assessmentGameId: "fitts-law-assessment",
+    reflectionQuestion:
+      "You found that bigger, closer targets are faster to hit — so why don't designers just make every button huge? Where does that logic break down?",
   },
   {
     id: "gestalt",
@@ -16,6 +18,8 @@ export const TOPICS = [
     icon: "👁️",
     understandingGameId: "gestalt-understanding",
     assessmentGameId: "gestalt-assessment",
+    reflectionQuestion:
+      "Your eye grouped those shapes automatically, without you deciding to. If grouping is automatic, can a designer ever truly switch it off — or only redirect it?",
   },
   {
     id: "hicks-law",
@@ -25,6 +29,8 @@ export const TOPICS = [
     icon: "⚡",
     understandingGameId: "hicks-law-understanding",
     assessmentGameId: "hicks-law-assessment",
+    reflectionQuestion:
+      "More choices slowed you down. Yet a menu of 3 options isn't always better than one with 30 — when would adding choices actually help the user?",
   },
   {
     id: "memory",
@@ -34,6 +40,8 @@ export const TOPICS = [
     icon: "🧠",
     understandingGameId: "memory-understanding",
     assessmentGameId: "memory-assessment",
+    reflectionQuestion:
+      "You could hold about 7 items but not 12 — yet phone numbers are longer than that and we still remember them. What did chunking actually change about the limit?",
   },
   {
     id: "stroop",
@@ -43,6 +51,8 @@ export const TOPICS = [
     icon: "🚦",
     understandingGameId: "stroop-understanding",
     assessmentGameId: "stroop-assessment",
+    reflectionQuestion:
+      "Reading the word fought against naming its colour. What does that conflict reveal about which process is automatic — and why does consistency in a UI matter because of it?",
   },
   {
     id: "webers-law",
@@ -52,6 +62,8 @@ export const TOPICS = [
     icon: "🔍",
     understandingGameId: "webers-law-understanding",
     assessmentGameId: "webers-law-assessment",
+    reflectionQuestion:
+      "You only noticed the change when it was big enough relative to the original. So is a $5 discount 'noticeable'? On what does your answer actually depend?",
   },
   {
     id: "norman",
@@ -61,6 +73,8 @@ export const TOPICS = [
     icon: "🔄",
     understandingGameId: "norman-understanding",
     assessmentGameId: "norman-assessment",
+    reflectionQuestion:
+      "You found where the interaction broke in the action cycle. Was the failure in forming the goal, executing it, or evaluating the result — and how would you tell those apart?",
   },
   {
     id: "mental-model",
@@ -70,6 +84,8 @@ export const TOPICS = [
     icon: "🗺️",
     understandingGameId: "mental-model-understanding",
     assessmentGameId: "mental-model-assessment",
+    reflectionQuestion:
+      "You predicted what the system would do before touching it. Where did that prediction come from if you'd never used it before — what built your mental model?",
   },
   {
     id: "problem-solving",
@@ -79,6 +95,8 @@ export const TOPICS = [
     icon: "🧩",
     understandingGameId: "problem-solving-understanding",
     assessmentGameId: "problem-solving-assessment",
+    reflectionQuestion:
+      "You searched for the solution rather than seeing it instantly. What made a good representation 'good' — what did it remove from the search space?",
   },
   {
     id: "visual-perception",
@@ -88,6 +106,8 @@ export const TOPICS = [
     icon: "🌈",
     understandingGameId: "visual-perception-understanding",
     assessmentGameId: "visual-perception-assessment",
+    reflectionQuestion:
+      "Your brain 'saw' things that weren't physically on the screen. If perception is partly constructed, can a UI ever be 'objectively' clear — or only clear for a given viewer?",
   },
   {
     id: "language",
@@ -97,6 +117,8 @@ export const TOPICS = [
     icon: "💬",
     understandingGameId: "language-understanding",
     assessmentGameId: "language-assessment",
+    reflectionQuestion:
+      "The same sentence had two valid meanings. If language is inherently ambiguous, how does a person — or an interface — ever pick the intended one reliably?",
   },
   {
     id: "ergonomics",
@@ -106,6 +128,8 @@ export const TOPICS = [
     icon: "🪑",
     understandingGameId: "ergonomics-understanding",
     assessmentGameId: "ergonomics-assessment",
+    reflectionQuestion:
+      "A device that fit one person's hand strained another's. Is there such a thing as an 'ergonomic' design in the abstract — or only ergonomic for whom?",
   },
   {
     id: "experiment-design",
@@ -115,6 +139,8 @@ export const TOPICS = [
     icon: "🔬",
     understandingGameId: "experiment-design-understanding",
     assessmentGameId: "experiment-design-assessment",
+    reflectionQuestion:
+      "You spotted a confound that could explain the result instead of the independent variable. If you can never rule out every confound, what makes one experiment more trustworthy than another?",
   },
 ]
 
@@ -129,6 +155,13 @@ export interface TopicProgress {
   assessmentScore: number | null
   // KEY flip-learning metric for the paper
   playedUnderstandingFirst: boolean
+  // Socratic post-assessment reflection. Only a lightweight summary is stored
+  // client-side (the full transcript goes to the server research sink, never to
+  // localStorage — we just fixed a 4 KB overflow and won't re-bloat the blob).
+  reflectionCompleted: boolean
+  reflectionCompletedAt: string | null
+  reflectionTurns: number
+  reflectionInsight: boolean
 }
 
 export type AllTopicProgress = Partial<Record<TopicId, TopicProgress>>
@@ -149,5 +182,9 @@ export function getDefaultTopicProgress(): TopicProgress {
     assessmentCompletedAt: null,
     assessmentScore: null,
     playedUnderstandingFirst: false,
+    reflectionCompleted: false,
+    reflectionCompletedAt: null,
+    reflectionTurns: 0,
+    reflectionInsight: false,
   }
 }

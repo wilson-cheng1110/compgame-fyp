@@ -5,6 +5,7 @@ import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import { BadgeProvider } from "@/lib/badge-context"
 import { ProgressProvider } from "@/lib/progress-context"
 import { AiChatWidget } from "@/components/ai-chat-widget"
+import { ReflectionDialog } from "@/components/reflection-dialog"
 
 const pixelifySans = Pixelify_Sans({
   weight: ["400", "500", "600", "700"],
@@ -37,6 +38,9 @@ export default function RootLayout({
         <BadgeProvider>
           <ProgressProvider>
             {children}
+            {/* Mounted inside ProgressProvider — it calls useProgress to persist
+                the reflection summary. Listens globally for "start-reflection". */}
+            <ReflectionDialog />
           </ProgressProvider>
         </BadgeProvider>
         <AiChatWidget />

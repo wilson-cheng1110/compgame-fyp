@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
+import { getUsers, setUsers } from "@/lib/user-store"
 import { ChevronRight, ChevronLeft } from "lucide-react"
 
 const pixelifySans = Pixelify_Sans({
@@ -80,14 +81,11 @@ export default function AvatarSelectionPage() {
       userData.avatarId = avatars[currentAvatar].id
       Cookies.set("user", JSON.stringify(userData), { expires: 7 })
 
-      // Update in users storage too
-      const existingUsers = Cookies.get("users")
-      if (existingUsers) {
-        const users = JSON.parse(existingUsers)
-        if (users[userData.email]) {
-          users[userData.email].avatarId = avatars[currentAvatar].id
-          Cookies.set("users", JSON.stringify(users), { expires: 365 })
-        }
+      // Update in users storage too (keyed by SID — the user cookie has no email)
+      const users = getUsers()
+      if (users[userData.sid]) {
+        users[userData.sid].avatarId = avatars[currentAvatar].id
+        setUsers(users)
       }
     }
 

@@ -36,6 +36,12 @@ export default function ResultsScreen() {
     const name = `Gestalt Principles (${"★".repeat(stars)}${"☆".repeat(5 - stars)})`
     addBadge("gestalt-assessment", name, stars)
     setTimeout(refreshBadges, 300)
+    // Gestalt doesn't use GameDebrief, so trigger the Socratic reflection here so
+    // all 13 assessments are covered. ReflectionDialog (mounted in layout) opens.
+    setTimeout(
+      () => window.dispatchEvent(new CustomEvent("start-reflection", { detail: { topicId: "gestalt" } })),
+      600,
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

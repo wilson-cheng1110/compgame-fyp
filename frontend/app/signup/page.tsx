@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
+import { getUsers, setUsers } from "@/lib/user-store"
 import { logResearchEvent } from "@/lib/research-log"
 
 const pixelifySans = Pixelify_Sans({
@@ -119,8 +120,7 @@ export default function SignupPage() {
     setError("")
     if (!sid || !password) { setError("Please fill in all fields"); return }
 
-    const existingUsers = Cookies.get("users")
-    const users = existingUsers ? JSON.parse(existingUsers) : {}
+    const users = getUsers()
     if (users[sid]) { setError("This Student ID is already registered"); return }
 
     setStep("pretest")
@@ -138,8 +138,7 @@ export default function SignupPage() {
     // Allow skipping unanswered questions — treat as -1 (not wrong, just missing)
     const score = answers.reduce((acc, a, i) => acc + (a === PRE_TEST[i].correct ? 1 : 0), 0)
 
-    const existingUsers = Cookies.get("users")
-    const users = existingUsers ? JSON.parse(existingUsers) : {}
+    const users = getUsers()
 
     users[sid] = {
       sid,
@@ -153,7 +152,7 @@ export default function SignupPage() {
       preTestCompletedAt: new Date().toISOString(),
     }
 
-    Cookies.set("users", JSON.stringify(users), { expires: 365 })
+    setUsers(users)
     Cookies.set(
       "user",
       JSON.stringify({

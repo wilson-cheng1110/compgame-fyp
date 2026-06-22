@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
+import { getUsers } from "@/lib/user-store"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
@@ -97,8 +98,7 @@ export default function DashboardPage() {
   const handleExportData = () => {
     if (!user?.sid) return
     try {
-      const usersRaw = Cookies.get("users")
-      const users = usersRaw ? JSON.parse(usersRaw) : {}
+      const users = getUsers()
       const userData = users[user.sid] ?? {}
 
       const exportData = {
@@ -286,6 +286,31 @@ export default function DashboardPage() {
                           </div>
                         </Link>
                       </div>
+
+                      {/* Reflection CTA — the resume path. Once the assessment
+                          is done, nudge a Socratic reflection; if skipped/left,
+                          this stays so the student can come back to it. */}
+                      {aDone && (
+                        <div className="mt-3 pt-3 border-t border-dashed border-gray-300">
+                          {tp.reflectionCompleted ? (
+                            <p className="font-pixelify-sans text-xs text-purple-600 font-bold flex items-center gap-1">
+                              {tp.reflectionInsight && <span title="Deep Insight">⭐</span>}
+                              Reflected with the tutor ✓
+                            </p>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                window.dispatchEvent(
+                                  new CustomEvent("start-reflection", { detail: { topicId: topic.id } }),
+                                )
+                              }
+                              className="w-full bg-[#7c3aed]/10 border-2 border-[#7c3aed] text-[#6d28d9] font-press-start-2p text-[10px] py-2.5 hover:bg-[#7c3aed]/20 transition-colors rounded-lg"
+                            >
+                              💬 Discuss with tutor
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {/* AI hint for active topic */}
                       {isActive && (
