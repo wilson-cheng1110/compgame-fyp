@@ -28,14 +28,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_community.vectorstores import Chroma
-# langchain 1.x moved the retrieval/combine helper chains into langchain_classic.
-# (Under langchain 0.x these lived at langchain.chains.* — which no longer exists.)
-from langchain_classic.chains.retrieval import create_retrieval_chain
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-# Rephrases a follow-up ("explain that more") into a standalone question using the
-# chat history BEFORE retrieval — this is what gives the general tutor real
-# multi-turn memory instead of treating every message as a cold start.
-from langchain_classic.chains.history_aware_retriever import create_history_aware_retriever
 # Hybrid retrieval: semantic (vector) + lexical (BM25), ensembled. nomic-embed
 # is very phrasing-sensitive — a query naming "Fitts Law" embeds toward generic
 # intro slides and misses the device-evaluation slide that actually holds the
@@ -44,7 +36,6 @@ from langchain_classic.chains.history_aware_retriever import create_history_awar
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_core.documents import Document
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 import json
 import re
@@ -65,8 +56,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global variable to store the chain so we don't reload it for every request
-rag_chain = None
+# Built once at startup. /api/ask drives retrieval + the LLM manually (rather
+# than a prebuilt LangChain retrieval chain) so a follow-up's retrieval query can
+# include the recent conversation WITHOUT relying on the small local model to
+# rephrase it — that rephrase step was unreliable and made follow-ups wrongly
+# answer "I don't know".
+rag_retriever = None
+rag_llm = None
 # Socratic reflection uses the SAME retriever but a separate, warmer LLM (so its
 # follow-up questions don't repeat). Both are built once at startup.
 socratic_retriever = None
@@ -135,7 +131,7 @@ def build_retriever(vectorstore):
     # Vector (semantic) leg.
     vector_retriever = vectorstore.as_retriever(
         search_type="similarity",
-        search_kwargs={"k": 8},
+        search_kwargs={"k": 12},
     )
     # BM25 (lexical) leg — built from the chunks already in the collection, so
     # there's no second source of truth to keep in sync.
@@ -158,7 +154,7 @@ def build_retriever(vectorstore):
             f"and '{OLLAMA_LLM}' pulled."
         )
     bm25_retriever = BM25Retriever.from_documents(bm25_docs)
-    bm25_retriever.k = 8
+    bm25_retriever.k = 12
 
     return EnsembleRetriever(
         retrievers=[bm25_retriever, vector_retriever],
@@ -166,48 +162,28 @@ def build_retriever(vectorstore):
     )
 
 
-def get_rag_chain():
+RAG_SYSTEM_PROMPT = (
+    "You are an expert teaching assistant for the COMP3423 Human-Computer Interaction course. "
+    "Use the retrieved context from the professor's lecture slides to answer the question. "
+    "Use the conversation history so your answer follows on naturally from what was already discussed. "
+    "If the context does not contain the answer, say you don't know rather than inventing information. "
+    "You are simply 'the HCI tutor' — you have no model name, vendor, or company to share. If asked who or "
+    "what you are, who made you, your model, or your company, do not name any model or company; just say you "
+    "are their HCI tutor and steer back to the course. "
+    "Keep the answer concise and highly relevant to the context.\n\n"
+    "Context:\n{context}"
+)
+
+
+def get_rag_components():
+    """Returns (llm, retriever). /api/ask drives retrieval + prompting manually
+    (same pattern as the Socratic endpoint) so the retrieval query can fold in
+    recent conversation deterministically — no fragile LLM rephrase step."""
     print(f"🔌 Initializing database and Ollama '{OLLAMA_LLM}' model...")
     vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING))
     llm = ChatOllama(model=OLLAMA_LLM, temperature=0)
-
     retriever = build_retriever(vectorstore)
-
-    # History-aware retrieval: rephrase a follow-up into a standalone question
-    # using the chat history, THEN retrieve. Without this, "explain that more"
-    # retrieves on the literal words "explain that more" and loses the subject —
-    # the "general tutor has no context" complaint. With empty history it's a
-    # no-op (returns the question unchanged).
-    contextualize_prompt = ChatPromptTemplate.from_messages([
-        ("system",
-         "Given the conversation so far and the student's latest message, rewrite it "
-         "as a standalone question that captures what they are really asking. If it is "
-         "already standalone, return it unchanged. Do NOT answer it — only rephrase."),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ])
-    history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_prompt)
-
-    system_prompt = (
-        "You are an expert teaching assistant for the COMP3423 Human-Computer Interaction course. "
-        "Use the following pieces of retrieved context from the professor's lecture slides to answer the question. "
-        "Use the conversation history so your answer follows on naturally from what was already discussed. "
-        "If you don't know the answer, just say that you don't know. Do not make up information. "
-        "You are simply 'the HCI tutor' — you have no model name, vendor, or company to share. If asked who or "
-        "what you are, who made you, your model, or your company, do not name any model or company; just say you "
-        "are their HCI tutor and steer back to the course. "
-        "Keep the answer concise and highly relevant to the context.\n\n"
-        "Context: {context}"
-    )
-
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ])
-
-    question_answer_chain = create_stuff_documents_chain(llm, prompt)
-    return create_retrieval_chain(history_aware_retriever, question_answer_chain)
+    return llm, retriever
 
 
 # Socratic system prompt. The model must NOT hand over answers — it probes until
@@ -256,7 +232,7 @@ def get_socratic_chain():
 
 @app.on_event("startup")
 async def startup_event():
-    global rag_chain, socratic_llm, socratic_retriever
+    global rag_llm, rag_retriever, socratic_llm, socratic_retriever
     # Research-event store is independent of the RAG model — init it first so
     # data collection works even if Ollama/Chroma fails to load.
     research_store.init_db()
@@ -264,23 +240,23 @@ async def startup_event():
     # Load the model into memory when the server starts. Don't let an Ollama/
     # Chroma failure crash the whole server — the research sink must stay up.
     try:
-        rag_chain = get_rag_chain()
+        rag_llm, rag_retriever = get_rag_components()
         socratic_llm, socratic_retriever = get_socratic_chain()
         print("✅ API Server is ready to receive questions!")
     except Exception as e:
-        rag_chain = None
+        rag_llm = rag_retriever = None
         socratic_llm = socratic_retriever = None
         print(f"⚠️  RAG model failed to load ({e}). /api/ask + /api/socratic disabled; research sink still active.")
 
 @app.post("/api/ask")
 async def ask_question(req: QuestionRequest):
-    if not rag_chain:
+    if not rag_llm or not rag_retriever:
         raise HTTPException(status_code=500, detail="RAG system is not initialized yet.")
-    
+
     try:
         print(f"🤔 Received question: {req.question}")
-        # Rebuild the prior turns as LangChain messages so retrieval + answer are
-        # history-aware. Tolerant of "user"/"ai" aliases the widget may send.
+        # Rebuild the prior turns as LangChain messages so the answer is
+        # conversational. Tolerant of "user"/"ai" aliases the widget may send.
         chat_history = []
         for m in (req.history or []):
             content = m.get("content", "")
@@ -290,15 +266,32 @@ async def ask_question(req: QuestionRequest):
                 chat_history.append(HumanMessage(content=content))
             else:
                 chat_history.append(AIMessage(content=content))
-        response = rag_chain.invoke({"input": req.question, "chat_history": chat_history})
 
-        # Deduplicate sources
-        sources = set([f"{os.path.basename(doc.metadata['source'])} (Page {doc.metadata['page']})" for doc in response['context']])
+        # Retrieve on the CURRENT question alone — the prior turns stay in
+        # `chat_history` for conversational phrasing but are deliberately kept OUT
+        # of the retrieval query. Measured: folding the previous AI answer into the
+        # query buries the right slide (its verbose, off-vocabulary wording —
+        # "motor output, Shannon's theory" — outranks the example slide and BM25
+        # never recovers it, even at k=16). Retrieving on just "a real UI example
+        # of that" lets the example slide surface at k=12. (This replaces an LLM
+        # rephrase step the small local model did unreliably, which made follow-ups
+        # wrongly answer "I don't know".)
+        docs = rag_retriever.invoke(req.question)
+        context = "\n\n".join(d.page_content for d in docs)
 
+        messages = [SystemMessage(content=RAG_SYSTEM_PROMPT.format(context=context))]
+        messages.extend(chat_history)
+        messages.append(HumanMessage(content=req.question))
+        result = rag_llm.invoke(messages)
+
+        sources = sorted({
+            f"{os.path.basename(d.metadata['source'])} (Page {d.metadata['page']})"
+            for d in docs if d.metadata.get("source")
+        })
         return {
             # Strip any leaked backend-model identity before it reaches the student.
-            "answer": _scrub_identity(response['answer']),
-            "sources": sorted(list(sources))
+            "answer": _scrub_identity(result.content),
+            "sources": sources,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -414,5 +407,15 @@ async def research_export(format: str = "json"):
 
 if __name__ == "__main__":
     import uvicorn
-    # Run the server on port 8080 to avoid conflicts
-    uvicorn.run("rag_api:app", host="0.0.0.0", port=8080, reload=True)
+    # Run the server on port 8080 to avoid conflicts. reload=True is a dev
+    # convenience, but the auto-reloader watches the whole folder — and Chroma
+    # writes hci_chroma_db_local/chroma.sqlite3 (+ WAL) on every query, which
+    # would trip a reload MID-REQUEST and drop in-flight answers. Exclude the
+    # vector DB and logs so only real code edits trigger a reload.
+    uvicorn.run(
+        "rag_api:app",
+        host="0.0.0.0",
+        port=8080,
+        reload=True,
+        reload_excludes=["hci_chroma_db_local/*", "*.sqlite3", "*.sqlite3-*", "*.log"],
+    )
