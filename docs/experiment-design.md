@@ -268,6 +268,11 @@ All Likert **1–5** (or 1–7) for comparability. Don't double-count satisfacti
 
 The study reuses instrumentation that is **already built** — no schema migration needed.
 
+> **Staging (decision 2026-06-22):** the new survey `event_type`s below are **Stage 2
+> (wide rollout)** work. **Stage 1 is a focus group** — the pre/post quizzes (Form A/B)
+> and the questionnaire are run **externally via Google Form / paper**, NOT wired into
+> the app. Wire the in-app gates only when scaling to the next batch of students.
+
 **Pre-test (exists):** `app/signup/page.tsx` → `preTestScore` / `preTestAnswers` in
 `lib/user-store.ts`, plus `event_type: "pre_test_complete"`.
 
