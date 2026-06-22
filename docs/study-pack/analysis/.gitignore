@@ -1,0 +1,6 @@
+# Participant data must NOT be committed (public repo; consent promises secure storage).
+responses/*.csv
+responses/*.xlsx
+out/
+__pycache__/
+*.pyc

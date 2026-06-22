@@ -1,0 +1,104 @@
+{
+  "_comment": "Scoring source of truth for analyze.py. MUST stay in sync with the forms (build-forms.gs) and the participant docs (../03, ../04, ../05). Concept values are the CORRECT option text per item; matching is normalization-tolerant (curly quotes, en/em dashes, whitespace, case).",
+  "concept": {
+    "weber": {
+      "name": "Weber's Law",
+      "A": {
+        "A1": "The detectable difference depends on the ratio of the change to the original size, not the absolute change",
+        "A2": "The smallest change in the stimulus that can just be detected (the JND)",
+        "A3": "8% of the original brightness",
+        "A4": "The 1% change is far below the just-noticeable difference - the ratio is too small to perceive",
+        "A5": "10 -> 14, because +4px is a larger fraction of the original size",
+        "A6": "a roughly constant percentage of the current level"
+      },
+      "B": {
+        "B1": "The detectable difference depends on the ratio of the change to the original weight, not the absolute change",
+        "B2": "A constant fraction that stays roughly the same for a given sense",
+        "B3": "10% of the original size",
+        "B4": "The change is below the brightness JND (about 8%), so the state change cannot be perceived",
+        "B5": "10 -> 12, because it is a larger fraction of the original count",
+        "B6": "a roughly constant ratio (percentage) between consecutive sizes"
+      }
+    },
+    "ps": {
+      "name": "Problem Solving",
+      "A": {
+        "A1": "Means-end analysis",
+        "A2": "Working backwards",
+        "A3": "Analogical reasoning",
+        "A4": "Initial state, goal state, and operators",
+        "A5": "A good representation exposes useful sub-goals and shrinks the search space",
+        "A6": "operators - the available actions that move you from one state to another"
+      },
+      "B": {
+        "B1": "Means-end analysis",
+        "B2": "Working backwards",
+        "B3": "Analogical reasoning",
+        "B4": "Starting state, target state, and the available actions (operators)",
+        "B5": "Changing the representation can turn a hard problem into an easy one",
+        "B6": "operators - the available actions you can take"
+      }
+    },
+    "gestalt": {
+      "name": "Gestalt Principles",
+      "A": {
+        "A1": "Proximity",
+        "A2": "Similarity",
+        "A3": "Closure",
+        "A4": "Continuity",
+        "A5": "Symmetry",
+        "A6": "Proximity"
+      },
+      "B": {
+        "B1": "Proximity",
+        "B2": "Similarity",
+        "B3": "Closure",
+        "B4": "Continuity",
+        "B5": "Symmetry",
+        "B6": "Proximity"
+      }
+    },
+    "miller": {
+      "name": "Miller's Law",
+      "A": {
+        "A1": "7 +/- 2",
+        "A2": "Chunking (11 digits grouped into 3 chunks)",
+        "A3": "STM holds about 7 +/- 2 items briefly; LTM stores knowledge effectively permanently",
+        "A4": "5 labelled categories of 3-4 options each",
+        "A5": "Each labelled group becomes a single chunk, lowering the number of items STM must track",
+        "A6": "about 15-30 seconds"
+      },
+      "B": {
+        "B1": "7 +/- 2",
+        "B2": "Chunking (12 characters grouped into 3 chunks)",
+        "B3": "STM holds a few items briefly; LTM stores knowledge permanently and with vast capacity",
+        "B4": "group them into about 5 labelled sections",
+        "B5": "Break it into a few grouped stages with progress indicators, so each stage is one chunk",
+        "B6": "duration (about 20-30 seconds)"
+      }
+    }
+  },
+  "topic_order": ["weber", "ps", "gestalt", "miller"],
+  "questionnaire": {
+    "likert_min": 1,
+    "likert_max": 5,
+    "reverse_items": ["M9", "M11"],
+    "subscales": {
+      "imi_ie": ["M1", "M5", "M9"],
+      "imi_pc": ["M2", "M6", "M10"],
+      "imi_ei": ["M3", "M7", "M11"],
+      "imi_vu": ["M4", "M8", "M12"],
+      "imi_total": ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12"],
+      "coi_tp": ["I1", "I2", "I3", "I4"],
+      "coi_sp": ["I5", "I6", "I7", "I8"],
+      "arcs_s": ["S1", "S2", "S3", "S4", "S5"],
+      "arcs_global": ["G1", "G2", "G3"],
+      "reflection_rl": ["RL1", "RL2", "RL3", "RL4"]
+    }
+  },
+  "paas": {
+    "min": 1,
+    "max": 9,
+    "topics": ["weber", "ps", "gestalt", "miller"]
+  }
+}
