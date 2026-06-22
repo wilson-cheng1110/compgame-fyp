@@ -140,18 +140,17 @@ def build_retriever(vectorstore):
         Document(page_content=t, metadata=m)
         for t, m in zip(collection["documents"], collection["metadatas"])
     ]
-    # A fresh clone has NO vector DB (hci_chroma_db_local/ is gitignored as a
-    # generated artifact, and the source PDFs are gitignored too — PolyU
-    # copyright). An empty collection makes BM25 fail with a cryptic
-    # "not enough values to unpack" error, so surface the real cause + the fix.
+    # The prebuilt DB and the lecture PDFs are intentionally committed (see the
+    # .gitignore NOTE), so a fresh clone has them. An empty collection therefore
+    # means the DB was deleted/corrupted locally — BM25 would otherwise fail with
+    # a cryptic "not enough values to unpack", so surface the real cause + fix.
     if not bm25_docs:
         raise RuntimeError(
-            f"Vector DB at '{DB_DIR}' is empty/missing. This repo does not ship "
-            f"the DB or the lecture PDFs. Either: (a) get the prebuilt "
-            f"'{DB_DIR}' folder from a teammate and drop it in backend/, or "
-            f"(b) put the COMP3423 lecture PDFs in backend/ and run "
-            f"'python rebuild_db.py'. Also ensure Ollama has '{OLLAMA_EMBEDDING}' "
-            f"and '{OLLAMA_LLM}' pulled."
+            f"Vector DB at '{DB_DIR}' is empty/missing. The repo ships the "
+            f"prebuilt DB and the COMP3423 PDFs, so restore them from git "
+            f"(git checkout -- backend/), or rebuild from the committed PDFs "
+            f"with 'python rebuild_db.py'. Also ensure Ollama has "
+            f"'{OLLAMA_EMBEDDING}' and '{OLLAMA_LLM}' pulled."
         )
     bm25_retriever = BM25Retriever.from_documents(bm25_docs)
     bm25_retriever.k = 12
