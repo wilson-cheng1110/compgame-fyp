@@ -124,10 +124,11 @@ Assessment games: scored quiz/challenge → badge awarded on completion
 - Price prediction or unrelated features
 
 ## Paper experiment design — full plan in `FYP_Submission/docs/`
-See `docs/experiment-design.md` + `docs/quiz-item-banks.md` (validated instruments, meta-analytic evidence dossier, APA refs, pre/post item banks).
+See `docs/experiment-design.md` + `docs/quiz-item-banks.md` (validated instruments, meta-analytic evidence dossier, APA refs, pre/post item banks). **Ready-to-administer Stage-1 pack: `docs/study-pack/`** (info sheet/consent, demographics, H1 concept inventory 6-item Form A/B, H2 IMI + H3 CoI + H4 ARCS battery, reflection + Paas, scoring keys/codebook/analysis, facilitator protocol).
 
 Goal: measure whether the Understanding-then-Assessment (flip) sequence improves learning vs assessment-only.
-- **Design**: within-subjects, counterbalanced (Latin square). **4 study topics** — Weber's Law, Problem Solving, Gestalt, Miller's Law — split **2 FLIP / 2 CONTROL** per participant.
+- **Design — Stage 1 (current, Wilson 2026-06-23): one-group pretest–posttest, NO control.** A focus-group simplification that **overrides** the within-subjects 2-FLIP/2-CONTROL Latin-square below — a clean counterbalanced control isn't feasible at focus-group N. H1 is now a within-person pre→post gain; H2–H4 single post administrations. Limitation (no counterfactual; Campbell & Stanley) disclosed in `docs/study-pack/00_README.md` addendum + `06_scoring-codebook-analysis.md` §A. The 2-FLIP/2-CONTROL design returns at **Stage 2**.
+- **Design (Stage 2 / locked plan)**: within-subjects, counterbalanced (Latin square). **4 study topics** — Weber's Law, Problem Solving, Gestalt, Miller's Law — split **2 FLIP / 2 CONTROL** per participant.
 - **IV**: `played_understanding_first` (recorded per topic, already in the research sink).
 - **DV (primary)**: normalized gain ⟨g⟩ from a uniform conceptual pre/post (Form A/B). **Secondary**: in-game assessment score, duration, attempts. (Weber's in-game assessment is *perceptual*, not a knowledge quiz → a separate behavioral measure.)
 - **Constructs + instruments (LOCKED 2026-06-22)**: four co-equal — performance (concept inventory Form A/B + Hake gain), motivation (IMI), interaction (CoI *reworded* "instructor"→"game + AI tutor"; non-validated adaptation, exploratory), satisfaction (ARCS-S, null-expected) + reflection (open + Likert) + Paas load bonus. Dropped on purpose: IMMS, standalone TAM, EGameFlow. H1–H4 framed exploratory, Holm–Bonferroni corrected. Full matrix in `docs/experiment-design.md` §3.
