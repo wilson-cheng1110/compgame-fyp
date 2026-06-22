@@ -35,17 +35,27 @@
 | 🪑 | Ergonomics & I/O Devices (`ergonomics`) | fitting devices to the body |
 | 🔬 | HCI Experiment Design (`experiment-design`) | IV/DV, between vs within, counterbalancing |
 
-**Recommended 3 for the study: Fitts' Law, Hick's Law, Principle of Consistency
-(Stroop).** All three are quantitative, reaction-time human-performance laws — the
-Understanding game builds *felt* intuition and the Assessment yields a clean numeric
-score, so normalized gain is meaningful. They form one narrative ("predictable laws
-of human performance"). Weber's or Miller's are good swap-ins.
+**Study topics (4): Weber's Law, Problem Solving, Gestalt Principles, Miller's Law.**
+Four (not three) for better representativeness across HCI cognitive principles —
+perceptual thresholds (Weber), problem-solving strategy (Problem Solving), perceptual
+grouping (Gestalt), and memory capacity (Miller). Four also gives a clean
+**2-FLIP / 2-CONTROL** split per participant for counterbalancing (§2).
 
-> ⚠️ **Verify before locking the 3.** This selection is from topic definitions +
-> commit history (`Fitts assessment as movement-time experiment`, `Stroop timer`,
-> `Hicks warmup`), **not** from reading each assessment's scoring internals. Confirm
-> empirically that each chosen assessment emits a clean `score` to the sink before
-> committing the item banks.
+**Assessment formats (verified from game code) differ — this matters for scoring:**
+
+| Topic | In-game assessment format | Score |
+|-------|---------------------------|-------|
+| Weber's Law | **Perceptual** spot-the-odd-one (8 rounds) | 0–100 — a *behavioral* measure, not knowledge |
+| Problem Solving | 6 conceptual MCQ | 0–100 |
+| Gestalt | 10 visual "identify the principle" | 0–100 |
+| Miller's Law | digit-span (experiential, unscored) + 5 conceptual MCQ | 0–100 (MCQ only) |
+
+> Because the four assessments are **not the same format** (Weber's is perceptual,
+> not a knowledge quiz), they cannot serve as a uniform post-test. The performance
+> instrument is therefore a **uniform conceptual pre/post (Form A / Form B)** across
+> all 4 topics — see `quiz-item-banks.md`. The in-game assessment score is a
+> **secondary DV** (and Weber's in-game score is reported as a separate behavioral
+> measure).
 
 ---
 
@@ -55,13 +65,18 @@ of human performance"). Weber's or Miller's are good swap-ins.
 |------|----------|-------|
 | 1 | Intro + informed consent | 3 min |
 | 2 | Demographics + **signup pre-test** (baseline prior knowledge) | 5 min |
-| 2b | **Per-topic pre-test** for the 3 chosen topics (gap #1, see §9) | 5 min |
-| 3 | 3 topics, each an Understanding learning game (~10 min) — order counterbalanced | 30 min |
-| 4 | Assessment module per topic (scored) = **immediate post-test** | ~8 min |
+| 2b | **Per-topic pre-test** (Form A) for the 4 topics (`quiz-item-banks.md`) | 5 min |
+| 3 | 4 topics, each an Understanding learning game (~10 min) — order counterbalanced | 40 min |
+| 4 | Assessment module per topic (secondary DV) | ~10 min |
+| 4b | **Per-topic post-test** (Form B) for the 4 topics | 5 min |
 | 5 | Short AI-tutor (chatbot) interaction | 5 min |
 | 6 | **Reflection** (open + Likert) | 3 min |
 | 7 | **Questionnaire** battery (motivation / interaction / satisfaction) | 10 min |
-| | **Total** | **~70 min** |
+| | **Total** | **~90–100 min** |
+
+> **Burden flag:** 4 topics pushes the session to ~90–100 min. Consider **two
+> sittings** or shorter Understanding games so fatigue on the later topics doesn't
+> confound the result.
 
 > **Burden warning.** The session is already long. Do **not** administer full-length
 > IMMS (36) + CoI (34) + EGameFlow (42) = 110+ items, or participants satisfice and
@@ -76,7 +91,7 @@ IV can be manipulated *within each participant* across their 3 topics. For a sma
 class sample this is **stronger than between-subjects** — each student is their own
 control, removing between-person variance.
 
-- Each participant completes **3 topics**.
+- Each participant completes **4 topics**, split **2 FLIP / 2 CONTROL**.
 - **Condition is manipulated within participant**: each topic is assigned either
   **FLIP** (Understanding → Assessment) or **CONTROL** (Assessment without prior
   Understanding).
@@ -144,7 +159,7 @@ Built like a mini **concept inventory** (Force Concept Inventory methodology —
 - **A signup pre-test already exists** (`app/signup/page.tsx`): 5 MCQs across Fitts / Miller / Norman / Gestalt-proximity / Hick, stored as `preTestScore` and logged as `pre_test_complete`. It is a **coarse global baseline** (1 item / topic, 5 of 13 topics) — sufficient as a covariate, **not** sufficient for per-topic normalized gain. See gap #1 (§9).
 - **Per chosen topic:** 4–5 MCQs, mixing recall + one application item.
 - **Pre vs post must be isomorphic, not identical** (same concept, different surface/numbers) — reusing items measures memory, not learning. The single most common reviewer complaint.
-- **Post-test = the in-game Assessment** (decision in §9, gap #2). Report item **difficulty (P)** and **discrimination (D**, top-27% minus bottom-27%) on your own sample.
+- **Pre = Form A, Post = Form B** (`quiz-item-banks.md`), uniform conceptual MCQs across all 4 topics — because the in-game assessments differ in format (§0). The in-game assessment score is a **secondary DV**. Report item **difficulty (P)** and **discrimination (D**, top-27% minus bottom-27%) on your own sample.
 
 **Scoring — Hake's normalized gain:**
 
@@ -256,7 +271,8 @@ construct** — so the questionnaire/reflection data needs **no new columns**, j
 
 | New `event_type` | `meta` payload (example) | Emitted when |
 |------------------|--------------------------|--------------|
-| `topic_pretest` | `{ topic_id, items:[...], score }` | start of each chosen topic (gap #1) |
+| `topic_pretest` | `{ topic_id, form:"A", items:[...], score }` | start of each topic (Form A) |
+| `topic_posttest` | `{ topic_id, form:"B", items:[...], score }` | end of each topic (Form B) |
 | `reflection` | `{ topic_id, open:{q1,q2,q3}, likert:[..] }` | after 3rd topic |
 | `motivation_imi` | `{ subscale_scores:{interest,competence,effort,value} }` | end of session |
 | `interaction_survey` | `{ coi:{...}, tam:{pu,peou,sat} }` | end of session |
@@ -275,17 +291,18 @@ These POST through the existing `logResearchEvent({ event_type, topic_id, meta }
 
 ## 9. Gaps still to build
 
-**Gap #1 — Per-topic pre-test items.** The signup pre-test is a coarse global baseline
-(1 item × 5 topics). For per-topic normalized gain on the chosen 3, add **4–5
-isomorphic items per chosen topic**. Recommendation: add a short **per-topic pre-test
-gate at the start of each topic's first game** (logged as `topic_pretest`) rather than
-bloating signup — keeps the baseline close to the intervention and cleanly per-topic.
+**Gap #1 — Per-topic pre/post items (DRAFTED).** Item banks for the 4 topics are in
+`quiz-item-banks.md` (Form A pre / Form B post, 5 isomorphic pairs each, content-aligned
+to the game code). Build them as a short **per-topic gate** at the start (Form A) and
+end (Form B) of each topic, logged as `topic_pretest` / `topic_posttest`. **Still to
+do:** pilot (n ≈ 5) to check wording and that A/B are equally difficult.
 
-**Gap #2 — Post-test decision (resolved here).** **Treat the in-game Assessment as the
-immediate post-test** — it is already scored and logged, reduces burden, and is
-ecologically valid. Justify this in the paper. *Optional:* add a short **delayed
-retention test** (same items, ~1 week later) if you want a retention claim; that is
-the only case where a post-test separate from the assessment is warranted.
+**Gap #2 — Post-test decision (resolved here).** The four in-game assessments use
+**different formats** (Weber's is perceptual, not a knowledge quiz — §0), so they
+cannot serve as a uniform post-test. **Use Form B as the post-test** across all 4
+topics; treat the in-game assessment score as a **secondary DV** (Weber's in-game
+score = a separate behavioral measure). *Optional:* a delayed retention test (Form B
+re-administered ~1 week later) for a retention claim.
 
 **Gap #3 — Motivation / interaction / satisfaction / reflection logging.** None are
 logged yet. Add the `event_type`s in §8. Because the sink's `meta` column is free-form
@@ -322,6 +339,6 @@ source before submission; URLs are the retrieved ground truth.*
 
 - Every instrument and effect size is quoted from the linked published sources; **none have been re-validated on the COMPGame population** — the Cronbach's α re-reporting step is done with collected data.
 - The 12-item IMMS, CoI subscale selection, and EGameFlow trimming are **recommended adaptations** for survey burden, **not** drop-in validated short forms — report exactly which items were kept.
-- The recommended 3 topics are from topic definitions + commit history, **not** from reading each assessment's scoring code — verify each assessment emits a clean `score` before locking item banks.
+- The 4 study topics' assessment formats and scoring were verified from the game code (§0). The pre/post item banks (`quiz-item-banks.md`) are content-aligned to that code but **not yet piloted** — pilot before the main study.
 - van Alten (2019) full text was 403-blocked; its figures (114 studies; satisfaction g = 0.05, p = .73) are from the publisher portal + secondary reports — verify the exact learning-outcome g against the PDF.
 - Flipped-classroom effect sizes are highly heterogeneous (g = 0.05–1.2) — cite the range.
