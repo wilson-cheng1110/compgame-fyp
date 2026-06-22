@@ -103,7 +103,7 @@ export function AiChatWidget() {
           id: (Date.now() + 1).toString(),
           role: "ai",
           content:
-            "⚠️ Cannot reach the AI backend. Make sure `python rag_api.py` is running on port 8080.",
+            "⚠️ The AI tutor is offline right now, so I can't answer that yet. Please try again in a moment.",
         },
       ])
     } finally {
@@ -174,8 +174,8 @@ export function AiChatWidget() {
               <MessageCircle size={16} />
               <span className="font-press-start-2p text-[10px] leading-tight">{widgetTitle}</span>
             </div>
-            <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-[#007cb2] rounded transition-colors">
-              <X size={16} />
+            <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-[#007cb2] rounded transition-colors" aria-label="Close AI tutor">
+              <X size={18} />
             </button>
           </div>
 
@@ -237,7 +237,7 @@ export function AiChatWidget() {
                 key={action.label}
                 onClick={() => handleQuickAction(action.prompt)}
                 disabled={isLoading}
-                className="flex-shrink-0 px-2.5 py-1.5 rounded-full border border-[#0099db] text-[#0099db] font-pixelify-sans text-[10px] hover:bg-[#0099db]/10 transition-colors disabled:opacity-50"
+                className="flex-shrink-0 px-3 py-2 rounded-full border border-[#0099db] text-[#0099db] font-pixelify-sans text-xs hover:bg-[#0099db]/10 transition-colors disabled:opacity-50"
               >
                 {action.label}
               </button>
