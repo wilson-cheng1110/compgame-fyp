@@ -98,7 +98,12 @@ Target: a coherent **learning journey** — the avatar + identity persists acros
 
 ### RAG backend
 - Must be running locally on port 8080 before frontend can answer questions
-- Ollama must have `gemma4` and `nomic-embed-text` pulled
+- Ollama must have `gemma4:e4b` and `nomic-embed-text` pulled. **Tutor model floor:
+  use `gemma4:e4b` (or larger), NOT `e2b`** — `e2b` cannot honor "give me an
+  example"/analogy requests in the Socratic + JSON framing (it abstracts harder);
+  e4b follows it reliably. Set via `OLLAMA_LLM` in `backend/rag_api.py` (shared by
+  `/api/ask` + `/api/socratic`). Warm latency ~12s/call on e4b. (Wilson 2026-06-23,
+  commit bb94012; a per-topic `_EXAMPLE_BANK` backs it up when a student is stuck.)
 - CORS allows all origins (demo/dev setting — acceptable for FYP)
 - The prebuilt vector DB (`hci_chroma_db_local/`) **and** the COMP3423 lecture PDFs are
   **committed to the repo** (intentional, Wilson 2026-06-18) so a fresh clone runs RAG with no
