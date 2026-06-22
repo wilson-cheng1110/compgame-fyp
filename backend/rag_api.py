@@ -42,7 +42,7 @@ import re
 
 # Configuration
 DB_DIR = "./hci_chroma_db_local"
-OLLAMA_LLM = "gemma4:e2b"
+OLLAMA_LLM = "gemma4:e4b"
 OLLAMA_EMBEDDING = "nomic-embed-text" 
 
 app = FastAPI(title="HCI RAG API")
@@ -192,9 +192,11 @@ def get_rag_components():
 SOCRATIC_SYSTEM_PROMPT = (
     "You are a Socratic tutor for the COMP3423 Human-Computer Interaction course. "
     "The student just finished an assessment on \"{topic}\" and is now reflecting. "
-    "Do NOT give direct answers or definitions. Instead, ask ONE sharp, short follow-up "
-    "question at a time that pushes the student to reason about {topic} and reach the "
-    "insight themselves. Stay strictly grounded in the retrieved lecture context below — "
+    "Do NOT hand over the whole answer or a full definition — the insight must be the "
+    "student's. But a short, concrete EXAMPLE or analogy to unstick them is NOT 'the answer' "
+    "and IS allowed and encouraged when they ask for one or seem lost. Normally, ask ONE "
+    "sharp, short follow-up question that pushes the student to reason about {topic} and reach "
+    "the insight themselves. Stay strictly grounded in the retrieved lecture context below — "
     "never invent facts beyond it. Be warm and brief (2-3 sentences max).\n\n"
     "IDENTITY — never break this: You are simply 'the HCI tutor'. You have NO model name, "
     "vendor, or company to disclose. If the student asks who or what you are, who made or "
@@ -207,9 +209,15 @@ SOCRATIC_SYSTEM_PROMPT = (
     "focusing on {topic}.\" Do not repeat the same sentence you used last turn. Just ask your next "
     "question naturally and conversationally, each time phrased differently — vary your openers, "
     "verbs, and angle so it never feels like a canned, repetitive script.\n"
-    "IF GENUINELY STUCK: If the student clearly does not know and asks what {topic} is, offer "
-    "the smallest possible hint (a single phrase), then immediately ask a question — never a "
-    "full definition.\n\n"
+    "IF STUCK OR ASKING FOR AN EXAMPLE: If the student asks for an example, an analogy, or a "
+    "concrete explanation, or signals they're lost (e.g. \"use Angry Birds to explain\", \"give "
+    "me an example\", \"I don't get it\"), do NOT ignore the request and do NOT respond with a "
+    "more abstract question. Acknowledge it and give ONE short, concrete, relatable anchor "
+    "grounded in the lecture context — use their own suggested example if they named one (e.g. "
+    "Angry Birds) — then ask a simple follow-up that builds on that anchor.\n"
+    "STAY CONCRETE: Keep every question tied to a real, everyday situation. When the student is "
+    "struggling, get MORE concrete, never more abstract or academic — do not drift into "
+    "neuroscience/theory phrasing they didn't raise.\n\n"
     "Reply ONLY with a JSON object, no prose around it:\n"
     "{{\"response\": \"<your next Socratic question or nudge>\", \"understood\": true|false|null, "
     "\"counts\": true|false}}\n"
@@ -341,6 +349,50 @@ def _parse_socratic(raw: str):
     return raw.strip(), None, None
 
 
+# A student asking for an example/analogy or signalling they're lost. A buried
+# system-prompt rule gets ignored by a small model, so we detect this and inject a
+# forceful LAST-position instruction (obeyed far more reliably) carrying a
+# guaranteed concrete anchor for the topic — so even a weak model has something
+# real to lean on instead of abstracting further.
+_EXAMPLE_REQUEST = re.compile(
+    r"\b(example|examples|analog\w*|illustrat\w*|explain|simpl\w+|"
+    r"i\s*do\s*n['o]?t\s*(get|understand|know)|do\s*n['o]?t\s*get\s*it|"
+    r"confus\w*|stuck|lost|no\s*idea|use\s+.+\s+to\s+explain|like\s+what|such\s+as)\b",
+    re.IGNORECASE,
+)
+
+# Deterministic per-topic anchors (the guaranteed half of the fix). Keyed by a
+# lowercase substring of the topic title the frontend sends ({ topic: topicTitle }).
+# Injected when a student is stuck / asks for an example so the tutor always has ONE
+# concrete, everyday illustration to offer rather than retreating into abstraction.
+# Hand-written to match the 13 COMP3423 topics in lib/topic-definitions.ts.
+_EXAMPLE_BANK = {
+    "fitts": "a big button in the corner of your phone is easy to tap, while a tiny link in the middle needs careful aiming",
+    "gestalt": "seeing a face in a car's headlights-and-grille, or reading a few scattered dots as one shape",
+    "hick": "a coffee menu with 3 choices is instant, but a remote with 50 buttons makes you stop and hunt",
+    "miller": "a phone number written 9123 4567 is split into two chunks so it fits in your head",
+    "consistency": "the word \"GREEN\" printed in red ink is slow to read because the cues clash; consistent cues read instantly",
+    "weber": "adding one candle to a single candle is obvious, but adding one candle to a hundred you cannot notice at all",
+    "norman": "turning a steering wheel: you form the goal to turn, act, see the car move, then check it matched what you wanted",
+    "mental model": "a door with a flat metal plate says \"push\" and one with a handle says \"pull\" before you read any sign",
+    "affordance": "a door with a flat metal plate says \"push\" and one with a handle says \"pull\" before you read any sign",
+    "problem solving": "finding a brand-new route home the first time your usual road is closed",
+    "visual perception": "the two lines in the Müller-Lyer illusion look different lengths even though they are identical",
+    "language": "\"I saw her duck\" — did she lower her head, or does she own a bird? Same words, two meanings",
+    "ergonomic": "a chair set too high leaves your feet dangling and your back aching after an hour",
+    "experiment": "timing how fast users find the \"Buy\" button on two different page layouts to see which wins",
+}
+
+
+def _topic_example(topic: str) -> str:
+    """Best concrete anchor for a topic title, or '' if none matches."""
+    t = (topic or "").lower()
+    for key, ex in _EXAMPLE_BANK.items():
+        if key in t:
+            return ex
+    return ""
+
+
 @app.post("/api/socratic")
 async def socratic_reflection(req: SocraticRequest):
     if not socratic_llm or not socratic_retriever:
@@ -368,6 +420,26 @@ async def socratic_reflection(req: SocraticRequest):
             else:
                 messages.append(AIMessage(content=content))
 
+        last_human = next(
+            (m.get("content", "") for m in reversed(req.history) if m.get("role") == "human"),
+            "",
+        )
+        # Forceful LAST-position nudge when the student asks for an example or is
+        # stuck — even e4b follows a final imperative far more reliably than a rule
+        # buried mid-prompt. Carries a guaranteed concrete anchor from the bank so
+        # the model can't retreat into abstraction. Suppressed on identity probes
+        # (those must be redirected, never answered).
+        if last_human and _EXAMPLE_REQUEST.search(last_human) and not _IDENTITY_PATTERNS.search(last_human):
+            anchor = _topic_example(req.topic)
+            anchor_line = f" A concrete anchor you may use: {anchor}." if anchor else ""
+            messages.append(SystemMessage(content=(
+                f"The student is stuck or asking for a concrete example/analogy. In your reply "
+                f"you MUST give ONE short, concrete, everyday example that illustrates {req.topic} "
+                f"(use the exact example they named, e.g. Angry Birds, if any).{anchor_line} THEN "
+                f"ask one simple question about it. Do NOT reply with an abstract question and do "
+                f"NOT ignore their request. Still reply as the required JSON object."
+            )))
+
         result = socratic_llm.invoke(messages)
         response, understood, counts = _parse_socratic(result.content)
         # Backstop the system-prompt identity rule (small local model is unreliable).
@@ -377,10 +449,6 @@ async def socratic_reflection(req: SocraticRequest):
         # never a reflection turn, regardless of what the model flagged. High
         # precision (only fires on explicit identity terms in the student's own
         # latest message), so it won't wrongly reject a genuine reflection.
-        last_human = next(
-            (m.get("content", "") for m in reversed(req.history) if m.get("role") == "human"),
-            "",
-        )
         if last_human and _IDENTITY_PATTERNS.search(last_human):
             counts = False
             understood = False
