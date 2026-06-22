@@ -47,3 +47,10 @@ backend/hci_chroma_db_local.bak/
 frontend/scripts/shots/
 frontend/scripts/render-report.json
 frontend/scripts/vlm-report.json
+# Ad-hoc verification screenshots dropped in the frontend root — not source
+frontend/*.png
+
+# Stray packed ELF executable (statically-linked, stripped, no section header,
+# 1.3MB) accidentally committed in 6987bcc — has no business in a Next.js
+# frontend. Untracked 2026-06-23; ignore so it can't sneak back in.
+frontend/let
