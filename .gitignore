@@ -37,6 +37,7 @@ Thumbs.db
 
 # Logs & local debug scripts (build noise, not source)
 *.log
+*.err
 frontend/test-*.mjs
 
 # Research sink — local runtime data (participant events), not source
