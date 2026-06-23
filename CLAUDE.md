@@ -104,6 +104,15 @@ Target: a coherent **learning journey** — the avatar + identity persists acros
   e4b follows it reliably. Set via `OLLAMA_LLM` in `backend/rag_api.py` (shared by
   `/api/ask` + `/api/socratic`). Warm latency ~12s/call on e4b. (Wilson 2026-06-23,
   commit bb94012; a per-topic `_EXAMPLE_BANK` backs it up when a student is stuck.)
+- **`/api/socratic` MUST keep `format="json"` + `num_predict` on its `ChatOllama`**
+  (`get_socratic_chain`). The Socratic turn returns a `{response, understood, counts}`
+  envelope; without JSON-mode the small model truncates long replies into BROKEN JSON
+  and the raw `{"response": "...` leaked verbatim into the student's chat. `_parse_socratic`
+  is the defense-in-depth backstop (regex-recovers truncated JSON, and `_clean_response`
+  never lets raw JSON / a bare `true`/`0` / an empty string reach the UI). Note: the
+  `understood`/`counts` flags come ONLY from the model's parsed output, never from student
+  input — a student typing JSON can't self-award insight or advance the floor (no injection
+  vector). (Wilson 2026-06-24.)
 - CORS allows all origins (demo/dev setting — acceptable for FYP)
 - The prebuilt vector DB (`hci_chroma_db_local/`) **and** the COMP3423 lecture PDFs are
   **committed to the repo** (intentional, Wilson 2026-06-18) so a fresh clone runs RAG with no
