@@ -241,8 +241,11 @@ def get_socratic_chain():
     print(f"🧠 Initializing Socratic reflection model '{OLLAMA_LLM}'...")
     vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING))
     # Warmer than the /api/ask LLM (temperature=0) so repeated reflections don't
-    # ask the same canned question.
-    llm = ChatOllama(model=OLLAMA_LLM, temperature=0.4)
+    # ask the same canned question. `format="json"` constrains generation to a
+    # valid-JSON grammar so the envelope is ALWAYS parseable (no more truncated
+    # `{"response": "...` leaking into the chat); num_predict gives one Socratic
+    # turn enough headroom to finish the object naturally before any cap.
+    llm = ChatOllama(model=OLLAMA_LLM, temperature=0.4, format="json", num_predict=512)
     retriever = build_retriever(vectorstore)
     return llm, retriever
 
@@ -314,39 +317,111 @@ async def ask_question(req: QuestionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# A reply that is empty, a bare literal, or still a JSON envelope must NEVER reach
+# the student. When parsing degrades that far we substitute a safe, topic-agnostic
+# Socratic nudge instead of leaking scaffolding or showing a blank/"true" bubble.
+_BARE_TOKEN = re.compile(r"^(true|false|null|none|\d+(?:\.\d+)?)$", re.IGNORECASE)
+_SOCRATIC_FALLBACK = (
+    "Let's stay with this idea. In your own words, what do you think the core "
+    "principle here is — and where might you notice it in an everyday design?"
+)
+_BOOL_MAP = {"true": True, "false": False, "null": None, "none": None}
+
+
+def _extract_response_field(text: str):
+    """Best-effort pull of the `response` string from possibly-broken JSON — handles
+    the truncated objects (missing closing quote/brace) that json.loads rejects and
+    that used to leak verbatim into the chat."""
+    if not text:
+        return None
+    # Complete "response": "...." value (handles escaped quotes inside).
+    m = re.search(r'"response"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL)
+    if m:
+        try:
+            return json.loads('"' + m.group(1) + '"')
+        except json.JSONDecodeError:
+            return m.group(1)
+    # Truncated mid-string: take everything after the opening quote, drop a dangling
+    # tail, and unescape best-effort.
+    m = re.search(r'"response"\s*:\s*"(.*)$', text, re.DOTALL)
+    if m:
+        frag = re.sub(r'["}\s]*$', "", m.group(1))
+        try:
+            return json.loads('"' + frag + '"')
+        except json.JSONDecodeError:
+            return frag.replace("\\n", "\n").replace('\\"', '"').replace("\\t", "\t")
+    return None
+
+
+def _clean_response(resp) -> str:
+    """Guarantee the student sees a usable Socratic line — never raw JSON, a bare
+    token (true/false/0/1), or an empty bubble."""
+    if not isinstance(resp, str):
+        return _SOCRATIC_FALLBACK
+    r = resp.strip()
+    if not r:
+        return _SOCRATIC_FALLBACK
+    # A leaked JSON envelope — try once more to dig out the response, else fall back.
+    if r.startswith("{") and '"response"' in r:
+        inner = _extract_response_field(r)
+        r = (inner or "").strip()
+        if not r:
+            return _SOCRATIC_FALLBACK
+    if _BARE_TOKEN.match(r):
+        return _SOCRATIC_FALLBACK
+    return r
+
+
 def _parse_socratic(raw: str):
-    """Pull {response, understood, counts} out of the model text. The model is told
-    to emit pure JSON, but small local LLMs leak prose or code fences — so fall back
-    to treating the whole reply as the response with understood=null, counts=None.
+    """Pull {response, understood, counts} out of the model text. JSON mode
+    (format="json") makes the envelope reliably parseable, but this stays robust to
+    fences, truncation and the /api/ask-style prose path: it never returns raw JSON.
 
     `counts` is the per-turn quality flag that gates the reflection floor: True =
     a genuine on-topic reflection attempt, False = off-topic/meta/spam. On any
     ambiguity (parse failure, field absent) it stays None — the frontend treats
     only an explicit False as "does not count", so a model hiccup never traps a
     real student (the floor is intentionally soft)."""
-    text = raw.strip()
+    text = (raw or "").strip()
     # Strip ```json ... ``` fences if present.
     if text.startswith("```"):
         text = text.strip("`")
         if text.lstrip().lower().startswith("json"):
             text = text.lstrip()[4:]
-    # Try the largest {...} span.
+
+    resp = None
+    understood = None
+    counts = None
+
+    # Preferred path: parse the largest {...} span.
     start, end = text.find("{"), text.rfind("}")
     if start != -1 and end > start:
         try:
             obj = json.loads(text[start:end + 1])
             resp = obj.get("response")
             understood = obj.get("understood", None)
-            if understood not in (True, False, None):
-                understood = None
             counts = obj.get("counts", None)
-            if counts not in (True, False, None):
-                counts = None
-            if isinstance(resp, str) and resp.strip():
-                return resp.strip(), understood, counts
         except (json.JSONDecodeError, AttributeError):
             pass
-    return raw.strip(), None, None
+
+    # Degraded path: strict parse failed or no usable response — recover by regex
+    # (covers truncated JSON) for the response and the two flags independently.
+    if not isinstance(resp, str) or not resp.strip():
+        resp = _extract_response_field(text)
+        if understood is None:
+            mu = re.search(r'"understood"\s*:\s*(true|false|null)', text, re.IGNORECASE)
+            if mu:
+                understood = _BOOL_MAP[mu.group(1).lower()]
+        if counts is None:
+            mc = re.search(r'"counts"\s*:\s*(true|false|null)', text, re.IGNORECASE)
+            if mc:
+                counts = _BOOL_MAP[mc.group(1).lower()]
+
+    if understood not in (True, False, None):
+        understood = None
+    if counts not in (True, False, None):
+        counts = None
+    return _clean_response(resp), understood, counts
 
 
 # A student asking for an example/analogy or signalling they're lost. A buried
