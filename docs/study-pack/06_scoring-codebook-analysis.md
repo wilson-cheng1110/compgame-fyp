@@ -29,6 +29,37 @@ limitations sections:
 This diverges from `experiment-design.md` §2 (within-subjects 2-FLIP/2-CONTROL) by Wilson's
 Stage-1 decision; see `00_README.md` addendum. The control arm returns at Stage 2.
 
+### A.1 Paper-ready limitations paragraph (paste into the methods/limitations section)
+
+> **Internal validity and causal inference.** Stage 1 uses a one-group pretest–posttest design
+> (Campbell & Stanley, 1963, Design 2), which has no control or counterfactual condition. A
+> statistically significant pre→post gain therefore establishes *association and within-person
+> change*, not causation: the gain cannot be cleanly attributed to the flipped
+> (Understanding-first) sequence rather than to co-occurring threats — testing/practice effects,
+> maturation, history, and regression to the mean. Using isomorphic A/B concept-inventory forms
+> mitigates the testing effect specifically (the post-test is not a memory test of the pre-test
+> items) but does not address maturation or the absence of a no-treatment baseline. Stage 1
+> therefore reports normalized gain ⟨g⟩ with confidence intervals as a *feasibility signal* and
+> an instrument-validation outcome, and frames H1–H4 as exploratory. A causal claim about the
+> flip requires the controlled comparison reintroduced at Stage 2 (within-subjects
+> 2-FLIP/2-CONTROL, Latin-square counterbalanced), where each participant serves as their own
+> control and the FLIP−CONTROL contrast subtracts the shared threats.
+
+### A.2 Verb discipline (apply to every results / abstract / discussion sentence)
+
+Statistical significance describes the *test*, not the *mechanism* — the classic confound
+(rooster-crow ↔ sunrise: significant, non-causal, driven by a common cause). To keep Stage-1
+language honest:
+
+- **Use (associational):** "was associated with", "is consistent with", "participants improved
+  from pre to post" (descriptive of the sample), "the gain co-occurred with".
+- **Avoid (unhedged causal) until Stage 2:** "the flip **improved / caused / increased /
+  enhanced** learning", "playing first **leads to** better understanding", "this **demonstrates
+  that** flip learning works".
+- Never let "significant" stand alone as evidence of effect — **always pair it with an effect
+  size + CI**, and at this N lead with the effect size (per §E).
+- The *only* place causal verbs are licensed is the Stage-2 controlled FLIP−CONTROL contrast.
+
 ---
 
 ## B. H1 — Concept-inventory answer keys
