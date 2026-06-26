@@ -145,6 +145,18 @@ A flip / Group B assessment-only) is simpler to explain — state whichever you 
 - **H3 (interaction):** Students rate teaching + social presence of the game-and-AI "teacher" (CoI, reworded) positively; explored for association with ⟨g⟩. *(Exploratory — no signed prior.)*
 - **H4 (satisfaction):** **Exploratory / null-expected.** van Alten et al. (2019; 114 studies) found flip does **not** move satisfaction (g = 0.05, *p* = .73). Do **not** hypothesise a satisfaction gain; report it descriptively.
 
+> **⚠ Reporting-language guardrail — read before drafting the abstract/discussion.**
+> The H1–H4 above are **Stage-2 directional hypotheses**, written in the controlled
+> **flip-vs-control** frame (§2). **Stage 1 has no control group** (one-group pretest–posttest;
+> see `study-pack/00_README.md`), so it **cannot** support causal "flip > control" language — a
+> significant pre→post gain there is **associational, not causal** (testing/maturation/history
+> confounds; rooster-crow ↔ sunrise). When writing up **Stage 1**, use associational verbs
+> ("associated with", "consistent with", "improved from pre to post") and never pair "significant"
+> with a causal verb. The use/avoid word lists and the paste-ready limitations paragraph live in
+> **`study-pack/06_scoring-codebook-analysis.md` §A.1–A.2** — keep that section open while drafting
+> the abstract and the discussion's opening line (the two places overclaim slips in). Causal verbs
+> are licensed **only** for the Stage-2 FLIP−CONTROL contrast.
+
 ---
 
 ## 3. Measurement architecture — PRE vs POST
