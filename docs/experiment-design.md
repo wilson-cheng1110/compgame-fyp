@@ -1,5 +1,19 @@
 # COMPGame — Flip-Learning Experiment Design & Measurement Plan
 
+> ### Read this first (2026-08-16)
+> **The rollout is 13 topics × 300 students** — `docs/revamp.md` is the current plan and wins wherever
+> this file disagrees. Two things to hold while reading:
+>
+> 1. **"4 topics" throughout this document means the four with validated pre/post item banks**
+>    (Weber's Law, Problem Solving, Gestalt, Miller's Law — `quiz-item-banks.md`). That is still true:
+>    4 of 13. It does **not** mean the study is four topics. The other nine ship without a scored MC
+>    step and gain one as banks are authored during the run (`revamp.md` §8.4).
+> 2. **§2's design is superseded** — see the banner there. Per-topic randomisation across 13 topics,
+>    assigned server-side, replaces the 4-topic Latin square.
+>
+> Everything else here — the instruments, the evidence dossier, psychometrics, and the APA
+> references — is current and unaffected.
+
 > Research-instrument plan for measuring whether the Understanding-then-Assessment
 > (flip) sequence improves learning in COMPGame (COMP3423 **Human–Computer
 > Interaction**), augmented by an AI tutor.
@@ -103,6 +117,26 @@ check.
 ---
 
 ## 2. Research design — within-subjects, counterbalanced (recommended)
+
+> ## ⚠ SUPERSEDED 2026-08-16 — see `docs/revamp.md` Part 0
+>
+> This section describes **4 topics split 2 FLIP / 2 CONTROL** in a Latin square. The actual Stage-2
+> rollout is **13 topics × 300 students**, with FLIP/CONTROL **randomised per topic per participant**
+> (~half each), counterbalanced across the cohort. A Latin square does not extend to 13 topics.
+>
+> What survives from this section, unchanged: within-subjects is still the design; the IV is still
+> `played_understanding_first`; the primary DV is still normalized gain ⟨g⟩; the threats and trade-offs
+> listed below (carryover, demand characteristics, testing effect) all still apply and still need
+> disclosing.
+>
+> What does not: the topic count, the 2/2 split, and the Latin square. Note also that the prose below
+> says "their 3 topics" while the bullet says "4 topics" — a pre-existing inconsistency in this file,
+> and both figures are now superseded.
+>
+> **One substantive change beyond arithmetic:** the assignment is now **server-side and recorded** at
+> release time, not inferred after the fact from completion order. Today's sink shows why that matters —
+> 27 of 33 assessments logged `played_understanding_first = 0`, i.e. the IV was never actually
+> manipulated. See `revamp.md` Parts 2 and 7.2.
 
 The platform records **`played_understanding_first` per topic** (see §8), so the flip
 IV can be manipulated *within each participant* across their 3 topics. For a small
@@ -289,7 +323,7 @@ All Likert **1–5** for comparability. Satisfaction is measured once (ARCS-S) �
 
 ## 7. Decisions this evidence drives
 
-1. **Use within-subjects counterbalanced** (Latin-square topic↔condition) — strongest design for a small class, and the platform already records the per-topic IV.
+1. **Use within-subjects counterbalanced** — strongest design for a small class. *(Updated 2026-08-16: the mechanism is now per-topic randomisation across 13 topics, assigned server-side, not a 4-topic Latin square — see §2's banner. "The platform already records the per-topic IV" was over-optimistic: it records an **observed** flag, and 27 of 33 assessments came back `0`. Stage 2 manipulates it.)*
 2. **Four co-equal constructs, exploratory framing, Holm–Bonferroni** — no single primary DV; the family of H1–H4 tests is multiplicity-corrected and effect sizes carry the inference (§2).
 3. **One locked instrument per construct** (§3 measurement model): IMI (motivation), CoI-reworded (interaction, with disclosed validity caveat), ARCS-S (satisfaction), concept-inventory Form A/B (performance). IMMS, standalone TAM, EGameFlow dropped on purpose.
 4. **Reframe satisfaction as null/exploratory** — flip does not reliably move satisfaction (van Alten, 114 studies).
@@ -315,6 +349,13 @@ The study reuses instrumentation that is **already built** — no schema migrati
 > (wide rollout)** work. **Stage 1 is a focus group** — the pre/post quizzes (Form A/B)
 > and the questionnaire are run **externally via Google Form / paper**, NOT wired into
 > the app. Wire the in-app gates only when scaling to the next batch of students.
+>
+> **⚠ UPDATE 2026-08-16 — Stage 2 has arrived.** The "do NOT wire yet" instruction above is spent.
+> The instruments wire into the app for the 300-student rollout: `topic_pretest` / `topic_posttest`
+> become the pre/post-check steps of the topic unit (`docs/revamp.md` Parts 2, 8), and the payload
+> table below is still the contract for what gets logged. Two additions the table predates —
+> `corpus_version` on every event (`revamp.md` Part 13.2) and the behavioural telemetry block
+> (Part 11), both into the same free-form `meta` column, still no schema migration.
 
 **Pre-test (exists):** `app/signup/page.tsx` → `preTestScore` / `preTestAnswers` in
 `lib/user-store.ts`, plus `event_type: "pre_test_complete"`.

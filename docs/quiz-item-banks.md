@@ -47,7 +47,10 @@ hover darkening, error highlight contrast).
 **A5.** A circle grows **10px→14px** vs **100px→104px** (both +4px) — which change is easier to notice, and why?
  a) 100→104, it's a bigger circle overall  b) ✓ 10→14, because +4px is a larger *fraction* of the original size  c) Equal — both grew by 4px  d) Neither is noticeable
 
-*Answer key A: A1-b, A2-a, A3-b, A4-c, A5-b*
+**A6.** You are designing a volume slider. For every step to *feel* like an equal change in loudness, each step should raise the level by…
+ a) a fixed number of units, the same at every position  b) ✓ a roughly constant *percentage* of the current level  c) a bigger amount at low volumes and a smaller amount at high volumes  d) a random amount, since loudness is not predictable
+
+*Answer key A: A1-b, A2-a, A3-b, A4-c, A5-b, A6-b*
 
 ### Form B (post)
 **B1.** Adding 2 grams is obvious when holding a 10g letter but unnoticeable holding a 5kg bag. Why?
@@ -65,7 +68,10 @@ hover darkening, error highlight contrast).
 **B5.** A **10-item** list growing to **12** vs a **100-item** list growing to **102** — which change is more noticeable?
  a) 100→102, more items overall  b) ✓ 10→12, because it's a larger fraction of the original count  c) Equal — both added 2  d) Neither, lists aren't perceived by count
 
-*Answer key B: B1-b, B2-c, B3-b, B4-c, B5-b*
+**B6.** You are designing a "text size" control with several steps. For each step to *feel* like an equal jump in size, consecutive sizes should differ by…
+ a) a fixed number of pixels at every step  b) ✓ a roughly constant *ratio* (percentage) between consecutive sizes  c) a bigger jump for small sizes and a smaller jump for large sizes  d) whatever values happen to look neat
+
+*Answer key B: B1-b, B2-c, B3-b, B4-c, B5-b, B6-b*
 
 ---
 
@@ -93,7 +99,10 @@ representation matters (water-jug 5L/3L→4L; mutilated-chessboard). In-game ass
 **A5.** Why can changing how a problem is *represented* make it dramatically easier?
  a) It's shorter to write  b) It guarantees the fewest moves  c) ✓ A good representation exposes useful sub-goals and shrinks the search space  d) Representation never affects difficulty
 
-*Answer key A: A1-a, A2-b, A3-a, A4-b, A5-c*
+**A6.** In the water-jug puzzle, "fill the 5-litre jug" and "pour the 5-litre jug into the 3-litre jug" are examples of the problem's…
+ a) goal states  b) ✓ operators — the available actions that move you from one state to another  c) constraints  d) heuristics
+
+*Answer key A: A1-a, A2-b, A3-a, A4-b, A5-c, A6-b*
 
 ### Form B (post)
 **B1.** A chess player picks each move to most reduce the gap between the current board and checkmate. This is…
@@ -111,7 +120,10 @@ representation matters (water-jug 5L/3L→4L; mutilated-chessboard). In-game ass
 **B5.** The mutilated-chessboard puzzle becomes easy once you reason about *square colours* instead of positions. This shows that…
  a) Chess problems are always easy  b) Colours are decorative  c) ✓ Changing the representation can turn a hard problem into an easy one  d) Only visual problems have representations
 
-*Answer key B: B1-a, B2-b, B3-a, B4-b, B5-c*
+**B6.** When solving a maze, the moves "go north", "go east", and "go back the way you came" are best described as the maze's…
+ a) goal state  b) ✓ operators — the available actions you can take  c) initial state  d) search heuristics
+
+*Answer key B: B1-a, B2-b, B3-a, B4-b, B5-c, B6-b*
 
 ---
 
@@ -132,7 +144,9 @@ in a plain form; all 5 answer options appear on every item (matching the in-game
 **A4.** Two crossing lines are seen as each flowing smoothly *through* the intersection, not as four separate segments. → ✓ **c) Continuity**
 **A5.** Two mirror-image shapes are perceived as one unified, balanced object. → ✓ **d) Symmetry**
 
-*Answer key A: A1-b, A2-a, A3-e, A4-c, A5-d*
+**A6.** *(Apply it.)* You are designing a settings screen with many options. Without using colour, borders, or boxes, you want users to instantly see which options belong together. Which principle would you rely on? → ✓ **b) Proximity**
+
+*Answer key A: A1-b, A2-a, A3-e, A4-c, A5-d, A6-b*
 
 ### Form B (post)
 **B1.** Icons placed in tight clusters with clear gaps between clusters are seen as separate groups. → ✓ **b) Proximity**
@@ -141,7 +155,9 @@ in a plain form; all 5 answer options appear on every item (matching the in-game
 **B4.** Dots arranged along a gentle curve are perceived as a single flowing path. → ✓ **c) Continuity**
 **B5.** A logo with a clear left–right mirror axis is perceived as a single balanced whole. → ✓ **d) Symmetry**
 
-*Answer key B: B1-b, B2-a, B3-e, B4-c, B5-d*
+**B6.** *(Apply it.)* You are laying out a navigation menu with many links. Without using colour or boxes, you want links on the same topic to read as one group. Which principle would you use? → ✓ **b) Proximity**
+
+*Answer key B: B1-b, B2-a, B3-e, B4-c, B5-d, B6-b*
 
 ---
 
@@ -169,7 +185,10 @@ examples from the assessment so the pre-test doesn't leak answers.
 **A5.** Why does grouping controls into labelled sections reduce perceived complexity?
  a) It uses less screen space  b) Colours distract the user  c) ✓ Each labelled group becomes a single chunk, lowering the number of items STM must track  d) It hides options from the user
 
-*Answer key A: A1-b, A2-b, A3-c, A4-b, A5-c*
+**A6.** Without rehearsal, about how long does information typically stay in short-term memory?
+ a) a fraction of a second  b) ✓ about 15–30 seconds  c) several hours  d) permanently
+
+*Answer key A: A1-b, A2-b, A3-c, A4-b, A5-c, A6-b*
 
 ### Form B (post)
 **B1.** According to Miller (1956), roughly how many *meaningful units* can working memory hold at once?
@@ -187,14 +206,26 @@ examples from the assessment so the pre-test doesn't leak answers.
 **B5.** A sign-up wizard has **12 steps**. How can it best respect Miller's limit?
  a) Show all 12 at once  b) Remove the progress bar  c) ✓ Break it into a few grouped stages with progress indicators, so each stage is one chunk  d) Add 8 more steps for clarity
 
-*Answer key B: B1-b, B2-b, B3-c, B4-b, B5-c*
+**B6.** A one-time passcode fades from memory within about half a minute unless you keep repeating it. This reflects the limited ___ of short-term memory.
+ a) capacity  b) ✓ duration (about 20–30 seconds)  c) accuracy  d) bandwidth
+
+*Answer key B: B1-b, B2-b, B3-c, B4-b, B5-c, B6-b*
 
 ---
 
 ## Administration & analysis notes
 
-- **5 items × 2 forms × 4 topics = 40 items.** Form A (pre) ≈ 20 items / ~5 min; Form B (post) ≈ 20 items / ~5 min.
-- **Counterbalance** topic↔condition across participants (Latin square): each student does 4 topics, **2 FLIP** (Understanding→Assessment) and **2 CONTROL** (Assessment-first), so each topic appears in both conditions across the sample.
+- **6 items × 2 forms × 4 topics = 48 items.** Form A (pre) ≈ 24 items / ~6 min; Form B (post) ≈ 24 items / ~6 min. *(Item 6 per form is the application/transfer item added in the 6-item upgrade — Weber design-ratio, Problem-Solving operators, Gestalt proximity-apply, Miller STM-duration.)*
+- ~~**Counterbalance** topic↔condition across participants (Latin square): each student does 4 topics, **2 FLIP** and **2 CONTROL**.~~
+  **SUPERSEDED 2026-08-16 (`docs/revamp.md` Part 0):** 13 topics, FLIP/CONTROL **randomised per topic
+  per participant** (~half each), counterbalanced across the cohort and assigned server-side. The
+  principle is unchanged — each topic must appear in both conditions across the sample — only the
+  mechanism and the topic count differ.
+- **Re-word the Weber's Law and Gestalt banks before any pilot** (`revamp.md` §9.2). The lectures teach
+  these as **"just noticeable difference"** and **"pattern recognition / similarity / proximity /
+  surroundedness"**; the words "Weber" and "Gestalt" appear in **zero** chunks of the lecture corpus.
+  Items using only the textbook name measure textbook familiarity, and a pre→post gain would partly
+  reflect students learning the *word* from COMPGame.
 - **Per-topic normalized gain** `g = (B% − A%)/(100 − A%)`; compare FLIP vs CONTROL topics within-subject (Wilcoxon signed-rank / paired-t).
 - **Report item difficulty (P) and discrimination (D)** on your sample; drop items with D < 0.2 before final analysis.
 - **Validity caveats:** items are content-aligned to the current game code but **not yet piloted** — run a small pilot (n ≈ 5) to catch ambiguous wording and check the A/B forms are equally difficult before the main study.
@@ -204,18 +235,18 @@ examples from the assessment so the pre-test doesn't leak answers.
 
 ## Desk review (self-pilot) — completed
 
-A desk review of all 40 items was run before any human pilot. Checks and outcomes:
+A desk review of all items was run before any human pilot (originally 40; the instrument was later upgraded to **48** — a 6th item per form. The eight new item-6s were desk-reviewed again on **2026-06-28**; see the addendum below.). Checks and outcomes:
 
 | Check | Outcome |
 |-------|---------|
 | **Content validity** — every item maps to content the game actually teaches | ✅ after fix. **1 bug fixed:** Weber A5 originally used an *auditory* example; the game teaches only size/brightness/count, so it was rewritten to the size domain. |
-| **Isomorphism** — each A↔B pair tests the same concept, different surface | ✅ all 20 pairs (Weber ratio/formula/fraction/UI/scaling; Problem-Solving 3 strategies + problem-space + representation; Gestalt 5 principles; Miller capacity/chunking/STM-LTM/grouping/wizard). |
+| **Isomorphism** — each A↔B pair tests the same concept, different surface | ✅ all 24 pairs (Weber ratio/formula/fraction/UI/scaling/**design-ratio**; Problem-Solving 3 strategies + problem-space + representation + **operators**; Gestalt 5 principles + **proximity-apply**; Miller capacity/chunking/STM-LTM/grouping/wizard + **STM-duration**). |
 | **Answer-leakage** vs the in-game assessment | ✅ Form A avoids the assessment's exact scenarios (no water-jug, notifications, caching-bug, credit-card, or breadcrumb items). |
 | **Distractor plausibility** — wrong options are non-trivial | ✅ distractors are real competing concepts, not filler. |
 | **Answer-key correctness** | ✅ re-checked against game explanations. |
 
 **Known limitations carried into the human pilot:**
-1. **Gestalt construct is narrow** — it is a 5-way "name the principle" classification, so Form A/B and the in-game assessment overlap heavily and items may be *too easy* (low discrimination). Consider adding 1–2 **application** items ("which principle would you *use* to group related form fields?") to add depth.
+1. **Gestalt construct is narrow** — it is a 5-way "name the principle" classification, so Form A/B and the in-game assessment overlap heavily and items may be *too easy* (low discrimination). Consider adding 1–2 **application** items ("which principle would you *use* to group related form fields?") to add depth. **→ ADDRESSED (2026-06-28):** item 6 is now an application/transfer item on every topic; Gestalt A6/B6 are proximity-*apply* scenarios (settings-screen / nav-menu). They were reworded to (a) drop the spatial-mechanism giveaway ("with clear space" / "by spacing close together" named the answer) and (b) stop duplicating A1's form-fields surface — ruling out colour/borders forces a genuine Proximity-vs-Similarity choice. Re-desk-reviewed; still **not human-piloted** — carry into the n≈5 pilot for P/D.
 2. **Some pre-test priming** of the in-game assessment is unavoidable for narrow constructs (Gestalt, Miller capacity). This is **controlled** — it affects all conditions equally — but note it.
 3. **Capacity items (Miller A1/B1)** are near-identical recall ("7±2") and may show a ceiling. Keep, but expect low discrimination.
 

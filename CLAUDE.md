@@ -6,9 +6,12 @@ Pedagogical model: students go through an **Understanding** module (learn the co
 FYP deliverable + EDC exhibition + academic paper (measuring flip-learning effectiveness).
 
 ## Stack
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, Zustand + cookies (client-side state only — no server DB)
+- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, Zustand + cookies
 - **Backend**: Python FastAPI + LangChain + ChromaDB + Ollama (`gemma4` LLM + `nomic-embed-text` embeddings)
-- **Storage**: All user data in browser cookies/localStorage via Zustand `persist`. No remote DB.
+- **Storage**: **Changed 2026-08-16 for the 300-student rollout.** Accounts and progress move
+  **server-side** (`backend/auth_store.py`, stdlib sqlite3 — same house pattern as `research_store.py`).
+  The `user` cookie survives with its shape unchanged (`{ sid, username, avatarId }`) as **UI decoration
+  only, never a security boundary**. See `docs/revamp.md` Part 0.
 - **Fonts**: Press Start 2P (headings), Pixelify Sans (body) — pixel art aesthetic
 
 ## Project structure
@@ -71,23 +74,31 @@ Target: a coherent **learning journey** — the avatar + identity persists acros
 - The paper needs to MEASURE this effectiveness: pre-test → Understanding game → Assessment → post-test
 
 ## Games inventory
-| Game | Mode | Status |
-|------|------|--------|
-| Fitts' Law | Understanding | Done |
-| Fitts' Law | Assessment | Done |
-| Gestalt Principles | Understanding | Done |
-| Gestalt Principles | Assessment | Done |
-| CPU Scheduling | Understanding | Done |
-| CPU Scheduling | Assessment | Done |
-| Page Replacement | Understanding | Done |
-| Page Replacement | Assessment | Done |
-| Legacy Labs (lab1–lab6) | HCI Research | Done (legacy) |
+**13 topics × 2 modes = 26 game routes.** Source of truth is `lib/topic-definitions.ts` and
+`app/games/` — not this file. (An earlier version of this table listed 4 topics / 8 games and was
+wrong; corrected 2026-08-16.)
+
+`fitts-law` · `gestalt` · `hicks-law` · `memory` (Miller's) · `stroop` (Consistency) · `webers-law` ·
+`norman` (Action Cycle) · `mental-model` · `problem-solving` · `visual-perception` · `language` ·
+`ergonomics` · `experiment-design`, plus Legacy Labs (lab1–lab6, HCI Research, legacy).
+
+Each maps to a COMP3423 lecture session — mapping table in `docs/revamp.md` Part 6.3. Note only **4 of
+13** have validated pre/post item banks (`docs/quiz-item-banks.md`); the other 9 are authored during the
+run (Part 8.4).
 
 ## Auth & data model
-- Login: SID + password → cookie `user` = `{ sid, username, avatarId }`
-- All users stored in cookie `users` = `{ [sid]: { password, username, avatarId, badges } }`
+**Changed 2026-08-16 — see `docs/revamp.md` Part 0.** Ratified: server accounts, credential is
+**SID only, no secret**, gated on an enrolled-SID allowlist (`backend/enrolled_sids.txt`, gitignored —
+it holds real student SIDs).
+
+- Login: SID → allowlist check → server session. `start_session`, not `login`: with no secret this is
+  **identity, not authentication**. An enrolled student can enter as another enrolled student; that is
+  accepted and disclosed in the paper.
+- Cookie `user` = `{ sid, username, avatarId }` — **shape unchanged**, so all 15 `Cookies.get("user")`
+  call sites keep working. UI decoration only.
 - Badges: array of `{ gameId, name, level (1-5), earnedAt }`
-- No server — everything client-side. Data export via `/api/export-data`
+- Research export pseudonymises via HMAC at the **export boundary**; real SIDs never leave the box.
+- Withdrawal tombstones the account and kills every session.
 
 ## Critical rules
 
@@ -128,23 +139,37 @@ Understanding games: concept intro → interactive exploration
 Assessment games: scored quiz/challenge → badge awarded on completion
 
 ### Do NOT add
-- Remote database (no Supabase, Firebase, etc.) — keep client-only for simplicity
-- Server-side auth — cookie approach is intentional for the research context
+- ~~Remote database~~ / ~~Server-side auth~~ — **OVERRIDDEN 2026-08-16.** This rule was written for a
+  single-browser demo. At 300 students on their own laptops, cookie-only state gives no cross-device
+  resume, no deletion path on withdrawal, and silent total data loss on a cache clear. Server accounts
+  are ratified: `backend/auth_store.py`, stdlib sqlite3 only. **Still do NOT add** Supabase / Firebase /
+  any hosted DB, an ORM, or a second DB engine — the house pattern is stdlib sqlite3, one file, one lock.
 - Price prediction or unrelated features
 
 ## Paper experiment design — full plan in `FYP_Submission/docs/`
 See `docs/experiment-design.md` + `docs/quiz-item-banks.md` (validated instruments, meta-analytic evidence dossier, APA refs, pre/post item banks). **Ready-to-administer Stage-1 pack: `docs/study-pack/`** (info sheet/consent, demographics, H1 concept inventory 6-item Form A/B, H2 IMI + H3 CoI + H4 ARCS battery, reflection + Paas, scoring keys/codebook/analysis, facilitator protocol).
 
 Goal: measure whether the Understanding-then-Assessment (flip) sequence improves learning vs assessment-only.
-- **Design — Stage 1 (current, Wilson 2026-06-23): one-group pretest–posttest, NO control.** A focus-group simplification that **overrides** the within-subjects 2-FLIP/2-CONTROL Latin-square below — a clean counterbalanced control isn't feasible at focus-group N. H1 is now a within-person pre→post gain; H2–H4 single post administrations. Limitation (no counterfactual; Campbell & Stanley) disclosed in `docs/study-pack/00_README.md` addendum + `06_scoring-codebook-analysis.md` §A. The 2-FLIP/2-CONTROL design returns at **Stage 2**.
-- **Design (Stage 2 / locked plan)**: within-subjects, counterbalanced (Latin square). **4 study topics** — Weber's Law, Problem Solving, Gestalt, Miller's Law — split **2 FLIP / 2 CONTROL** per participant.
+- **Design — Stage 2 is CURRENT as of 2026-08-16. Full plan: `docs/revamp.md`.** Within-subjects,
+  **13 topics × 300 students** (3 sections of ~100, Tue/Wed/Thu), released in **lecture-notes order**.
+  FLIP/CONTROL is **randomised per topic per participant** (~half each), counterbalanced across the
+  cohort, **assigned and recorded server-side at release time** — not inferred from completion order.
+  A Latin square does not extend to 13 topics.
+- *Historical — Stage 1 (Wilson 2026-06-23), now complete:* one-group pretest–posttest, no control;
+  a focus-group simplification at small N. Limitation (no counterfactual; Campbell & Stanley) disclosed
+  in `docs/study-pack/00_README.md` addendum + `06_scoring-codebook-analysis.md` §A.
+- *Superseded:* the "4 study topics split 2 FLIP / 2 CONTROL, Latin square" plan. Ledger of everything
+  it overrides is `docs/revamp.md` Part 18.
 - **IV**: `played_understanding_first` (recorded per topic, already in the research sink).
 - **DV (primary)**: normalized gain ⟨g⟩ from a uniform conceptual pre/post (Form A/B). **Secondary**: in-game assessment score, duration, attempts. (Weber's in-game assessment is *perceptual*, not a knowledge quiz → a separate behavioral measure.)
 - **Constructs + instruments (LOCKED 2026-06-22)**: four co-equal — performance (concept inventory Form A/B + Hake gain), motivation (IMI), interaction (CoI *reworded* "instructor"→"game + AI tutor"; non-validated adaptation, exploratory), satisfaction (ARCS-S, null-expected) + reflection (open + Likert) + Paas load bonus. Dropped on purpose: IMMS, standalone TAM, EGameFlow. H1–H4 framed exploratory, Holm–Bonferroni corrected. Full matrix in `docs/experiment-design.md` §3.
 
-### Measurement is STAGED (decision 2026-06-22)
-- **Stage 1 — focus group (current):** pre/post quizzes + questionnaire run **externally (Google Form / paper-based)**, NOT wired into the app. Small N — validates the instruments and flow first.
-- **Stage 2 — wide rollout (next batch of students):** wire the instruments into the app and collect at scale via the existing research sink (see TODO).
+### Measurement staging — Stage 2 reached 2026-08-16
+- *Stage 1 — focus group (done):* pre/post quizzes + questionnaire run externally (Google Form / paper).
+  Small N; validated the instruments and the flow.
+- **Stage 2 — wide rollout (CURRENT): wire the instruments into the app.** The earlier "do NOT wire yet"
+  instruction is spent. `topic_pretest` / `topic_posttest` become the pre- and post-check steps of the
+  topic unit; everything logs through the existing sink. `docs/revamp.md` Parts 2 and 8.
 
 ## Known issues / TODOs
 - Avatar system: only 2 avatars, minimal personality — needs revamp
@@ -152,4 +177,12 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
 - RAG widget: floating chatbot feels bolted-on, not integrated into game flow
 - No progress visualization (e.g., skill tree or journey map)
 - Experiment instrumentation: pre-test-at-signup ✅, research sink ✅ (`backend/research_store.py`), per-topic `played_understanding_first` ✅.
-  - **TODO (Stage 2 / wide rollout — defer):** wire per-topic pre/post gates (`topic_pretest`/`topic_posttest`) + questionnaire/reflection logging (`motivation_imi`, `interaction_survey`, `satisfaction_survey`, `reflection`) into the game flow. Payloads specified in `docs/experiment-design.md` §8. Focus-group (Stage 1) uses an external Google Form instead — do NOT wire yet.
+  - **ACTIVE (Stage 2 — no longer deferred, 2026-08-16):** wire per-topic pre/post gates
+    (`topic_pretest`/`topic_posttest`) + questionnaire/reflection logging into the topic unit. Payloads
+    in `docs/experiment-design.md` §8. Build order, phase by phase, in `docs/revamp.md` Part 3.
+  - Server accounts ✅ (`backend/auth_store.py`, 26 tests). Corpus staleness check ✅
+    (`backend/check_corpus_coverage.py` — currently **exits 1**: zero coverage on `norman` and
+    `hicks-law`, because the vector store is built from 2023 decks. Fix is `docs/revamp.md` Part 9.3).
+  - **Blocked on Wilson** (`docs/revamp.md` Part 4): `backend/enrolled_sids.txt` class list · HSESC
+    ethics amendment · 2026/27 lecture decks · the 13 session dates × 3 sections · a backup of
+    `backend/.participant_secret` taken off this machine.

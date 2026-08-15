@@ -2,22 +2,27 @@ import os
 import sys
 import warnings
 
-# The startup/status prints contain emoji; on Windows the default console codec
-# is cp1252, which raises UnicodeEncodeError and crashes server startup. Force
-# UTF-8 so the backend boots regardless of the host console encoding.
+# The startup/status prints contain emoji (~9 of them); on Windows the default
+# console codec is cp1252, which raises UnicodeEncodeError. Inside uvicorn's
+# lifespan handler that surfaces as "Application startup failed" — the server dies
+# at boot because of a log decoration. Observed for real 2026-08-16. `errors=
+# "replace"` means even an unmappable character degrades to '?' instead of raising.
 try:
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
     pass
 
 from typing import Optional, Any
-from fastapi import FastAPI, HTTPException
+import secrets
+from fastapi import FastAPI, HTTPException, Cookie, Header
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import research_store
+import auth_store
+import schedule
 
 # Suppress annoying warnings
 warnings.filterwarnings("ignore")
@@ -47,14 +52,39 @@ OLLAMA_EMBEDDING = "nomic-embed-text"
 
 app = FastAPI(title="HCI RAG API")
 
-# Enable CORS so your webpage can communicate with this API
+# CORS. NOT a wildcard any more, and that change is load-bearing:
+#
+# `allow_origins=["*"]` was harmless while nothing was authenticated. Now that
+# /api/auth issues an HttpOnly `session` cookie, a wildcard means ANY page a
+# student visits can make credentialed calls to this API as them and read the
+# response. Explicit origins only. (docs/stage2-deployment-plan.md §A1)
+#
+# Set ALLOWED_ORIGINS to the tunnel URL on the deployment box, comma-separated.
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",") if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, replace "*" with your webpage's URL (e.g., "http://localhost:3000")
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,   # required for the session cookie to travel
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Auth, consent and the topic unit live in their own routers because they must NOT
+# inherit this module's chromadb/langchain imports — students have to be able to log
+# in and submit a check whether or not the tutor is up. Same reasoning as the sink.
+from auth_api import router as auth_router          # noqa: E402
+from topic_api import router as topic_router        # noqa: E402
+from research_api import router as research_router  # noqa: E402
+
+app.include_router(auth_router)
+app.include_router(topic_router)
+app.include_router(research_router)
 
 # Built once at startup. /api/ask drives retrieval + the LLM manually (rather
 # than a prebuilt LangChain retrieval chain) so a follow-up's retrieval query can
@@ -83,33 +113,7 @@ class SocraticRequest(BaseModel):
     history: list[dict]
 
 
-class ResearchEvent(BaseModel):
-    participant_id: str
-    event_type: str
-    topic_id: Optional[str] = None
-    mode: Optional[str] = None
-    score: Optional[float] = None
-    played_understanding_first: Optional[bool] = None
-    duration_ms: Optional[int] = None
-    client_ts: Optional[str] = None
-    meta: Optional[Any] = None
-
-# Vendor/model identity the tutor must NEVER disclose. A small local model
-# (gemma) falls back to its training identity when probed ("I am Gemma 4 by
-# Google DeepMind"), which breaks the "your HCI tutor" persona and is a trivial
-# prompt-injection win. The system prompts forbid it, but a flaky local model
-# can't be trusted to always obey — so we scrub server-side as a hard backstop.
-# Name-based (not "developed by ...") so legit HCI content like "designed by
-# Norman" or "Google Material Design" is never touched.
-_IDENTITY_PATTERNS = re.compile(
-    r"(gemma|google\s*deepmind|deepmind|open\s*ai|gpt[-\s]?\d|chatgpt|"
-    r"anthropic|claude|llama\s*\d|mistral|large language model)",
-    re.IGNORECASE,
-)
-_IDENTITY_REDIRECT = (
-    "I'm your COMP3423 HCI tutor, so let's keep our focus on the course. "
-    "What would you like to explore about the topic?"
-)
+# ResearchEvent model now lives in research_api.py alongside its endpoint.
 
 
 def _scrub_identity(text: str) -> str:
@@ -257,6 +261,17 @@ async def startup_event():
     # data collection works even if Ollama/Chroma fails to load.
     research_store.init_db()
     print("🗃️  Research event store ready.")
+    auth_store.init_db()
+    print(f"🔑 Participant accounts ready. {auth_store.stats()}")
+    problems = schedule.validate()
+    if problems:
+        # Loud but non-fatal: a bad schedule must not take the server down, but it
+        # must not be discovered by a student hitting a locked topic either.
+        print(f"⚠️  topic_schedule.json has {len(problems)} problem(s):")
+        for p in problems:
+            print(f"     - {p}")
+    else:
+        print("🗓️  Topic schedule validated.")
     # Load the model into memory when the server starts. Don't let an Ollama/
     # Chroma failure crash the whole server — the research sink must stay up.
     try:
@@ -537,45 +552,8 @@ async def socratic_reflection(req: SocraticRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ── Flip-learning research data sink ──────────────────────────────────────────
-# Cookie storage still drives the live app; these endpoints give the PAPER a
-# centralised, aggregatable record of learning events across participants.
-
-@app.post("/api/research/event")
-async def research_event(event: ResearchEvent):
-    try:
-        row_id = research_store.record_event(event.model_dump())
-        return {"ok": True, "id": row_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/research/summary")
-async def research_summary():
-    return research_store.summary()
-
-
-@app.get("/api/research/export")
-async def research_export(format: str = "json"):
-    """Dump all collected events for analysis. format=json (default) or csv."""
-    rows = research_store.fetch_all()
-    if format == "csv":
-        import csv
-        import io
-        cols = [
-            "id", "participant_id", "event_type", "topic_id", "mode", "score",
-            "played_understanding_first", "duration_ms", "client_ts", "server_ts", "meta",
-        ]
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=cols)
-        writer.writeheader()
-        for r in rows:
-            writer.writerow({c: r.get(c) for c in cols})
-        return PlainTextResponse(
-            buf.getvalue(),
-            media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=research_events.csv"},
-        )
-    return JSONResponse(rows)
+# Moved to research_api.py (included above). It holds the study's entire dataset
+# and two security fixes, and had to be importable/testable without the RAG stack.
 
 
 if __name__ == "__main__":

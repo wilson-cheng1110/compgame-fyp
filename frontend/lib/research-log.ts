@@ -1,16 +1,26 @@
 // Fire-and-forget research-event logger.
 //
-// The live app stays cookie-driven; this is a parallel sink so the flip-learning
-// PAPER can aggregate events across participants (cookies are per-browser and
-// lost on clear, which is fine for the demo but useless for the study).
+// This is the sink the PAPER aggregates across participants (cookies are
+// per-browser and lost on clear — fine for a demo, useless for a study).
 //
 // Design rules:
 // - Never block or throw into the UI. If the backend is down, the app is
 //   unaffected — data collection is best-effort.
-// - participant_id is the SID (the natural per-participant key for a class
-//   study). To anonymise later, hash it here in one place.
+// - IDENTITY IS NOT SENT. The server reads the SID from the HttpOnly session
+//   cookie and overwrites anything a client claims. Until 2026-08-16 this file
+//   read `user.sid` out of a JS-readable cookie and posted it as
+//   `participant_id`, which meant any student could write events attributed to a
+//   classmate. That is now impossible: the field is gone from here and ignored
+//   there.
+// - The URL is NOT hardcoded. It was `http://localhost:8080`, which is exactly
+//   why nothing worked off the server machine (stage2-deployment-plan §A1). It
+//   now comes from the same NEXT_PUBLIC_API_BASE as every other call.
+// - `credentials: "include"` is mandatory: without it the session cookie doesn't
+//   travel and every event is rejected as unauthenticated.
 
-const RESEARCH_API = "http://localhost:8080/api/research/event"
+import { API_BASE } from "@/lib/api"
+
+const RESEARCH_API = `${API_BASE}/api/research/event`
 
 export interface ResearchEventInput {
   event_type: string // e.g. "understanding_complete" | "assessment_complete"
@@ -22,37 +32,24 @@ export interface ResearchEventInput {
   meta?: Record<string, unknown>
 }
 
-function getParticipantId(): string | null {
-  if (typeof document === "undefined") return null
-  try {
-    const match = document.cookie.split("; ").find((c) => c.startsWith("user="))
-    if (!match) return null
-    const user = JSON.parse(decodeURIComponent(match.split("=").slice(1).join("=")))
-    return user?.sid ?? null
-  } catch {
-    return null
-  }
-}
-
 export function logResearchEvent(input: ResearchEventInput): void {
-  const participant_id = getParticipantId()
-  if (!participant_id) return // not logged in — nothing to attribute
-
   const body = {
-    participant_id,
     client_ts: new Date().toISOString(),
     ...input,
   }
 
   // Fire-and-forget. keepalive lets it survive a tab-close mid-navigation.
+  // A 401 here means no session — nothing to attribute, and nothing to do about
+  // it from the UI, so it's swallowed like any other transport failure.
   try {
     fetch(RESEARCH_API, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       keepalive: true,
     }).catch(() => {
-      /* backend down / offline — ignore, app is unaffected */
+      /* backend down / offline / not signed in — ignore, app is unaffected */
     })
   } catch {
     /* never let logging break the app */

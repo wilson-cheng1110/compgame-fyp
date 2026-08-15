@@ -42,6 +42,16 @@ frontend/test-*.mjs
 
 # Research sink — local runtime data (participant events), not source
 backend/research_events.db
+
+# Participant accounts — runtime data, not source
+backend/auth_store.db
+# PERSONAL DATA. Real student SIDs, one per line. Committing this is a PDPO /
+# PolyU data-protection incident, and git history makes it unrecoverable.
+backend/enrolled_sids.txt
+# HMAC key for participant pseudonyms. Must be backed up OFF this machine —
+# lose it and no future export can be joined to any past one — but never to git,
+# or the pseudonyms in the export are trivially reversible back to SIDs.
+backend/.participant_secret
 # DB backup left by rebuild_db.py — redundant with the regenerable DB
 backend/hci_chroma_db_local.bak/
 # Render-verification artifacts — screenshots + reports are generated, not source
@@ -55,3 +65,10 @@ frontend/*.png
 # 1.3MB) accidentally committed in 6987bcc — has no business in a Next.js
 # frontend. Untracked 2026-06-23; ignore so it can't sneak back in.
 frontend/let
+
+# Per-run scratch dirs created by backend/tests (sqlite fixtures, HMAC secret)
+backend/tests/_tmp_*/
+
+# Dev-only artefacts from local end-to-end runs
+backend/_dev*
+backend/_devserver.py

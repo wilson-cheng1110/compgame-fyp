@@ -1,0 +1,195 @@
+"""The topic unit: journey state, pre/post checks, and submission recording.
+
+See docs/revamp.md Parts 2, 7, 8. Like auth_api, this is a standalone router with
+no chromadb/langchain import, so the unit works whether or not the tutor is up.
+
+Order of checks on every submission, and the order matters:
+
+    session  ->  consent  ->  schedule gate  ->  one-submission  ->  grade  ->  record
+
+Consent comes second because nothing may be recorded before it exists (Part 15).
+The schedule gate is third and is server-side on purpose: topic availability and
+order IS the independent variable (Part 10), so a client-side gate would make the
+flip-learning claim unfalsifiable.
+"""
+
+import os
+
+from fastapi import APIRouter, Cookie, Response
+from pydantic import BaseModel
+
+import auth_store
+import checks
+import research_store
+import schedule
+
+router = APIRouter(prefix="/api/topics", tags=["topics"])
+
+# Behavioural telemetry ships OFF until the HSESC amendment lands (docs/revamp.md
+# Parts 0 and 15). The frontend collects nothing while this is false; flipping it
+# is a deployment decision, never a code change.
+TELEMETRY_ENABLED = os.environ.get("TELEMETRY_ENABLED", "0") == "1"
+
+PRE, POST = "A", "B"
+_EVENT = {PRE: "topic_pretest", POST: "topic_posttest"}
+
+
+class Submission(BaseModel):
+    answers: dict[str, str]
+    duration_ms: int | None = None
+    telemetry: dict | None = None
+
+
+def _me(session: str | None):
+    return auth_store.resolve_session(session or "")
+
+
+def _consented(sid: str) -> bool:
+    return any(r.get("participant_id") == sid and r.get("event_type") == "consent_recorded"
+               for r in research_store.fetch_all())
+
+
+@router.get("")
+async def journey(response: Response, session: str | None = Cookie(default=None)):
+    """The dashboard's whole data source: 13 topics in lecture order with state."""
+    user = _me(session)
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+
+    states = schedule.topic_states(user["sid"], user["section"])
+    done = {(r.get("topic_id"), r.get("event_type")) for r in research_store.fetch_all()
+            if r.get("participant_id") == user["sid"]}
+
+    for st in states:
+        st["has_bank"] = checks.has_bank(st["topic_id"])
+        st["pre_done"] = (st["topic_id"], "topic_pretest") in done
+        st["post_done"] = (st["topic_id"], "topic_posttest") in done
+        # A unit is finished when its post-check is in. Without a bank there is no
+        # post-check, so the game completion is what closes it.
+        st["complete"] = st["post_done"] or (
+            not st["has_bank"] and (st["topic_id"], "assessment_complete") in done)
+
+    return {"section": user["section"], "telemetry_enabled": TELEMETRY_ENABLED,
+            "topics": states}
+
+
+@router.get("/{topic_id}")
+async def topic_detail(topic_id: str, response: Response,
+                       session: str | None = Cookie(default=None)):
+    user = _me(session)
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+
+    st = schedule.topic_state(user["sid"], user["section"], topic_id)
+    if st is None:
+        response.status_code = 404
+        return {"error": "unknown_topic"}
+    if st["state"] in ("locked", "unscheduled"):
+        response.status_code = 403
+        return {"error": st["state"], "opens": st["opens"],
+                "message": "This topic isn't open yet."}
+
+    st["has_bank"] = checks.has_bank(topic_id)
+    st["telemetry_enabled"] = TELEMETRY_ENABLED
+    return st
+
+
+@router.get("/{topic_id}/check/{form}")
+async def get_check(topic_id: str, form: str, response: Response,
+                    session: str | None = Cookie(default=None)):
+    """Items for the pre- or post-check. NEVER carries the answer key (Part 8.5)."""
+    user = _me(session)
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+
+    form = form.upper()
+    if form not in (PRE, POST):
+        response.status_code = 400
+        return {"error": "bad_form"}
+
+    if not schedule.is_enterable(user["sid"], user["section"], topic_id):
+        response.status_code = 403
+        return {"error": "not_open"}
+
+    items = checks.items_for_student(topic_id, form)
+    if items is None:
+        response.status_code = 404
+        return {"error": "no_bank", "message": "This topic has no question set yet."}
+
+    if checks.already_submitted(research_store.fetch_all(), user["sid"], topic_id, _EVENT[form]):
+        response.status_code = 409
+        return {"error": "already_submitted",
+                "message": "You've already submitted this one — it can only be answered once."}
+
+    return {"topic_id": topic_id, "form": form, "items": items,
+            "reveals_answers": form == POST}
+
+
+@router.post("/{topic_id}/check/{form}")
+async def submit_check(topic_id: str, form: str, body: Submission, response: Response,
+                       session: str | None = Cookie(default=None)):
+    user = _me(session)
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+
+    form = form.upper()
+    if form not in (PRE, POST):
+        response.status_code = 400
+        return {"error": "bad_form"}
+
+    if not _consented(user["sid"]):
+        response.status_code = 403
+        return {"error": "no_consent",
+                "message": "Consent has to be recorded before anything is saved."}
+
+    st = schedule.topic_state(user["sid"], user["section"], topic_id)
+    if st is None or st["state"] in ("locked", "unscheduled"):
+        response.status_code = 403
+        return {"error": "not_open"}
+
+    events = research_store.fetch_all()
+    if checks.already_submitted(events, user["sid"], topic_id, _EVENT[form]):
+        response.status_code = 409
+        return {"error": "already_submitted",
+                "message": "You've already submitted this one — it can only be answered once."}
+
+    try:
+        graded = checks.grade_submission(topic_id, form, body.answers, reveal=(form == POST))
+        score = checks.score_only(topic_id, form, body.answers)
+    except ValueError:
+        response.status_code = 404
+        return {"error": "no_bank"}
+
+    meta = {
+        "form": form,
+        "arm": st["arm"],
+        "section": user["section"],
+        "late": st["late"],
+        "answers": body.answers,
+        "n_options": checks.bank_report().get(topic_id, {}).get("n_options"),
+    }
+    # Telemetry is accepted only while the flag is on. Dropping it here rather than
+    # in the frontend means an old client cannot keep sending it after the flag goes
+    # off, and nothing pre-approval can slip into the sink.
+    if TELEMETRY_ENABLED and body.telemetry:
+        meta["telemetry"] = body.telemetry
+
+    research_store.record_event({
+        "participant_id": user["sid"],
+        "event_type": _EVENT[form],
+        "topic_id": topic_id,
+        "score": score,                       # always stored; only shown back on POST
+        "played_understanding_first": st["plays_game_first"],
+        "duration_ms": body.duration_ms,
+        "meta": meta,
+    })
+
+    if form == PRE:
+        # Nothing but acknowledgement. A pre-check that returns its score lets a
+        # student infer the key by resubmitting, and contaminates the post-check.
+        return {"ok": True, "recorded": graded["answered"], "total": graded["total"]}
+    return {"ok": True, **graded}

@@ -184,7 +184,11 @@ FYP_Submission/
 - **Add a new game:** Create `app/games/[new-game-id]/page.tsx` + `game-client.tsx`. Add entry to `TOPICS` array in `lib/topic-definitions.ts` and `DEBRIEF_CONTENT` in `components/game-debrief.tsx`.
 - **Modify a game:** Edit the game-client file directly. No backend restart needed.
 - **Test locally:** Run `npm run build` to verify all routes (should output ~65 static pages). Then `npm run dev` and test in browser.
-- **Data model:** All user data stored in browser cookies (`user`, `users`, `darkMode`). No remote DB. Export via `/api/export-data`.
+- **Data model:** *Changing for the 300-student rollout (2026-08-16).* Accounts and progress move
+  server-side (`backend/auth_store.py`, stdlib sqlite3). The `user` cookie keeps its shape
+  (`{ sid, username, avatarId }`) as UI decoration only. Login is **SID against an enrolled-SID
+  allowlist, no password**. Export via `/api/export-data`, pseudonymised at the export boundary.
+  Full plan: `docs/revamp.md`.
 
 ---
 

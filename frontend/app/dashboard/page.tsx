@@ -10,6 +10,7 @@ import { getUsers } from "@/lib/user-store"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
+import { topics as topicsApi, type JourneyTopic } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
 import type { TopicId } from "@/lib/topic-definitions"
 
@@ -59,6 +60,28 @@ export default function DashboardPage() {
   const [darkMode, setDarkMode] = useState(false)
   const { badges, refreshBadges } = useBadges()
   const { progress, refreshProgress, getTopicProgress } = useProgress()
+
+  // Server-assigned release state per topic (docs/revamp.md Parts 7, 10). This is
+  // what turns the grid into a journey: which topic is open, when the rest unlock,
+  // and — invisibly to the student — which arm they're in. Local progress still
+  // drives badges and the avatar's speech bubble; it just no longer decides what
+  // the student is allowed to open.
+  const [journey, setJourney] = useState<Record<string, JourneyTopic>>({})
+  const [journeyLoaded, setJourneyLoaded] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    topicsApi.journey().then((res) => {
+      if (!alive) return
+      if (res.ok && res.data) {
+        const byId: Record<string, JourneyTopic> = {}
+        res.data.topics.forEach((t) => { byId[t.topic_id] = t })
+        setJourney(byId)
+      }
+      setJourneyLoaded(true)
+    })
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     const interval = setInterval(() => { refreshBadges(); refreshProgress() }, 3000)
@@ -240,52 +263,85 @@ export default function DashboardPage() {
                         </span>
                       </div>
 
-                      {/* Flip Flow: Understanding → Assessment */}
-                      <div className="flex items-stretch gap-3">
-                        {/* Understanding */}
-                        <Link href={`/games/${topic.understandingGameId}`} className="flex-1">
-                          <div className={`rounded-lg border-2 p-4 h-full cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${
-                            uDone
-                              ? "bg-green-50 border-green-400 hover:bg-green-100"
-                              : "bg-blue-50 border-[#0099db] hover:bg-blue-100"
-                          }`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-lg">{uDone ? "✅" : "📚"}</span>
-                              <span className="font-press-start-2p text-[10px]">Learn</span>
-                            </div>
-                            <p className="font-pixelify-sans text-xs opacity-70">Explore the concept interactively</p>
-                            {uDone && <p className="font-pixelify-sans text-[10px] text-green-600 font-bold mt-1">Completed ✓</p>}
-                          </div>
-                        </Link>
+                      {/* One entry point per topic, gated by the SERVER's release
+                          window. The old two-button "Learn → Assess" pair let a
+                          student open either half in any order, which is why the
+                          sink recorded 27 of 33 assessments with no Understanding
+                          first. The unit now owns that sequence. */}
+                      {(() => {
+                        const js = journey[topic.id]
 
-                        {/* Arrow */}
-                        <div className="flex items-center text-gray-400 font-press-start-2p text-sm flex-shrink-0">→</div>
-
-                        {/* Assessment */}
-                        <Link href={`/games/${topic.assessmentGameId}`} className="flex-1">
-                          <div className={`rounded-lg border-2 p-4 h-full cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${
-                            aDone
-                              ? "bg-green-50 border-green-400 hover:bg-green-100"
-                              : uDone
-                              ? "bg-[#facc15]/20 border-[#a16207] hover:bg-[#facc15]/40"
-                              : "bg-gray-50 border-gray-300 hover:bg-gray-100"
-                          }`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-lg">{aDone ? "✅" : uDone ? "🎯" : "🔒"}</span>
-                              <span className="font-press-start-2p text-[10px]">Assess</span>
-                              {hasBadge && <span className="text-sm ml-auto">🏅</span>}
+                        if (!journeyLoaded) {
+                          return (
+                            <div className="rounded-lg border-2 border-gray-300 bg-gray-50 p-4">
+                              <p className="font-pixelify-sans text-xs opacity-60">Checking what&apos;s open…</p>
                             </div>
-                            <p className="font-pixelify-sans text-xs opacity-70">Test what you've learned</p>
-                            {aDone && <p className="font-pixelify-sans text-[10px] text-green-600 font-bold mt-1">Completed ✓</p>}
-                            {!aDone && !uDone && (
-                              <p className="font-pixelify-sans text-[10px] text-gray-500 mt-1">Play Learn first!</p>
-                            )}
-                            {!aDone && uDone && (
-                              <p className="font-pixelify-sans text-[10px] text-amber-600 font-bold mt-1">Ready — prove it! ▶</p>
-                            )}
-                          </div>
-                        </Link>
-                      </div>
+                          )
+                        }
+
+                        if (!js) {
+                          return (
+                            <div className="rounded-lg border-2 border-gray-300 bg-gray-50 p-4">
+                              <p className="font-pixelify-sans text-xs opacity-70">
+                                Not part of the current schedule.
+                              </p>
+                            </div>
+                          )
+                        }
+
+                        if (js.state === "locked" || js.state === "unscheduled") {
+                          return (
+                            <div className="rounded-lg border-2 border-gray-300 bg-gray-50 p-4">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">🔒</span>
+                                <span className="font-press-start-2p text-[10px] text-gray-600">Locked</span>
+                              </div>
+                              <p className="font-pixelify-sans text-xs opacity-70 mt-1">
+                                {js.opens
+                                  ? `Opens ${new Date(js.opens).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}`
+                                  : "Date to be confirmed"}
+                              </p>
+                            </div>
+                          )
+                        }
+
+                        const done = js.complete
+                        const closes = js.closes
+                          ? new Date(js.closes).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })
+                          : null
+
+                        return (
+                          <Link href={`/topics/${topic.id}`} className="block">
+                            <div className={`rounded-lg border-2 p-4 cursor-pointer transition-all hover:scale-[1.01] hover:shadow-md ${
+                              done
+                                ? "bg-green-50 border-green-400 hover:bg-green-100"
+                                : js.late
+                                ? "bg-[#f6ecdf] border-[#a16207] hover:bg-[#f0e0cb]"
+                                : "bg-blue-50 border-[#0099db] hover:bg-blue-100"
+                            }`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-lg">{done ? "✅" : js.late ? "⏰" : "▶"}</span>
+                                <span className="font-press-start-2p text-[10px]">
+                                  {done ? "Completed" : js.late ? "Reopen (late)" : "Start this topic"}
+                                </span>
+                                {done && <span className="text-sm ml-auto">🏅</span>}
+                              </div>
+                              <p className="font-pixelify-sans text-xs opacity-70">
+                                {done
+                                  ? "You've finished this one."
+                                  : js.has_bank
+                                  ? "Quick check, activity, then check again"
+                                  : "Work through the activity, then reflect"}
+                              </p>
+                              {!done && closes && (
+                                <p className={`font-pixelify-sans text-[10px] mt-1 font-bold ${js.late ? "text-[#a16207]" : "text-[#0099db]"}`}>
+                                  {js.late ? "Window closed" : `Finish by ${closes}`}
+                                </p>
+                              )}
+                            </div>
+                          </Link>
+                        )
+                      })()}
 
                       {/* Reflection CTA — the resume path. Once the assessment
                           is done, nudge a Socratic reflection; if skipped/left,
