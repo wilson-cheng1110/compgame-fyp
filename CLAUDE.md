@@ -18,7 +18,21 @@ FYP deliverable + EDC exhibition + academic paper (measuring flip-learning effec
 ```
 FYP_Submission/
   backend/               # Python RAG API (FastAPI, port 8080)
-    rag_api.py           # Main FastAPI server — /api/ask endpoint
+    rag_api.py           # Main FastAPI server — /api/ask, /api/socratic, /api/health.
+                         #   Imports chromadb+langchain at module scope, so anything
+                         #   that must work WITHOUT the RAG stack lives in a router:
+    auth_api.py          #   → /api/auth/*      session, consent, profile, withdraw
+    topic_api.py         #   → /api/topics/*    journey, gate, pre/post checks
+    research_api.py      #   → /api/research/*  event, summary, pseudonymised export
+    auth_store.py        # Participant accounts (stdlib sqlite3) + HMAC pseudonyms
+    schedule.py          # Release windows per section + FLIP/CONTROL assignment
+    checks.py            # Item-bank parsing, server-side grading, key never ships
+    ops.py               # Concurrency gate (off the event loop), rate limit, health
+    backup_sink.py       # Hourly sqlite online-backup of the sink + accounts
+    check_corpus_coverage.py # Is the vector store still current? exits 1 if not
+    topic_schedule.json  # Release config — dates are PLACEHOLDERS until the timetable lands
+    enrolled_sids.txt    # Class list (SID,section). GITIGNORED — real personal data
+    tests/               # 173 assertions: python backend/tests/run_all.py
     hci_chroma_db_local/ # Pre-built ChromaDB vector store (HCI lecture PDFs)
     *.pdf                # COMP3423 lecture slides (6 weeks)
     requirements.txt
@@ -113,7 +127,9 @@ it holds real student SIDs).
   use `gemma4:e4b` (or larger), NOT `e2b`** — `e2b` cannot honor "give me an
   example"/analogy requests in the Socratic + JSON framing (it abstracts harder);
   e4b follows it reliably. Set via `OLLAMA_LLM` in `backend/rag_api.py` (shared by
-  `/api/ask` + `/api/socratic`). Warm latency ~12s/call on e4b. (Wilson 2026-06-23,
+  `/api/ask` + `/api/socratic`). Warm latency **~7s/call measured 2026-08-16** on the
+  5060 Ti dev box (`/api/ask` end-to-end; socratic ~8s). The older ~12s figure is
+  pessimistic; the 3090 deployment box is still unmeasured. (Wilson 2026-06-23,
   commit bb94012; a per-topic `_EXAMPLE_BANK` backs it up when a student is stuck.)
 - **`/api/socratic` MUST keep `format="json"` + `num_predict` on its `ChatOllama`**
   (`get_socratic_chain`). The Socratic turn returns a `{response, understood, counts}`
