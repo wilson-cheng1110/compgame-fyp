@@ -69,6 +69,12 @@ frontend/let
 # Per-run scratch dirs created by backend/tests (sqlite fixtures, HMAC secret)
 backend/tests/_tmp_*/
 
-# Dev-only artefacts from local end-to-end runs
+# Local end-to-end run artefacts: scratch DBs, HMAC secrets, shifted schedules,
+# the standalone dev server. Anything the verification runs create.
 backend/_dev*
+backend/_verify*
 backend/_devserver.py
+backend/*.bak
+
+# Local DB snapshots from backup_sink.py
+backups/

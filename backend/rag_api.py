@@ -15,7 +15,7 @@ except Exception:
 
 from typing import Optional, Any
 import secrets
-from fastapi import FastAPI, HTTPException, Cookie, Header
+from fastapi import FastAPI, HTTPException, Cookie, Header, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -23,6 +23,7 @@ from pydantic import BaseModel
 import research_store
 import auth_store
 import schedule
+import ops
 
 # Suppress annoying warnings
 warnings.filterwarnings("ignore")
@@ -86,6 +87,54 @@ app.include_router(auth_router)
 app.include_router(topic_router)
 app.include_router(research_router)
 
+
+# ── operations (stage2-deployment-plan.md Loops A + C) ────────────────────────
+
+@app.exception_handler(ops.Saturated)
+async def _saturated(request, exc: ops.Saturated):
+    """Honest refusal instead of a hung page.
+
+    §A3's point: a saturated evening currently presents as a spinner that never
+    resolves, and a spinner generates email. Telling a student "about 40 seconds,
+    try again" is a better experience AND a cheaper support load than making them
+    guess.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "busy",
+            "message": f"The tutor is busy right now — about {max(exc.est_wait_s, 10)} seconds. "
+                       f"Your work is saved; try again in a moment.",
+            "estimated_wait_seconds": exc.est_wait_s,
+        },
+        headers={"Retry-After": str(max(exc.est_wait_s, 10))},
+    )
+
+
+@app.get("/api/health")
+async def health(response: Response):
+    """Unauthenticated liveness probe for the uptime monitor (Loop C2).
+
+    Carries no participant identifiers precisely because it is open. Returns 503
+    when a CRITICAL component is down so a monitor can alert on the status code
+    alone, without parsing the body.
+    """
+    snap = ops.health_snapshot(rag_loaded=bool(rag_llm and rag_retriever))
+    if snap["status"] == "down":
+        response.status_code = 503
+    return snap
+
+
+def _rate_key(request: Request) -> str:
+    """Per-session where we know who it is, per-IP otherwise. Not a security
+    control — there is no credential to protect — just so one client stuck in a
+    retry loop can't starve a cohort."""
+    token = request.cookies.get("session")
+    if token:
+        return f"s:{token[:16]}"
+    client = request.client
+    return f"ip:{client.host if client else 'unknown'}"
+
 # Built once at startup. /api/ask drives retrieval + the LLM manually (rather
 # than a prebuilt LangChain retrieval chain) so a follow-up's retrieval query can
 # include the recent conversation WITHOUT relying on the small local model to
@@ -114,6 +163,22 @@ class SocraticRequest(BaseModel):
 
 
 # ResearchEvent model now lives in research_api.py alongside its endpoint.
+
+
+# Backs the "you are simply the HCI tutor" rule in both system prompts. RESTORED
+# 2026-08-16: these two were collateral damage when the research endpoints were
+# extracted to research_api.py by line range, and their loss made every /api/ask
+# and /api/socratic call die with `NameError: _IDENTITY_PATTERNS` — a 500 that no
+# unit test caught because nothing had ever executed this path.
+_IDENTITY_PATTERNS = re.compile(
+    r"(gemma|google\s*deepmind|deepmind|open\s*ai|gpt[-\s]?\d|chatgpt|"
+    r"anthropic|claude|llama\s*\d|mistral|large language model)",
+    re.IGNORECASE,
+)
+_IDENTITY_REDIRECT = (
+    "I'm your COMP3423 HCI tutor, so let's keep our focus on the course. "
+    "What would you like to explore about the topic?"
+)
 
 
 def _scrub_identity(text: str) -> str:
@@ -284,7 +349,16 @@ async def startup_event():
         print(f"⚠️  RAG model failed to load ({e}). /api/ask + /api/socratic disabled; research sink still active.")
 
 @app.post("/api/ask")
-async def ask_question(req: QuestionRequest):
+async def ask_question(req: QuestionRequest, request: Request):
+    if not ops.allow(_rate_key(request), per_minute=20, burst=6):
+        raise HTTPException(
+            status_code=429,
+            detail="Slow down a moment, then try again.",
+            # A 429 without Retry-After makes every client invent its own
+            # backoff, and the naive ones retry instantly — which is the
+            # behaviour the limit exists to stop.
+            headers={"Retry-After": "10"},
+        )
     if not rag_llm or not rag_retriever:
         raise HTTPException(status_code=500, detail="RAG system is not initialized yet.")
 
@@ -311,13 +385,13 @@ async def ask_question(req: QuestionRequest):
         # of that" lets the example slide surface at k=12. (This replaces an LLM
         # rephrase step the small local model did unreliably, which made follow-ups
         # wrongly answer "I don't know".)
-        docs = rag_retriever.invoke(req.question)
+        docs = await ops.run_gated(rag_retriever.invoke, req.question)
         context = "\n\n".join(d.page_content for d in docs)
 
         messages = [SystemMessage(content=RAG_SYSTEM_PROMPT.format(context=context))]
         messages.extend(chat_history)
         messages.append(HumanMessage(content=req.question))
-        result = rag_llm.invoke(messages)
+        result = await ops.run_gated(rag_llm.invoke, messages)
 
         sources = sorted({
             f"{os.path.basename(d.metadata['source'])} (Page {d.metadata['page']})"
@@ -484,7 +558,16 @@ def _topic_example(topic: str) -> str:
 
 
 @app.post("/api/socratic")
-async def socratic_reflection(req: SocraticRequest):
+async def socratic_reflection(req: SocraticRequest, request: Request):
+    if not ops.allow(_rate_key(request), per_minute=20, burst=6):
+        raise HTTPException(
+            status_code=429,
+            detail="Slow down a moment, then try again.",
+            # A 429 without Retry-After makes every client invent its own
+            # backoff, and the naive ones retry instantly — which is the
+            # behaviour the limit exists to stop.
+            headers={"Retry-After": "10"},
+        )
     if not socratic_llm or not socratic_retriever:
         raise HTTPException(status_code=500, detail="Socratic tutor is not initialized yet.")
 
@@ -499,7 +582,7 @@ async def socratic_reflection(req: SocraticRequest):
             "",
         )
         query = f"{req.topic}. {opener}".strip()
-        docs = socratic_retriever.invoke(query)
+        docs = await ops.run_gated(socratic_retriever.invoke, query)
         context = "\n\n".join(d.page_content for d in docs)
 
         messages = [SystemMessage(content=SOCRATIC_SYSTEM_PROMPT.format(topic=req.topic, context=context))]
@@ -530,7 +613,7 @@ async def socratic_reflection(req: SocraticRequest):
                 f"NOT ignore their request. Still reply as the required JSON object."
             )))
 
-        result = socratic_llm.invoke(messages)
+        result = await ops.run_gated(socratic_llm.invoke, messages)
         response, understood, counts = _parse_socratic(result.content)
         # Backstop the system-prompt identity rule (small local model is unreliable).
         response = _scrub_identity(response)

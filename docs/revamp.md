@@ -407,9 +407,28 @@ and a class of CS students will find it.
 **`webers-law` is the thinnest point in the study** — 3 hits, essentially one slide (Visual 1 p8), and
 it is one of only four topics with a validated item bank. A *measured* topic resting on a single slide.
 
-On `norman` and `hicks-law` the retriever has nothing under any name, while the prompt tells the model to
-"stay strictly grounded in the retrieved lecture context" and "never invent facts beyond it"
-(`SOCRATIC_SYSTEM_PROMPT`). It will refuse, or answer from parametric knowledge believing it's grounded.
+### What the tutor actually does — measured live, 2026-08-16
+
+An earlier draft of this section claimed the model would "answer from parametric knowledge while
+believing it is grounded". **That was wrong, and running it refuted it.** Against the live server:
+
+| Asked | Corpus | Answer |
+|---|---|---|
+| "What does Hick's Law say about the number of choices?" | 0 chunks | *"I don't know … based on the context provided"* |
+| "What is Weber's Law?" | 3 chunks | *"I don't know … based on the current lecture slides"* |
+| "What are the Gestalt principles?" | 0 under that name | *"I don't know the specific Gestalt principles"* |
+| **"Explain pattern recognition grouping by similarity and proximity"** | 63 chunks | **full, correct, sourced answer** |
+
+Two things follow, and they point in opposite directions:
+
+**The grounding rule holds.** The model refuses rather than inventing. So the risk is *not* confident
+hallucination — it is a tutor that is simply **useless on those topics**, telling a student "I don't
+know" about the very concept their unit is teaching. Bad, but honest, and it fails safe.
+
+**§9.2's naming fix is now demonstrated rather than argued.** The last two rows are the same underlying
+slides. Asked by textbook name the tutor refuses; asked in the lecturer's vocabulary it answers well.
+`lecture_terms` is not a nicety — it is the difference between a working tutor and a useless one on
+`gestalt` and `webers-law`, both of which are *measured* topics.
 
 `check_corpus_coverage.py` reads `chroma.sqlite3` directly — no Ollama, no server — and exits non-zero
 when any topic hits zero. Run it after every deck change. Word-boundary matching is deliberate: a
@@ -680,9 +699,13 @@ paperwork-after-the-fact — running without them invalidates the dataset retroa
 1. Use `stage2-deployment-plan.md` §A's existing prescription — `OLLAMA_NUM_PARALLEL=4`,
    `OLLAMA_MAX_LOADED_MODELS=2`, `OLLAMA_KEEP_ALIVE=-1` — and its formula
    `sustainable req/min = 60 × OLLAMA_NUM_PARALLEL ÷ p50_seconds`. Don't reinvent either.
-2. **The ~12 s/call in `CLAUDE.md` is a 5060 Ti number and does not transfer.** Figures below use 12 s as
-   a deliberately conservative placeholder; the 3090 has roughly twice the memory bandwidth, which
-   dominates token generation, so the real p50 is likely lower. **Likely, not measured.**
+2. **MEASURED 2026-08-16 on the 5060 Ti dev box** (the 3090 remains unmeasured):
+   `/api/ask` **~7 s** uncontended, `/api/socratic` ~8 s, p50 3.9 s per gated call (two per request).
+   So `CLAUDE.md`'s ~12 s is **pessimistic even on the slower box**, and the figures below — which still
+   use 12 s — are a conservative floor. Re-measure on the 3090 before the first topic opens.
+
+   Under load: 14 concurrent requests → 6 served (median 31 s, max 46 s), 8 rate-limited, `refused: 0`.
+   The concurrency gate held; nothing queued past `MAX_QUEUE`.
 
 Dev/prod divergence worth naming: `MAX_LOADED_MODELS=2` must hold `gemma4:e4b` **and** `nomic-embed-text`
 resident, because the vector leg embeds on every query. Tight in 16 GB, comfortable in 24 — so dev may be
@@ -711,6 +734,13 @@ that collapses them triples the peak even parallelised.
 Still do all three: the Ollama tuning above, keep grading batched offline, and the queue + honest wait UI
 from `stage2-deployment-plan.md` §A3 — margin is not a guarantee, and a stalled page with no feedback
 generates support mail at any load.
+
+**The queue is now built** (`backend/ops.py`, wired into `/api/ask` and `/api/socratic`). Two bugs in one
+change: LangChain's `.invoke()` is synchronous, so calling it from an async handler blocked the whole
+event loop — §A2's "biggest load bug", where one student's 12-second tutor reply stalled every other
+request including cheap ones like `/api/topics`. It now runs in a threadpool under an
+`asyncio.Semaphore(OLLAMA_NUM_PARALLEL)`, and past `MAX_QUEUE` it refuses with a 503, an honest wait
+estimate and a `Retry-After` rather than joining an unbounded queue. Operations detail: `docs/runbook.md`.
 
 ---
 
@@ -771,6 +801,14 @@ references); `quiz-item-banks.md` (the 4 existing banks — but re-word Gestalt 
 `app/topics/[topicId]` · `app/consent` · SID-only `app/login` · journey `app/dashboard`.
 *Safety* — `.gitignore` blocks the SID roster, accounts DB and HMAC secret; CORS is no longer a wildcard;
 the export is token-gated and pseudonymised.
+*Operations* — `ops.py` (concurrency gate off the event loop, rate limiting, health snapshot) ·
+`/api/health` · `backup_sink.py` (sqlite online-backup, hourly, prunes) · `docs/runbook.md`.
+
+**Ran for real, end to end, 2026-08-16** — the whole system started for the first time: Ollama +
+`rag_api` with all 15 endpoints + Next. `/api/health` returned `status: ok` with all five components
+healthy. That run immediately caught a bug no unit test could: extracting the research endpoints by line
+range had also deleted `_IDENTITY_PATTERNS`, so **every** `/api/ask` and `/api/socratic` call died with a
+`NameError` 500. Nothing had ever executed that path.
 
 **Still open:** the baseline pre-test has no home since signup was retired · the tutor step isn't wired
 to `/api/socratic` · onboarding doesn't sync to `/api/auth/profile` · `middleware.ts` doesn't cover
