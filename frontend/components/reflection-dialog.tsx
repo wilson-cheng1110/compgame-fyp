@@ -264,13 +264,16 @@ export function ReflectionDialog() {
         role="dialog"
         aria-modal="true"
         aria-label={`Reflect on ${topicTitle}`}
-        className="w-full max-w-lg flex flex-col rounded-xl border-2 border-black shadow-[6px_6px_0px_0px_#000] bg-white overflow-hidden"
+        className="shell u-card w-full max-w-lg flex flex-col overflow-hidden"
         style={{ maxHeight: "90vh" }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#0099db] text-white">
+        <div
+          className="flex items-center justify-between px-4 py-3"
+          style={{ background: "var(--accent)", color: "#fff" }}
+        >
           <div className="flex items-center gap-2">
             <Sparkles size={16} />
-            <span className="font-press-start-2p text-[10px] leading-tight">
+            <span style={{ fontWeight: 600, fontSize: ".9375rem", letterSpacing: "-.01em" }}>
               Reflect · {topicTitle}
             </span>
           </div>
@@ -283,7 +286,7 @@ export function ReflectionDialog() {
         {insight && (
           <div className="px-4 py-2 bg-[#fef9c3] border-b border-yellow-300 flex items-center gap-2">
             <span className="text-base">⭐</span>
-            <span className="font-pixelify-sans text-xs text-yellow-800 font-bold">
+            <span className="u-faint" style={{ color: "var(--state-late)", fontWeight: 600 }}>
               Deep Insight! You explained it in your own words — finish whenever you like.
             </span>
           </div>
@@ -293,10 +296,10 @@ export function ReflectionDialog() {
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#f8f9fa]" style={{ minHeight: "240px" }}>
           {history.map((t, i) => (
             <div key={i} className={`flex ${t.role === "human" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm font-pixelify-sans whitespace-pre-wrap leading-relaxed ${
+              <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed ${
                 t.role === "human"
-                  ? "bg-[#0099db] text-white"
-                  : "bg-white border border-gray-200 text-black shadow-sm"
+                  ? "u-bubble-me"
+                  : "u-card-quiet"
               }`}>
                 {t.content}
               </div>
@@ -304,15 +307,18 @@ export function ReflectionDialog() {
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2 text-gray-400">
+              <div className="u-card-quiet rounded-lg px-3 py-2 flex items-center gap-2">
                 <Loader2 size={12} className="animate-spin" />
-                <span className="font-pixelify-sans text-xs">Thinking…</span>
+                <span className="u-faint">Thinking…</span>
               </div>
             </div>
           )}
           {errorMsg && (
             <div className="flex justify-start">
-              <div className="max-w-[90%] rounded-lg px-3 py-2 text-xs font-pixelify-sans bg-red-50 border border-red-200 text-red-700 whitespace-pre-wrap leading-relaxed">
+              <div
+                className="max-w-[90%] rounded-lg px-3 py-2 text-xs whitespace-pre-wrap leading-relaxed"
+                style={{ border: "1px solid var(--state-late)", color: "var(--state-late)" }}
+              >
                 {errorMsg}
               </div>
             </div>
@@ -321,7 +327,7 @@ export function ReflectionDialog() {
 
         {/* Progress hint */}
         <div className="px-3 pt-2 text-center">
-          <span className="font-pixelify-sans text-xs text-gray-600">
+          <span className="u-faint">
             {canFinish
               ? "You've reflected enough — finish, or keep going."
               : lastDidntCount
@@ -331,20 +337,26 @@ export function ReflectionDialog() {
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 p-3 border-t-2 border-black bg-white">
+        <form
+          onSubmit={handleSubmit}
+          className="flex items-center gap-2 p-3"
+          style={{ borderTop: "1px solid var(--rule)", background: "var(--paper-raised)" }}
+        >
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Share your thinking…"
-            className="flex-1 px-3 py-2 rounded-lg border-2 border-gray-300 font-pixelify-sans text-sm focus:outline-none focus:border-[#0099db] bg-white text-black"
+            className="u-field flex-1"
+            style={{ fontSize: ".875rem", padding: ".5rem .75rem" }}
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="p-2 bg-[#0099db] text-white rounded-lg border-2 border-[#007cb2] hover:bg-[#007cb2] disabled:opacity-50 transition-colors"
+            className="p-2 rounded-lg disabled:opacity-50 transition-colors"
+            style={{ background: "var(--ink)", color: "var(--paper-raised)" }}
             aria-label="Send"
           >
             <Send size={16} />
@@ -355,14 +367,14 @@ export function ReflectionDialog() {
         <div className="flex gap-2 px-3 pb-3">
           <button
             onClick={leave}
-            className="flex-1 bg-gray-200 text-gray-700 font-pixelify-sans text-sm py-2 px-3 rounded hover:bg-gray-300 transition"
+            className="u-btn flex-1"
           >
             Leave for now
           </button>
           <button
             onClick={finish}
             disabled={!canFinish}
-            className="flex-1 bg-[#0099db] text-white font-pixelify-sans text-sm py-2 px-3 rounded hover:bg-[#007cb2] transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="u-btn u-btn-primary flex-1"
           >
             {insight ? "⭐ Finish" : "Finish"}
           </button>

@@ -318,7 +318,7 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
       {/* Score banner */}
       {score !== undefined && (
         <div
-          className={`border-2 p-4 text-center font-press-start-2p text-sm ${
+          className={`u-card p-4 text-center ${
             passed
               ? "bg-green-100 border-green-600 text-green-800"
               : "bg-orange-100 border-orange-500 text-orange-800"
@@ -331,33 +331,33 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
       )}
 
       {/* Principle card */}
-      <div className="bg-[#f8f6ee] border-2 border-black p-5">
-        <h3 className="font-press-start-2p text-[#a16207] text-sm mb-3">What you just experienced</h3>
-        <p className="font-pixelify-sans text-black text-sm leading-relaxed mb-3">{content.principle}</p>
+      <div className="u-card p-6">
+        <p className="u-eyebrow">What you just experienced</p>
+        <p className="u-stem mt-2 mb-3">{content.principle}</p>
         {content.formula && (
-          <div className="bg-white border-2 border-black px-4 py-2 font-mono text-[#a16207] text-center text-sm">
+          <div className="u-card-quiet u-num px-4 py-2 text-center text-sm" style={{ color: "var(--accent)" }}>
             {content.formula}
           </div>
         )}
       </div>
 
       {/* Exam prep group (tip + practice question = 1 chunk) */}
-      <div className="border-2 border-[#0099db] overflow-hidden">
+      <div className="u-card overflow-hidden">
         <div className="bg-[#dbeafe] p-5">
-          <h3 className="font-press-start-2p text-[#005a81] text-[10px] uppercase tracking-wider mb-2">Exam Tip</h3>
-          <p className="font-pixelify-sans text-gray-800 text-sm leading-relaxed">{content.examTip}</p>
+          <p className="u-eyebrow mb-2" style={{ color: "var(--accent)" }}>Exam tip</p>
+          <p className="u-stem">{content.examTip}</p>
         </div>
-        <div className="bg-[#f8f6ee] border-t-2 border-[#0099db] p-5">
-          <h3 className="font-press-start-2p text-black text-[10px] uppercase tracking-wider mb-2">Practice Question</h3>
-        <p className="font-pixelify-sans text-black text-sm leading-relaxed mb-3">{content.examQuestion}</p>
+        <div className="p-6" style={{ borderTop: "1px solid var(--rule)" }}>
+          <p className="u-eyebrow mb-2">Practice question</p>
+        <p className="u-stem mb-3">{content.examQuestion}</p>
         <button
           onClick={() => setShowAnswer(!showAnswer)}
-          className="bg-[#0099db] border-2 border-black text-white font-press-start-2p text-[9px] py-2 px-5 hover:bg-[#007cb2] transition-colors shadow-[2px_2px_0px_0px_#005a81]"
+          className="u-btn"
         >
           {showAnswer ? "Hide Answer" : "Show Answer"}
         </button>
         {showAnswer && (
-          <div className="mt-3 bg-white border border-black p-3 font-pixelify-sans text-gray-800 text-sm leading-relaxed">
+          <div className="u-card-quiet u-stem mt-3 p-4">
             {content.examAnswer}
           </div>
         )}
@@ -369,7 +369,7 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
         {content.nextGameId && !isAssessment && (
           <button
             onClick={() => router.push(`/games/${content.nextGameId}`)}
-            className="flex-1 bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-3 px-4 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="u-btn flex-1"
           >
             {content.nextGameLabel ?? "Next →"}
           </button>
@@ -383,7 +383,7 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
                   new CustomEvent("start-reflection", { detail: { topicId: topic.topicId } }),
                 )
             }}
-            className="flex-1 bg-[#7c3aed] border-2 border-black text-white font-press-start-2p text-[10px] py-3 px-4 hover:bg-[#6d28d9] transition-colors shadow-[3px_3px_0px_0px_#4c1d95]"
+            className="u-btn flex-1"
           >
             ⭐ Reflect with Tutor
           </button>
@@ -396,13 +396,13 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
               window.dispatchEvent(new CustomEvent("open-ai-chat", { detail: { prompt: content.aiPrompt } }))
             }
           }}
-          className="flex-1 bg-[#0099db] border-2 border-black text-white font-press-start-2p text-[10px] py-3 px-4 hover:bg-[#007cb2] transition-colors shadow-[3px_3px_0px_0px_#005a81]"
+          className="u-btn u-btn-primary flex-1"
         >
           Ask AI Tutor
         </button>
         <button
           onClick={() => router.push("/dashboard")}
-          className="flex-1 bg-white border-2 border-black text-black font-press-start-2p text-[10px] py-3 px-4 hover:bg-gray-100 transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="u-btn flex-1"
         >
           Dashboard
         </button>

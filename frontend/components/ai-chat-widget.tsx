@@ -223,13 +223,18 @@ export function AiChatWidget() {
     <>
       {/* Chat panel */}
       {isOpen && (
-        <div className="fixed bottom-20 right-4 z-50 w-[360px] max-w-[95vw] flex flex-col rounded-xl border-2 border-black shadow-[6px_6px_0px_0px_#000] bg-white overflow-hidden"
+        <div className="shell u-card fixed bottom-20 right-4 z-50 w-[360px] max-w-[95vw] flex flex-col overflow-hidden"
           style={{ height: "520px" }}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-[#0099db] text-white">
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ background: "var(--accent)", color: "#fff" }}
+          >
             <div className="flex items-center gap-2">
               <MessageCircle size={16} />
-              <span className="font-press-start-2p text-[10px] leading-tight">{widgetTitle}</span>
+              <span style={{ fontWeight: 600, fontSize: ".9375rem", letterSpacing: "-.01em" }}>
+                {widgetTitle}
+              </span>
             </div>
             <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-[#007cb2] rounded transition-colors" aria-label="Close AI tutor">
               <X size={18} />
@@ -238,9 +243,12 @@ export function AiChatWidget() {
 
           {/* Topic badge */}
           {currentTopic && (
-            <div className="px-3 py-1 bg-[#0099db]/10 border-b border-[#0099db]/20 flex items-center gap-2">
+            <div
+              className="px-3 py-1.5 flex items-center gap-2"
+              style={{ background: "var(--accent-soft)", borderBottom: "1px solid var(--rule)" }}
+            >
               <span className="text-sm">{currentTopic.icon}</span>
-              <span className="font-pixelify-sans text-xs text-[#0099db] font-bold">
+              <span className="u-faint" style={{ color: "var(--accent)", fontWeight: 600 }}>
                 Studying: {currentTopic.title}
               </span>
             </div>
@@ -250,17 +258,17 @@ export function AiChatWidget() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#f8f9fa]">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm font-pixelify-sans ${
+                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                   msg.role === "user"
-                    ? "bg-[#0099db] text-white"
-                    : "bg-white border border-gray-200 text-black shadow-sm"
+                    ? "u-bubble-me"
+                    : "u-card-quiet"
                 }`}>
                   <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-100">
+                    <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--rule)" }}>
                       <button
                         onClick={() => toggleSources(msg.id)}
-                        className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600"
+                        className="flex items-center gap-1 text-[10px] u-faint hover:underline"
                       >
                         {msg.isSourcesOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                         {msg.sources.length} source{msg.sources.length > 1 ? "s" : ""}
@@ -268,7 +276,7 @@ export function AiChatWidget() {
                       {msg.isSourcesOpen && (
                         <ul className="mt-1 space-y-0.5">
                           {msg.sources.map((s, i) => (
-                            <li key={i} className="text-[10px] text-gray-500">· {s}</li>
+                            <li key={i} className="text-[10px] u-faint">· {s}</li>
                           ))}
                         </ul>
                       )}
@@ -279,22 +287,27 @@ export function AiChatWidget() {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2 text-gray-400">
+                <div className="u-card-quiet rounded-lg px-3 py-2 flex items-center gap-2">
                   <Loader2 size={12} className="animate-spin" />
-                  <span className="font-pixelify-sans text-xs">Thinking…</span>
+                  <span className="u-faint">Thinking…</span>
                 </div>
               </div>
             )}
           </div>
 
           {/* Quick actions */}
-          <div className="px-3 py-2 border-t border-gray-200 flex gap-1.5 overflow-x-auto">
+          <div className="px-3 py-2 flex gap-1.5 overflow-x-auto" style={{ borderTop: "1px solid var(--rule)" }}>
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.label}
                 onClick={() => handleQuickAction(action.prompt)}
                 disabled={isLoading}
-                className="flex-shrink-0 px-3 py-2 rounded-full border border-[#0099db] text-[#0099db] font-pixelify-sans text-xs hover:bg-[#0099db]/10 transition-colors disabled:opacity-50"
+                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs transition-colors disabled:opacity-50"
+                style={{
+                  border: "1px solid var(--accent)",
+                  color: "var(--accent)",
+                  background: "transparent",
+                }}
               >
                 {action.label}
               </button>
@@ -302,19 +315,25 @@ export function AiChatWidget() {
           </div>
 
           {/* Input */}
-          <form onSubmit={handleSubmit} className="flex items-center gap-2 p-3 border-t-2 border-black bg-white">
+          <form
+            onSubmit={handleSubmit}
+            className="flex items-center gap-2 p-3"
+            style={{ borderTop: "1px solid var(--rule)", background: "var(--paper-raised)" }}
+          >
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={currentTopic ? `Ask about ${currentTopic.title}…` : "Ask anything…"}
-              className="flex-1 px-3 py-2 rounded-lg border-2 border-gray-300 font-pixelify-sans text-sm focus:outline-none focus:border-[#0099db] bg-white text-black"
+              className="u-field flex-1"
+              style={{ fontSize: ".875rem", padding: ".5rem .75rem" }}
               disabled={isLoading}
             />
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className="p-2 bg-[#0099db] text-white rounded-lg border-2 border-[#0077a9] hover:bg-[#007cb2] disabled:opacity-50 transition-colors"
+              className="p-2 rounded-lg disabled:opacity-50 transition-colors"
+              style={{ background: "var(--ink)", color: "var(--paper-raised)" }}
             >
               <Send size={16} />
             </button>
@@ -325,7 +344,12 @@ export function AiChatWidget() {
       {/* Toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full bg-[#0099db] border-2 border-[#0077a9] text-white shadow-[3px_3px_0px_0px_#005a81] hover:bg-[#007cb2] transition-colors flex items-center justify-center"
+        className="shell fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full transition-all flex items-center justify-center"
+        style={{
+          background: "var(--ink)",
+          color: "var(--paper-raised)",
+          boxShadow: "0 4px 24px -4px rgba(0,0,0,.25)",
+        }}
         aria-label="Open AI tutor"
       >
         {isOpen ? <X size={22} /> : <MessageCircle size={22} />}

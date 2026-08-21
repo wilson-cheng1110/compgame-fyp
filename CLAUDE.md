@@ -17,8 +17,9 @@ FYP deliverable + EDC exhibition + academic paper (measuring flip-learning effec
   **Inter** + **Roboto Mono** (data only), teal `#006666` on `#FFFFFF`/`#F9FAFB`/`#F2F4F5`, glass
   cards at `rounded-2xl`, black primary buttons that go teal on hover. Source of truth is
   `~/.antigravity/cubik-website` (`CLAUDE.md` Styling + `src/styles/globals.css`) - **if that
-  changes, update `app/shell.css` and `app/fonts.ts`; never hand-drift the palette.** The **26
-  game routes keep Press Start 2P + Pixelify Sans** and are untouched. All shell styling is scoped
+  changes, update `app/shell.css` and `app/fonts.ts`; never hand-drift the palette.** The **26 game CANVASES keep Press Start 2P + Pixelify Sans** and are untouched — but everything
+  around them is CUBIK, including the AI tutor widget (renders on every page) and the
+  end-of-game debrief (25 of 26 routes). All shell styling is scoped
   under `.shell` because `globals.css` redefines Tailwind's `.text-*` utilities globally and the
   games depend on it. **Do not move shell styles into `globals.css`.**
 

@@ -1,90 +1,122 @@
 import Image from "next/image"
 import Link from "next/link"
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import CreatorFooter from "@/components/creator-footer"
 
-const pixelifySans = Pixelify_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-pixelify-sans",
-})
-
-const pressStart2P = Press_Start_2P({
-  weight: ["400"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-press-start-2p",
-})
+// The public front door, in the CUBIK register (app/shell.css).
+//
+// CONTENT FIXED, not just restyled:
+//  * It read "START YOUR **Computer Science** JOURNEY". This is a Human–Computer
+//    Interaction course — COMP3423 — not general CS. Same class of error as the
+//    /about topic list, and on the one page a visitor sees first.
+//  * Both calls to action pointed at /signup, which is now a redirect stub: there
+//    is no sign-up, accounts are pre-enrolled from the class list and a student's
+//    first sign-in creates theirs (docs/revamp.md Part 0). They point at /login.
+//  * The pixel-art hero was a remote vercel-storage blob — an external dependency
+//    on the page most likely to be opened on a phone, over a slow connection, by
+//    someone deciding whether this looks like real coursework. It is gone; the
+//    hero is type now, which is also what the CUBIK system does.
 
 export default function Home() {
   return (
-    <main className={`flex min-h-screen flex-col ${pixelifySans.variable} ${pressStart2P.variable}`}>
-      {/* Header with increased margins */}
-      <header className="w-full bg-[#f4eba7] py-3 border-b-2 border-black">
-        <div className="container mx-auto px-8 md:px-16 flex items-center justify-between">
-          {/* Logo and site name with increased margin */}
-          <div className="flex items-center">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
-              alt="COMPGame Logo"
-              width={40}
-              height={40}
-              className="mr-3"
-            />
-            <span className="font-press-start-2p text-black text-xl">COMPGame</span>
+    <main className="shell min-h-screen flex flex-col">
+      <header className="u-nav">
+        <div className="mx-auto w-full max-w-5xl px-5 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Image src="/images/logo.png" alt="" width={26} height={26} priority />
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
           </div>
-
-          {/* Sign Up button with specified light yellow hover effect */}
-          <div>
-            <Link href="/signup">
-              <button className="bg-[#facc15] border-2 border-[#a16207] px-5 py-2 font-pixelify-sans text-base font-bold hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]">
-                Sign Up
-              </button>
+          <div className="flex items-center gap-4">
+            <Link href="/about" className="u-faint hover:underline">
+              About
+            </Link>
+            <Link href="/login">
+              <button className="u-btn u-btn-primary">Sign in</button>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 relative flex flex-col items-center justify-center">
-        {/* Background Image with black overlay */}
-        <div className="absolute inset-0 z-0">
-          <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/homepage_bg-qSkD6pdrDVGYQJYuVrEBgWiKqkkqvV.png"
-            alt="Pixel Art Background"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-black opacity-30"></div>
-        </div>
-
-        {/* Content */}
-        <div className="z-10 text-center px-4 max-w-4xl text-container">
-          <h2 className="font-press-start-2p text-black text-lg sm:text-xl md:text-2xl mb-6">START YOUR</h2>
-          <h1 className="font-press-start-2p text-[#facc15] text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-6 text-shadow-yellow whitespace-nowrap">
-            Computer Science
+      <div className="flex-1">
+        {/* Hero. CUBIK's rhythm: a lot of air, one tight-tracked statement, one
+            unambiguous action. No carousel, no background image, no second CTA
+            competing with the first. */}
+        <section className="mx-auto w-full max-w-3xl px-5 pt-24 pb-20 md:pt-32 md:pb-24">
+          <p className="u-eyebrow">COMP3423 · Human–Computer Interaction</p>
+          <h1
+            className="mt-3"
+            style={{
+              color: "var(--ink)",
+              fontSize: "clamp(2.25rem, 6vw, 3.75rem)",
+              fontWeight: 600,
+              letterSpacing: "-0.045em",
+              lineHeight: 1.05,
+              textWrap: "balance",
+            }}
+          >
+            Play with the idea first. Then find out what stuck.
           </h1>
-          <h2 className="font-press-start-2p text-black text-lg sm:text-xl md:text-2xl mb-12">JOURNEY</h2>
+          <p className="u-stem u-muted mt-6" style={{ fontSize: "1.125rem" }}>
+            Every topic starts as something you can poke at rather than something you are told.
+            You build an intuition, then check it — and an AI tutor is there throughout, asking
+            questions instead of handing over answers.
+          </p>
 
-          <div className="h-[60px] sm:h-[70px] flex items-center justify-center">
-            <Link href="/signup">
-              <button className="get-started-btn bg-[#facc15] border-4 border-[#a16207] px-8 py-3 font-pixelify-sans font-bold text-lg sm:text-xl hover:bg-[#FDE047] transition-transform duration-200">
-                Get Started
-              </button>
+          <div className="flex flex-wrap items-center gap-3 mt-9">
+            <Link href="/login">
+              <button className="u-btn u-btn-primary u-btn-lg">Sign in with your student ID</button>
+            </Link>
+            <Link href="/about">
+              <button className="u-btn u-btn-lg">What is this?</button>
             </Link>
           </div>
-        </div>
-
-        {/* Bottom Tagline */}
-        <div className="absolute bottom-16 z-10 w-full text-center px-4 overflow-hidden">
-          <p className="font-press-start-2p text-black text-xs whitespace-nowrap bg-[#f4eba7] bg-opacity-70 py-2 mx-auto inline-block px-4">
-            Learn And Assess Your Knowledge Through An Interactive Game-Based Experience!
+          <p className="u-faint mt-4">
+            No password. Your ID just needs to be on the class list for this study.
           </p>
-        </div>
+        </section>
+
+        {/* Three panels, because there are exactly three things a student needs to
+            know before signing in — not because three is a nice number for a grid. */}
+        <section
+          className="mx-auto w-full max-w-5xl px-5 pb-24 md:pb-32"
+          style={{ borderTop: "1px solid var(--rule)", paddingTop: "4rem" }}
+        >
+          <div className="grid gap-5 md:grid-cols-3">
+            <Panel
+              n="13"
+              title="topics, in lecture order"
+              body="Fitts' Law, Gestalt, Hick's Law, Miller's 7±2 and nine more. Each one opens the week your lecture reaches it, so nothing arrives out of sequence."
+            />
+            <Panel
+              n="2"
+              title="parts to every topic"
+              body="An activity you play, and a check that tells you what you actually took from it. Roughly twenty minutes, and you can stop and come back."
+            />
+            <Panel
+              n="1"
+              title="tutor, always there"
+              body="It answers from your own lecture slides, and it pushes back with questions rather than giving you the answer. Nothing you write leaves the course machine."
+            />
+          </div>
+        </section>
       </div>
+
       <CreatorFooter />
     </main>
+  )
+}
+
+function Panel({ n, title, body }: { n: string; title: string; body: string }) {
+  return (
+    <div className="u-card p-6">
+      <p className="u-num" style={{ fontSize: "2rem", color: "var(--accent)", lineHeight: 1 }}>
+        {n}
+      </p>
+      <p className="mt-2" style={{ fontWeight: 600, color: "var(--ink)" }}>
+        {title}
+      </p>
+      <p className="u-faint mt-2" style={{ lineHeight: 1.6 }}>
+        {body}
+      </p>
+    </div>
   )
 }

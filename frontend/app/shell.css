@@ -395,3 +395,11 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* The tutor's own message bubble. Lives here rather than inline because the widget
+   mounts in the ROOT layout and renders over game routes too — it carries `.shell`
+   on its own wrapper so the tokens resolve wherever it opens. */
+.shell .u-bubble-me {
+  background: var(--accent);
+  color: #ffffff;
+}

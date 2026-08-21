@@ -94,9 +94,9 @@ export default function GameLayout({ children, title, controls, className }: Gam
   }
 
   return (
-    <main className={`min-h-screen ${darkMode ? "bg-[#020617] text-white" : "bg-white text-black"} ${className || ""}`}>
+    <main className={`shell min-h-screen ${className || ""}`}>
       {/* Header */}
-      <header className="w-full bg-[#f4eba7] py-3 border-b-2 border-black sticky top-0 z-10">
+      <header className="u-nav">
         <div className="container mx-auto px-8 md:px-16 flex items-center justify-between">
           <PreservedLink href="/dashboard" className="flex items-center">
             <Image
@@ -106,7 +106,7 @@ export default function GameLayout({ children, title, controls, className }: Gam
               height={40}
               className="mr-3"
             />
-            <span className="font-press-start-2p text-black text-xl">COMPGame</span>
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
           </PreservedLink>
 
           <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ export default function GameLayout({ children, title, controls, className }: Gam
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="currentColor"
-                    className="w-5 h-5 text-black"
+                    className="w-4 h-4"
                   >
                     <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
                   </svg>
@@ -130,7 +130,7 @@ export default function GameLayout({ children, title, controls, className }: Gam
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="currentColor"
-                    className="w-5 h-5 text-black"
+                    className="w-4 h-4"
                   >
                     <path
                       fillRule="evenodd"
@@ -144,7 +144,7 @@ export default function GameLayout({ children, title, controls, className }: Gam
 
             <button
               onClick={handleSignOut}
-              className="bg-[#facc15] border-2 border-[#a16207] px-5 py-2 font-pixelify-sans text-base font-bold hover:bg-[#fde047] transition-colors text-black shadow-[3px_3px_0px_0px_#000]"
+              className="u-btn"
             >
               Sign Out
             </button>
@@ -155,11 +155,11 @@ export default function GameLayout({ children, title, controls, className }: Gam
       {/* Main Content */}
       <div className="container mx-auto py-8 px-4 md:px-8 pb-16 flex flex-col items-center">
         {/* Game Title */}
-        <h1 className="font-press-start-2p text-2xl mb-6 text-center">{title}</h1>
+        <h1 className="u-h1 mb-6 text-center">{title}</h1>
 
         {/* Fullscreen Instruction */}
         <div className="w-full max-w-4xl mx-auto mb-4 text-center">
-          <p className="font-pixelify-sans text-lg bg-blue-100 text-blue-800 p-3 rounded-md dark:bg-blue-900 dark:text-blue-100">
+          <p className="u-card-quiet u-stem p-3" style={{ maxWidth: "none" }}>
             <span className="font-bold">Tip:</span> Click the fullscreen button{" "}
             <Maximize2 className="inline-block mx-1" size={16} /> in the bottom right corner for the best gaming
             experience!
@@ -192,10 +192,10 @@ export default function GameLayout({ children, title, controls, className }: Gam
 
           {/* Game Controls Panel - Ensuring full width */}
           <div
-            className={`p-6 border-2 border-black border-t-0 ${darkMode ? "bg-[#1e293b]" : "bg-[#f8f6ee]"}`}
+            className="u-card-quiet p-6"
             style={{ width: "100%", maxWidth: "100%" }}
           >
-            <h2 className="font-press-start-2p text-lg mb-4">Game Controls:</h2>
+            <h2 className="u-h2 mb-4">Controls</h2>
             <div className="space-y-3">
               {controls.map((control, index) => (
                 <div key={index} className="flex items-start">
@@ -253,7 +253,7 @@ export default function GameLayout({ children, title, controls, className }: Gam
                       </svg>
                     )}
                   </div>
-                  <div className="font-pixelify-sans">
+                  <div>
                     {control.type === "mouse" && <span className="font-bold">Left Click (Mouse):</span>}
                     {control.type === "keyboard" && <span className="font-bold">Number Input (Keyboard):</span>}
                     {control.type === "other" && <span className="font-bold">Other:</span>} {control.description}

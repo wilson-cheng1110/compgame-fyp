@@ -691,7 +691,7 @@ of an examiner, not a matter of taste.
 
 | | Shell | Games |
 |---|---|---|
-| Surfaces | dashboard, topic unit, checks, probe, consent, login, badges, about | all 26 game routes |
+| Surfaces | **every non-game surface** — landing, login, consent, onboarding, dashboard, topic unit, checks, probe, badges, about, the AI tutor widget, the reflection dialog, and the game *frame* (layout + debrief) | the 26 game **canvases** |
 | Type | Inter + Roboto Mono (data) | Press Start 2P + Pixelify Sans |
 | Palette | CUBIK: `#006666` teal on `#FFFFFF`/`#F9FAFB`/`#F2F4F5` | unchanged arcade |
 | Chrome | glass cards, `rounded-2xl`, 5%-black hairlines | 2-4px black borders, hard offset shadows |
@@ -776,6 +776,43 @@ the only field that says *how well*, so the row now leads with it, drawn with th
 step rail the topic unit uses (same kind of quantity, same graphic, rather than a
 second invented one). Also removed: a dead `truncateEmail()` and a `goToBadgesPage()`
 that navigated to the page you were already on.
+
+### Where the line actually falls (2026-08-21, "whole system use cubik style")
+
+Everything that is not a game canvas is CUBIK. Verified: a grep for the arcade idioms
+(`font-press-start-2p`, `font-pixelify-sans`, `border-2 border-black`, hard offset
+shadows, `#f4eba7` / `#facc15` / `#f8f6ee`) across every `.tsx` outside `app/games/`
+returns **nothing**.
+
+The reach is bigger than "some components", because of what those components are:
+
+| | Renders on | Now |
+|---|---|---|
+| `ai-chat-widget` | **every page in the app**, games included | CUBIK |
+| `reflection-dialog` | global, event-triggered | CUBIK |
+| `game-debrief` | **25 of the 26 game routes** — the end-of-game screen | CUBIK |
+| `game-layout` | 1 route (`games/[gameId]`) — most games own their layout | CUBIK |
+
+So a student in a game sees an arcade canvas inside a CUBIK app: CUBIK tutor, CUBIK
+debrief when they finish, CUBIK everywhere they land after. The 26 canvases are the
+only arcade left, and that is a **choice, not an omission** — see below.
+
+`components/game-card.tsx` was deleted: zero imports anywhere in the codebase.
+
+### Why the 26 game canvases stay arcade
+
+Not laziness, and reversible if Wilson wants it. Three reasons, in order of weight:
+
+1. **The play surface is where "game" is the correct answer.** The original complaint
+   was that *logging in* was a game and *the dashboard* was a game. Those are fixed.
+   A game being a game is the pedagogy, not the bug.
+2. **It is not a CSS swap.** Press Start 2P is a fixed-width pixel face; Inter is not.
+   Swapping it reflows every hand-tuned layout across 26 interactive routes that
+   currently work. The risk is real breakage in the thing students are measured on.
+3. **CUBIK has no answer for a game canvas.** It is a product/marketing system —
+   glass cards, hairlines, generous whitespace. What "CUBIK style" means for a
+   drag-the-slider psychophysics task is undefined, so porting it would be invention,
+   not porting.
 
 ### Known gap
 

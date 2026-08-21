@@ -26,8 +26,8 @@ export default function SignupRedirect() {
   }, [router])
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-white text-black">
-      <p className="font-pixelify-sans">Taking you to sign in…</p>
+    <main className="shell min-h-screen flex items-center justify-center">
+      <p className="u-muted">Taking you to sign in…</p>
     </main>
   )
 }

@@ -3,25 +3,10 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
 import { auth } from "@/lib/api"
 import { getUsers, setUsers } from "@/lib/user-store"
 import { ChevronRight, ChevronLeft } from "lucide-react"
-
-const pixelifySans = Pixelify_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-pixelify-sans",
-})
-
-const pressStart2P = Press_Start_2P({
-  weight: ["400"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-press-start-2p",
-})
 
 const avatars = [
   {
@@ -102,68 +87,50 @@ export default function AvatarSelectionPage() {
   }
 
   return (
-    <main
-      className={`min-h-screen ${darkMode ? "bg-[#020617] text-white" : "bg-white text-black"} ${pixelifySans.variable} ${pressStart2P.variable}`}
-    >
-      {/* Progress Bar without Back Button */}
-      <div className="w-full max-w-4xl mx-auto pt-8 px-4">
-        <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full bg-[#a3e635] rounded-full" style={{ width: "50%" }}></div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="container mx-auto py-12 px-4 flex flex-col items-center">
-        {/* Title Box with Logo */}
-        <div className="flex flex-row items-center mb-12 max-w-2xl w-full">
-          <div className="mr-4">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
-              alt="COMPGame Logo"
-              width={100}
-              height={100}
-            />
-          </div>
-          <div className={`flex-1 rounded-lg p-6 ${darkMode ? "bg-[#1e293b]" : "bg-[#f1f5f9]"}`}>
-            <h1 className="font-press-start-2p text-center text-lg">First, let's choose your look.</h1>
-          </div>
+    <main className="shell min-h-screen">
+      <div className="mx-auto w-full max-w-md px-5 py-16">
+        {/* Two steps, and the rail says which one you are on — the same graphic the
+            topic unit uses for the same reason. */}
+        <div className="u-rail mb-8">
+          <div className="u-rail-seg is-now" />
+          <div className="u-rail-seg" />
         </div>
 
-        {/* Avatar Selection - Reduced size and increased bottom margin */}
-        <div className="flex items-center justify-center mb-20">
-          <button
-            onClick={handlePrevAvatar}
-            className={`p-4 rounded-lg mr-8 ${darkMode ? "bg-[#1e293b]" : "bg-[#f1f5f9]"} hover:bg-gray-300`}
-            aria-label="Previous avatar"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
+        <p className="u-eyebrow">Step 1 of 2</p>
+        <h1 className="u-h1 mt-1">Pick your look</h1>
+        <p className="u-stem u-muted mt-2">
+          This is just for you — it shows up on your dashboard. You can ignore it entirely if
+          you would rather.
+        </p>
 
-          <div className="relative w-24 h-32">
-            <Image
-              src={avatars[currentAvatar].src || "/placeholder.svg"}
-              alt={avatars[currentAvatar].alt}
-              width={96}
-              height={128}
-              className="object-contain"
-              priority
-            />
+        <div className="u-card p-8 mt-8">
+          <div className="flex items-center justify-center gap-8">
+            <button onClick={handlePrevAvatar} className="u-btn" aria-label="Previous avatar">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="relative w-24 h-32 flex items-center justify-center">
+              <Image
+                src={avatars[currentAvatar].src || "/placeholder.svg"}
+                alt={avatars[currentAvatar].alt}
+                width={96}
+                height={128}
+                className="object-contain"
+                priority
+              />
+            </div>
+
+            <button onClick={handleNextAvatar} className="u-btn" aria-label="Next avatar">
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
-          <button
-            onClick={handleNextAvatar}
-            className={`p-4 rounded-lg ml-8 ${darkMode ? "bg-[#1e293b]" : "bg-[#f1f5f9]"} hover:bg-gray-300`}
-            aria-label="Next avatar"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
+          <p className="u-faint text-center mt-4 u-num">
+            {currentAvatar + 1} of {avatars.length}
+          </p>
         </div>
 
-        {/* Continue Button */}
-        <button
-          onClick={handleContinue}
-          className="w-full max-w-md bg-[#0099db] hover:bg-[#007cb2] text-white font-press-start-2p py-4 rounded-md transition-colors"
-        >
+        <button onClick={handleContinue} className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
           Continue
         </button>
       </div>

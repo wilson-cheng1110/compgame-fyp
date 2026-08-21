@@ -4,25 +4,10 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
 import { auth } from "@/lib/api"
 import { getUsers, setUsers } from "@/lib/user-store"
 import { ChevronLeft } from "lucide-react"
-
-const pixelifySans = Pixelify_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-pixelify-sans",
-})
-
-const pressStart2P = Press_Start_2P({
-  weight: ["400"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-press-start-2p",
-})
 
 // Avatar blob URLs
 const avatarUrls = {
@@ -101,76 +86,64 @@ export default function UsernameSelectionPage() {
   }
 
   return (
-    <main
-      className={`min-h-screen ${darkMode ? "bg-[#020617] text-white" : "bg-white text-black"} ${pixelifySans.variable} ${pressStart2P.variable}`}
-    >
-      {/* Progress Bar with Back Button */}
-      <div className="w-full max-w-4xl mx-auto pt-8 px-4 relative">
-        <Link href="/onboarding/avatar" passHref>
-          <button
-            className="absolute left-4 top-8 p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
-            aria-label="Go back"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-        </Link>
-        <div className="h-4 bg-gray-200 rounded-full overflow-hidden ml-12">
-          <div className="h-full bg-[#a3e635] rounded-full" style={{ width: "90%" }}></div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="container mx-auto py-12 px-4 flex flex-col items-center">
-        {/* Title Box with Logo */}
-        <div className="flex flex-row items-center mb-12 max-w-2xl w-full">
-          <div className="mr-4">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
-              alt="COMPGame Logo"
-              width={100}
-              height={100}
-            />
-          </div>
-          <div className={`flex-1 rounded-lg p-6 ${darkMode ? "bg-[#1e293b]" : "bg-[#f1f5f9]"}`}>
-            <h1 className="font-press-start-2p text-center text-lg">Looking good! What should I call you?</h1>
-          </div>
+    <main className="shell min-h-screen">
+      <div className="mx-auto w-full max-w-md px-5 py-16">
+        <div className="u-rail mb-8">
+          <div className="u-rail-seg is-done" />
+          <div className="u-rail-seg is-now" />
         </div>
 
-        {/* Avatar Display - Reduced size and increased bottom margin */}
-        <div className="mb-16">
-          <div className="relative w-24 h-32">
-            {avatarSrc && (
-              <Image
-                src={avatarSrc || "/placeholder.svg"}
-                alt="Selected avatar"
-                width={96}
-                height={128}
-                className="object-contain"
-                priority
+        <div className="flex items-center justify-between gap-3">
+          <p className="u-eyebrow">Step 2 of 2</p>
+          <Link href="/onboarding/avatar" className="u-faint hover:underline">
+            ← Back
+          </Link>
+        </div>
+        <h1 className="u-h1 mt-1">What should we call you?</h1>
+        <p className="u-stem u-muted mt-2">
+          A display name for your dashboard. It is not your student ID and nobody is graded on it.
+        </p>
+
+        <div className="u-card p-8 mt-8">
+          <div className="flex items-center gap-5">
+            <div className="relative w-16 h-20 flex-shrink-0 flex items-center justify-center">
+              {avatarSrc && (
+                <Image
+                  src={avatarSrc || "/placeholder.svg"}
+                  alt=""
+                  width={64}
+                  height={80}
+                  className="object-contain"
+                  priority
+                />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <label htmlFor="username" className="u-eyebrow block mb-2">
+                Display name
+              </label>
+              <input
+                id="username"
+                type="text"
+                placeholder="Anything you like"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="u-field"
+                maxLength={15}
+                required
               />
-            )}
+            </div>
           </div>
-        </div>
 
-        {/* Username Input */}
-        <div className="w-full max-w-md mb-8">
-          {error && <p className="text-red-500 text-center font-pixelify-sans mb-2">{error}</p>}
-          <input
-            type="text"
-            placeholder="Choose a username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3 rounded-md border border-gray-300 bg-white text-black font-pixelify-sans"
-            maxLength={15}
-            required
-          />
+          {error && (
+            <p className="u-faint mt-4" style={{ color: "var(--state-late)" }}>
+              {error}
+            </p>
+          )}
         </div>
 
         {/* Continue Button */}
-        <button
-          onClick={handleContinue}
-          className="w-full max-w-md bg-[#0099db] hover:bg-[#007cb2] text-white font-press-start-2p py-4 rounded-md transition-colors"
-        >
+        <button onClick={handleContinue} className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
           Continue
         </button>
       </div>
