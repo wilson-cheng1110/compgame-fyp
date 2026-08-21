@@ -5,7 +5,6 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
 import { auth } from "@/lib/api"
 
@@ -22,20 +21,6 @@ import { auth } from "@/lib/api"
 //
 // The old "Forgot password?" button called removeUsers(), which wiped EVERY account
 // on the machine. With no password there is nothing to reset, and it's gone.
-
-const pixelifySans = Pixelify_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-pixelify-sans",
-})
-
-const pressStart2P = Press_Start_2P({
-  weight: ["400"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-press-start-2p",
-})
 
 export default function LoginPage() {
   const router = useRouter()
@@ -61,6 +46,14 @@ export default function LoginPage() {
             sid: res.data.sid,
             username: res.data.username,
             avatarId: res.data.avatarId,
+            // MUST be written, and it was not until 2026-08-21. The onboarding gate
+            // reads this key off the cookie; the old signup flow used to set it and
+            // retiring signup left nothing writing it. Undefined here sent a brand
+            // new student: login -> avatar page (reads !undefined -> true, bounces
+            // to dashboard) -> dashboard (no username/avatarId, DELETES the cookie)
+            // -> login. An unbreakable loop, and on day one every one of the 300
+            // accounts is in exactly that state.
+            needsOnboarding: res.data.needsOnboarding,
           }),
           { expires: 120 },
         )
@@ -114,6 +107,7 @@ export default function LoginPage() {
         sid: res.data.sid,
         username: res.data.username,
         avatarId: res.data.avatarId,
+        needsOnboarding: res.data.needsOnboarding,   // see the note above
       }),
       { expires: 120 },
     )
@@ -121,28 +115,20 @@ export default function LoginPage() {
   }
 
   return (
-    <main
-      className={`min-h-screen ${darkMode ? "bg-[#020617] text-white" : "bg-white text-black"} ${pixelifySans.variable} ${pressStart2P.variable}`}
-    >
-      <header className="w-full bg-[#f4eba7] py-3 border-b-2 border-black">
-        <div className="container mx-auto px-8 md:px-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
-              alt="COMPGame Logo"
-              width={40}
-              height={40}
-              className="mr-3"
-            />
-            <span className="font-press-start-2p text-black text-xl">COMPGame</span>
+    <main className="shell min-h-screen">
+      <header style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-raised)" }}>
+        <div className="mx-auto w-full max-w-5xl px-5 h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image src="/images/logo.png" alt="" width={26} height={26} priority />
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
           </Link>
 
           <button
             onClick={toggleDarkMode}
-            className="p-2 rounded-full"
+            className="u-btn"
             aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
-            <div className="w-6 h-6 flex items-center justify-center text-black">
+            <div className="w-4 h-4 flex items-center justify-center">
               {darkMode ? (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                   <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
@@ -157,35 +143,28 @@ export default function LoginPage() {
         </div>
       </header>
 
-      <div className="container mx-auto py-12 px-4 flex justify-center">
-        <div className="max-w-2xl w-full">
-          <div className="flex flex-row items-center mb-6">
-            <div className="mr-4">
-              <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
-                alt="COMPGame Logo"
-                width={100}
-                height={100}
-              />
-            </div>
-            <div className={`flex-1 p-6 border-2 border-black ${darkMode ? "bg-[#1e293b]" : "bg-[#f8f6ee]"}`}>
-              <h1 className="font-press-start-2p text-center text-lg leading-relaxed">
-                Log in to continue your journey~
-              </h1>
-            </div>
-          </div>
+      <div className="mx-auto w-full max-w-md px-5 py-16">
+        <div>
+          <p className="u-eyebrow">COMP3423 · Human–Computer Interaction</p>
+          <h1 className="u-h1 mt-1">Sign in</h1>
+          <p className="u-stem u-muted mt-2 mb-7">
+            Your student ID is all you need. There is no password to forget.
+          </p>
 
-          <div className={`p-8 border-2 border-black shadow-[8px_8px_0px_0px_#000] ${darkMode ? "bg-[#1e293b]" : "bg-[#f8f6ee]"}`}>
+          <div className="u-card p-7">
             <form onSubmit={handleLogin} className="space-y-6">
               {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded font-pixelify-sans text-center">
+                <div
+                  className="u-card-quiet p-3 text-center"
+                  style={{ borderColor: "var(--state-late)", color: "var(--state-late)" }}
+                >
                   {error}
                 </div>
               )}
 
               <div className="space-y-2">
-                <label htmlFor="sid" className="font-press-start-2p text-[10px] block">
-                  Student ID (SID):
+                <label htmlFor="sid" className="u-eyebrow block">
+                  Student ID
                 </label>
                 <input
                   id="sid"
@@ -196,23 +175,23 @@ export default function LoginPage() {
                   placeholder="e.g. 22000000D"
                   value={sid}
                   onChange={(e) => setSid(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-black bg-white text-black font-pixelify-sans focus:outline-none focus:ring-2 focus:ring-[#0099db]"
+                  className="u-field u-num"
                   required
                 />
-                <p className="font-pixelify-sans text-sm opacity-70 pt-1">
-                  No password — your SID just needs to be on the class list for this study.
+                <p className="u-faint pt-1">
+                  Your SID needs to be on the class list for this study.
                 </p>
               </div>
 
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full bg-[#0099db] border-2 border-black hover:bg-[#007cb2] disabled:opacity-60 disabled:cursor-not-allowed text-white font-press-start-2p py-4 transition-transform active:scale-95 shadow-[4px_4px_0px_0px_#000]"
+                className="u-btn u-btn-primary u-btn-lg u-btn-block"
               >
-                {busy ? "Checking..." : "Log In"}
+                {busy ? "Checking…" : "Sign in"}
               </button>
 
-              <p className="text-center font-pixelify-sans text-sm opacity-70">
+              <p className="u-faint text-center">
                 Not recognised? Ask the course team to add your SID to the study list.
               </p>
             </form>

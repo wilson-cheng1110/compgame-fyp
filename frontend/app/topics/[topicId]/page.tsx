@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
 import { topics as topicsApi, type JourneyTopic } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
@@ -32,21 +31,24 @@ import TopicProbe from "@/components/topic-probe"
 //
 // The 26 existing game routes are UNTOUCHED. The unit links out to them and the
 // student returns; nothing about the games had to change.
-
-const pixelifySans = Pixelify_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-pixelify-sans",
-})
-const pressStart2P = Press_Start_2P({
-  weight: ["400"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-press-start-2p",
-})
+//
+// VISUAL REGISTER (Part 14). This file is `.shell`: Plex, paper, hairlines. The
+// game it launches is not. That contrast is deliberate — stepping into the game
+// should feel like stepping somewhere else, which it cannot do if the measured
+// steps are dressed like an arcade too.
 
 type Step = "brief" | "pre" | "preProbe" | "game" | "post" | "postProbe" | "tutor" | "close"
+
+const STEP_LABEL: Record<Step, string> = {
+  brief: "Brief",
+  pre: "First check",
+  preProbe: "In your words",
+  game: "Activity",
+  post: "Second check",
+  postProbe: "In your words",
+  tutor: "Talk it through",
+  close: "Done",
+}
 
 export default function TopicUnitPage() {
   const router = useRouter()
@@ -134,21 +136,16 @@ export default function TopicUnitPage() {
     if (i >= 0 && i < steps.length - 1) go(steps[i + 1])
   }
 
-  const panel = darkMode ? "bg-[#1e293b]" : "bg-[#f8f6ee]"
-  const shell = darkMode ? "bg-[#020617] text-white" : "bg-white text-black"
-
   if (error) {
     return (
-      <main className={`min-h-screen ${shell} ${pixelifySans.variable} ${pressStart2P.variable}`}>
+      <main className="shell min-h-screen">
         <UnitHeader />
-        <div className="container mx-auto py-16 px-4 max-w-2xl">
-          <div className={`p-8 border-2 border-black ${panel}`}>
-            <p className="font-press-start-2p text-[11px] leading-relaxed">Not open yet</p>
-            <p className="font-pixelify-sans text-lg mt-3">{error}</p>
+        <div className="mx-auto w-full max-w-2xl px-5 py-16">
+          <div className="u-card p-8">
+            <p className="u-eyebrow">Not open yet</p>
+            <p className="u-stem mt-3">{error}</p>
             <Link href="/dashboard">
-              <button className="mt-6 bg-[#0099db] border-2 border-black text-white font-press-start-2p px-6 py-3 text-[10px] shadow-[4px_4px_0px_0px_#000]">
-                Back to my journey
-              </button>
+              <button className="u-btn u-btn-primary mt-7">Back to my topics</button>
             </Link>
           </div>
         </div>
@@ -158,8 +155,8 @@ export default function TopicUnitPage() {
 
   if (!state || !meta) {
     return (
-      <main className={`min-h-screen flex items-center justify-center ${shell} ${pixelifySans.variable}`}>
-        <p className="font-pixelify-sans">Loading…</p>
+      <main className="shell min-h-screen flex items-center justify-center">
+        <p className="u-muted">Loading…</p>
       </main>
     )
   }
@@ -167,57 +164,56 @@ export default function TopicUnitPage() {
   const position = steps.indexOf(step) + 1
 
   return (
-    <main className={`min-h-screen ${shell} ${pixelifySans.variable} ${pressStart2P.variable}`}>
+    <main className="shell min-h-screen">
       <UnitHeader />
 
-      <div className="container mx-auto py-8 px-4 max-w-3xl">
-        {/* Where am I in this unit */}
-        <div className={`p-5 border-2 border-black mb-6 ${panel}`}>
-          <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="mx-auto w-full max-w-3xl px-5 py-8">
+        {/* Where am I in this unit. The rail is the only loud graphic left on the
+            page, and it earns it by encoding position in a real sequence. */}
+        <div className="u-card p-5 mb-6">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <p className="font-press-start-2p text-[12px] leading-relaxed">
-                <span className="mr-2">{meta.icon}</span>
-                {meta.title}
-              </p>
-              <p className="font-pixelify-sans text-lg opacity-70 mt-1">{meta.description}</p>
+              <p className="u-eyebrow">Session {state.session}</p>
+              <h1 className="u-h1 mt-1">{meta.title}</h1>
             </div>
-            <p className="font-press-start-2p text-[9px] opacity-60 whitespace-nowrap">
-              Step {position} of {steps.length}
+            <p className="u-faint u-num whitespace-nowrap pt-1">
+              Step {position} of {steps.length} · {STEP_LABEL[step]}
             </p>
           </div>
 
-          <div className="flex gap-1.5 mt-4">
+          <div className="u-rail mt-4">
             {steps.map((s, i) => (
               <div
-                key={s}
-                className={`h-2 flex-1 border border-black ${
-                  i < position - 1 ? "bg-[#0099db]" : i === position - 1 ? "bg-[#facc15]" : "bg-white"
+                key={s + i}
+                className={`u-rail-seg ${
+                  i < position - 1 ? "is-done" : i === position - 1 ? "is-now" : ""
                 }`}
               />
             ))}
           </div>
 
           {state.late && (
-            <p className="font-pixelify-sans text-sm mt-3 text-[#a16207]">
-              This topic&apos;s window has closed — you can still work through it, and it will be
-              marked as late.
+            <p className="u-faint mt-3" style={{ color: "var(--state-late)" }}>
+              ▲ This topic&apos;s window has closed — you can still work through it, and it will
+              be recorded as late.
             </p>
           )}
         </div>
 
         {step === "brief" && (
-          <div className={`p-8 border-2 border-black shadow-[8px_8px_0px_0px_#000] ${panel}`}>
-            <h2 className="font-press-start-2p text-[12px] leading-relaxed">Before you begin</h2>
-            <p className="font-pixelify-sans text-lg mt-4">{meta.description}.</p>
-            <p className="font-pixelify-sans text-lg mt-3 opacity-80">
+          <div className="u-card p-8">
+            <p className="u-eyebrow">Before you begin</p>
+            <h2 className="u-h2 mt-2">{meta.description}</h2>
+            <p className="u-stem u-muted mt-4">
               {state.has_bank
-                ? "You'll answer a few quick questions first, work through an activity, then answer a different set to see what changed."
-                : "You'll work through an activity for this topic, then reflect on it with the tutor."}
+                ? "You'll answer a few questions first, work through an activity, then answer a different set to see what changed."
+                : "You'll work through an activity, then talk it through with the tutor."}
             </p>
-            <button
-              onClick={advance}
-              className="mt-6 w-full bg-[#0099db] border-2 border-black hover:bg-[#007cb2] text-white font-press-start-2p py-4 text-[11px] active:scale-95 transition-transform shadow-[4px_4px_0px_0px_#000]"
-            >
+            <p className="u-stem u-muted mt-3">
+              It takes about 20 minutes. You can stop and come back — this page remembers where
+              you were.
+            </p>
+            <button onClick={advance} className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
               Start
             </button>
           </div>
@@ -264,20 +260,19 @@ export default function TopicUnitPage() {
         )}
 
         {step === "game" && (
-          <div className={`p-8 border-2 border-black shadow-[8px_8px_0px_0px_#000] ${panel}`}>
-            <h2 className="font-press-start-2p text-[12px] leading-relaxed">The activity</h2>
-            <p className="font-pixelify-sans text-lg mt-4">
-              Work through the {meta.title} activity, then come back here to carry on.
+          <div className="u-card p-8">
+            <p className="u-eyebrow">The activity</p>
+            <h2 className="u-h2 mt-2">Play through {meta.title}</h2>
+            <p className="u-stem u-muted mt-4">
+              This part is a game. Come back here when you&apos;ve finished it — the rest of the
+              unit is waiting.
             </p>
             <Link href={`/games/${meta.understandingGameId}`}>
-              <button className="mt-6 w-full bg-[#facc15] border-2 border-[#a16207] hover:bg-[#fde047] text-black font-press-start-2p py-4 text-[11px] active:scale-95 transition-transform shadow-[4px_4px_0px_0px_#000]">
-                Open the activity
+              <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
+                Open the activity →
               </button>
             </Link>
-            <button
-              onClick={advance}
-              className="mt-3 w-full bg-white border-2 border-black hover:bg-gray-100 text-black font-press-start-2p py-3 text-[10px] active:scale-95 transition-transform"
-            >
+            <button onClick={advance} className="u-btn u-btn-block mt-3">
               I&apos;ve finished it — continue
             </button>
           </div>
@@ -286,44 +281,43 @@ export default function TopicUnitPage() {
         {/* Only after they've submitted and seen the answers — the post-check is
             where the feedback lands, so don't let them skip past it unread. */}
         {step === "post" && postDone && (
-          <button
-            onClick={advance}
-            className="mt-5 w-full bg-white border-2 border-black hover:bg-gray-100 text-black font-press-start-2p py-3 text-[10px] active:scale-95 transition-transform"
-          >
+          <button onClick={advance} className="u-btn u-btn-block mt-5">
             Continue
           </button>
         )}
 
         {step === "tutor" && (
-          <div className={`p-8 border-2 border-black shadow-[8px_8px_0px_0px_#000] ${panel}`}>
-            <h2 className="font-press-start-2p text-[12px] leading-relaxed">Talk it through</h2>
-            <p className="font-pixelify-sans text-lg mt-4">
-              Open the tutor (bottom-right) and explain {meta.title} in your own words. It will
-              push back with questions rather than hand you answers — that&apos;s the point.
+          <div className="u-card p-8">
+            <p className="u-eyebrow">Talk it through</p>
+            <h2 className="u-h2 mt-2">Explain {meta.title} in your own words</h2>
+            <p className="u-stem u-muted mt-4">
+              Open the tutor (bottom-right) and try to explain it. It will push back with
+              questions rather than hand you answers — that&apos;s the point.
             </p>
-            <p className="font-pixelify-sans text-lg mt-3 opacity-70 italic">
-              {meta.reflectionQuestion}
-            </p>
-            <button
-              onClick={advance}
-              className="mt-6 w-full bg-[#0099db] border-2 border-black hover:bg-[#007cb2] text-white font-press-start-2p py-4 text-[11px] active:scale-95 transition-transform shadow-[4px_4px_0px_0px_#000]"
+            <blockquote
+              className="u-stem mt-5 pl-4"
+              style={{ borderLeft: "3px solid var(--accent)" }}
             >
+              {meta.reflectionQuestion}
+            </blockquote>
+            <button onClick={advance} className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
               Done reflecting
             </button>
           </div>
         )}
 
         {step === "close" && (
-          <div className={`p-8 border-2 border-black shadow-[8px_8px_0px_0px_#000] ${panel}`}>
-            <h2 className="font-press-start-2p text-[12px] leading-relaxed">
-              {meta.title} — finished
-            </h2>
-            <p className="font-pixelify-sans text-lg mt-4">
-              Nice work. Your answers are saved and this topic is complete.
+          <div className="u-card p-8">
+            <p className="u-eyebrow" style={{ color: "var(--state-done)" }}>
+              ✓ Finished
+            </p>
+            <h2 className="u-h2 mt-2">{meta.title}</h2>
+            <p className="u-stem u-muted mt-4">
+              Your answers are saved and this topic is complete.
             </p>
             <Link href="/dashboard">
-              <button className="mt-6 w-full bg-[#0099db] border-2 border-black hover:bg-[#007cb2] text-white font-press-start-2p py-4 text-[11px] active:scale-95 transition-transform shadow-[4px_4px_0px_0px_#000]">
-                Back to my journey
+              <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
+                Back to my topics
               </button>
             </Link>
           </div>
@@ -335,20 +329,17 @@ export default function TopicUnitPage() {
 
 function UnitHeader() {
   return (
-    <header className="w-full bg-[#f4eba7] py-3 border-b-2 border-black">
-      <div className="container mx-auto px-8 md:px-16 flex items-center justify-between">
-        <Link href="/dashboard" className="flex items-center">
-          <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
-            alt="COMPGame Logo"
-            width={40}
-            height={40}
-            className="mr-3"
-          />
-          <span className="font-press-start-2p text-black text-xl">COMPGame</span>
+    <header style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-raised)" }}>
+      <div className="mx-auto w-full max-w-3xl px-5 h-14 flex items-center justify-between">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          {/* Local asset rather than the v0-generated vercel-storage blob URL the
+              rest of the app still points at — one less external dependency on a
+              page 300 students load from a home broadband connection. */}
+          <Image src="/images/logo.png" alt="" width={26} height={26} priority />
+          <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
         </Link>
-        <Link href="/dashboard" className="font-pixelify-sans text-black font-bold hover:underline">
-          My journey
+        <Link href="/dashboard" className="u-faint hover:underline">
+          All topics
         </Link>
       </div>
     </header>

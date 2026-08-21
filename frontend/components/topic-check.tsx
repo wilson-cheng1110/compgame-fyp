@@ -41,7 +41,11 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
   const trackers = useRef<Record<string, ItemTracker>>({})
 
   const isPost = form === "B"
-  const panel = darkMode ? "bg-[#1e293b]" : "bg-[#f8f6ee]"
+  // Colour comes from the .shell token layer now (app/shell.css), so this component
+  // inherits light/dark instead of hard-coding two hex values and hoping they match
+  // whatever the page around it is doing. `darkMode` stays in the signature because
+  // it is the app's existing theme contract and every caller passes it.
+  void darkMode
 
   useEffect(() => {
     let alive = true
@@ -110,27 +114,28 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
 
   if (loadError) {
     return (
-      <div className={`p-6 border-2 border-black ${panel}`}>
-        <p className="font-pixelify-sans text-lg">{loadError}</p>
+      <div className="u-card p-6">
+        <p className="u-stem">{loadError}</p>
       </div>
     )
   }
 
   if (!items) {
     return (
-      <div className={`p-6 border-2 border-black ${panel}`}>
-        <p className="font-pixelify-sans text-lg">Loading questions…</p>
+      <div className="u-card p-6">
+        <p className="u-muted">Loading questions…</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-5">
-      <div className={`p-5 border-2 border-black ${panel}`}>
-        <h2 className="font-press-start-2p text-[11px] leading-relaxed">
-          {isPost ? "Check what you've learned" : "Quick check before you start"}
+      <div className="u-card p-6">
+        <p className="u-eyebrow">{isPost ? "Second check" : "First check"}</p>
+        <h2 className="u-h2 mt-2">
+          {isPost ? "Check what you've learned" : "Before you start"}
         </h2>
-        <p className="font-pixelify-sans text-lg mt-2 opacity-80">
+        <p className="u-stem u-muted mt-3">
           {isPost
             ? "Same idea, different questions. You'll see the answers straight after."
             : "Answer as best you can — you're not expected to know these yet, and this doesn't affect your grade. You'll get one attempt, and no answers until the end of the topic."}
@@ -143,16 +148,17 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
         return (
           <div
             key={item.id}
-            className={`p-5 border-2 border-black ${panel}`}
+            className="u-card p-6"
             onMouseMove={(e) => t?.onPointerMove(e.clientX, e.clientY)}
             onTouchStart={() => t?.onTouch()}
           >
-            <p className="font-pixelify-sans text-lg font-bold mb-4">
-              <span className="font-press-start-2p text-[10px] mr-2 opacity-60">
-                {idx + 1}/{items.length}
-              </span>
-              {item.stem}
+            <p className="u-eyebrow u-num mb-2">
+              Question {idx + 1} of {items.length}
             </p>
+            {/* Serif, measure-limited. This is the sentence the whole study turns
+                on; it gets the typography of something meant to be read once and
+                carefully, rather than scanned. */}
+            <p className="u-stem mb-5">{item.stem}</p>
 
             <div className="space-y-2">
               {item.options.map((opt) => {
@@ -160,10 +166,22 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
                 const isCorrect = graded?.correct_option === opt.letter
                 const pickedWrong = graded && picked && !graded.was_correct
 
-                let cls = "border-black bg-white text-black hover:bg-[#e6f4fb]"
-                if (picked && !graded) cls = "border-[#0099db] bg-[#cfeaf7] text-black"
-                if (isCorrect) cls = "border-green-700 bg-green-100 text-black"
-                else if (pickedWrong) cls = "border-red-700 bg-red-100 text-black"
+                // Outcome is carried by a border, a background AND a glyph — never
+                // by hue alone. Same reason the state chips have shapes.
+                const style: React.CSSProperties = {
+                  borderColor: "var(--rule-strong)",
+                  background: "var(--paper-raised)",
+                }
+                if (picked && !graded) {
+                  style.borderColor = "var(--accent)"
+                  style.background = "var(--accent-soft)"
+                }
+                if (isCorrect) {
+                  style.borderColor = "var(--state-done)"
+                  style.background = "var(--accent-soft)"
+                } else if (pickedWrong) {
+                  style.borderColor = "var(--state-late)"
+                }
 
                 return (
                   <button
@@ -173,11 +191,15 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
                     onClick={() => choose(item.id, opt.letter)}
                     onMouseEnter={() => t?.onHoverStart(opt.letter)}
                     onMouseLeave={() => t?.onHoverEnd(opt.letter)}
-                    className={`w-full text-left px-4 py-3 border-2 font-pixelify-sans transition-colors disabled:cursor-default ${cls}`}
+                    style={style}
+                    className="w-full text-left px-4 py-3 border rounded-lg transition-colors disabled:cursor-default flex gap-3 items-baseline"
                   >
-                    <span className="font-bold mr-2">{opt.letter})</span>
-                    {opt.text}
-                    {isCorrect && <span className="ml-2 font-bold">✓</span>}
+                    <span className="u-eyebrow" style={{ opacity: 0.75 }}>
+                      {opt.letter}
+                    </span>
+                    <span className="flex-1">{opt.text}</span>
+                    {isCorrect && <span style={{ color: "var(--state-done)" }}>✓</span>}
+                    {pickedWrong && <span style={{ color: "var(--state-late)" }}>×</span>}
                   </button>
                 )
               })}
@@ -187,20 +209,23 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
       })}
 
       {submitError && (
-        <div className="bg-red-100 border-2 border-red-400 text-red-700 px-4 py-3 font-pixelify-sans text-center">
+        <div
+          className="u-card p-4 text-center"
+          style={{ borderColor: "var(--state-late)", color: "var(--state-late)" }}
+        >
           {submitError}
         </div>
       )}
 
       {!result && (
         <>
-          <p className="font-pixelify-sans text-center opacity-70">
+          <p className="u-faint text-center">
             One attempt — you can change your mind until you submit.
           </p>
           <button
             onClick={submit}
             disabled={!allAnswered || busy}
-            className="w-full bg-[#0099db] border-2 border-black hover:bg-[#007cb2] disabled:opacity-50 disabled:cursor-not-allowed text-white font-press-start-2p py-4 text-[11px] transition-transform active:scale-95 shadow-[4px_4px_0px_0px_#000]"
+            className="u-btn u-btn-primary u-btn-lg u-btn-block"
           >
             {busy ? "Saving…" : allAnswered ? "Submit" : `Answer all ${items.length} to continue`}
           </button>
@@ -208,21 +233,21 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
       )}
 
       {result && (
-        <div className={`p-6 border-2 border-black ${panel}`}>
+        <div className="u-card p-6">
           {isPost ? (
             <>
-              <p className="font-press-start-2p text-[13px]">
-                {result.correct}/{result.total} correct
+              <p className="u-eyebrow">Result</p>
+              <p className="u-h1 u-num mt-1">
+                {result.correct}/{result.total}
               </p>
-              <p className="font-pixelify-sans text-lg mt-2 opacity-80">
-                The correct answers are marked above.
-              </p>
+              <p className="u-stem u-muted mt-2">The correct answers are marked above.</p>
             </>
           ) : (
             <>
-              <p className="font-press-start-2p text-[11px]">Answers recorded</p>
-              <p className="font-pixelify-sans text-lg mt-2 opacity-80">
-                No score yet — that's on purpose. You'll see how you did at the end of the topic.
+              <p className="u-eyebrow">Recorded</p>
+              <p className="u-stem u-muted mt-2">
+                No score yet — that is on purpose. You will see how you did at the end of the
+                topic.
               </p>
             </>
           )}

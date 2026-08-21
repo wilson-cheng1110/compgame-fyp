@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
 import { auth } from "@/lib/api"
 
@@ -19,20 +18,6 @@ import { auth } from "@/lib/api"
 //
 // The backend refuses to record ANY check submission until a `consent_recorded`
 // event exists for this SID, so this page is a real gate, not a formality.
-
-const pixelifySans = Pixelify_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-pixelify-sans",
-})
-
-const pressStart2P = Press_Start_2P({
-  weight: ["400"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-press-start-2p",
-})
 
 export default function ConsentPage() {
   const router = useRouter()
@@ -79,51 +64,44 @@ export default function ConsentPage() {
     router.push("/")
   }
 
-  const panel = darkMode ? "bg-[#1e293b]" : "bg-[#f8f6ee]"
+  // Colour comes from the .shell token layer (app/shell.css); darkMode stays
+  // because the toggle writes the body class this reads.
+  void darkMode
 
   if (checking) {
     return (
-      <main className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-[#020617] text-white" : "bg-white text-black"} ${pixelifySans.variable}`}>
-        <p className="font-pixelify-sans">Loading…</p>
+      <main className="shell min-h-screen flex items-center justify-center">
+        <p className="u-muted">Loading…</p>
       </main>
     )
   }
 
   return (
-    <main
-      className={`min-h-screen ${darkMode ? "bg-[#020617] text-white" : "bg-white text-black"} ${pixelifySans.variable} ${pressStart2P.variable}`}
-    >
-      <header className="w-full bg-[#f4eba7] py-3 border-b-2 border-black">
-        <div className="container mx-auto px-8 md:px-16 flex items-center">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
-              alt="COMPGame Logo"
-              width={40}
-              height={40}
-              className="mr-3"
-            />
-            <span className="font-press-start-2p text-black text-xl">COMPGame</span>
+    <main className="shell min-h-screen">
+      <header style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-raised)" }}>
+        <div className="mx-auto w-full max-w-3xl px-5 h-14 flex items-center">
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image src="/images/logo.png" alt="" width={26} height={26} priority />
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
           </Link>
         </div>
       </header>
 
-      <div className="container mx-auto py-10 px-4 flex justify-center">
-        <div className="max-w-3xl w-full">
-          <div className={`p-6 border-2 border-black mb-6 ${panel}`}>
-            <h1 className="font-press-start-2p text-base leading-relaxed">
-              Before you start
-            </h1>
-            <p className="font-pixelify-sans mt-3 text-lg">
+      <div className="mx-auto w-full max-w-2xl px-5 py-12">
+        <div>
+          <div className="mb-7">
+            <p className="u-eyebrow">Consent</p>
+            <h1 className="u-h1 mt-1">Before you start</h1>
+            <p className="u-stem u-muted mt-3">
               COMPGame is part of a study on how learning a concept <em>before</em> being tested
               on it affects understanding. Taking part is voluntary and it does not affect your
               grade.
             </p>
           </div>
 
-          <div className={`p-8 border-2 border-black shadow-[8px_8px_0px_0px_#000] ${panel}`}>
-            <h2 className="font-press-start-2p text-[11px] mb-4">What gets recorded</h2>
-            <ul className="font-pixelify-sans text-lg space-y-4">
+          <div className="u-card p-8">
+            <h2 className="u-h2 mb-4">What gets recorded</h2>
+            <ul className="u-stem space-y-4">
               <li>
                 <strong>Your answers and scores</strong> on the short quizzes before and after each
                 topic, how long you spent, and which activities you completed.
@@ -150,8 +128,8 @@ export default function ConsentPage() {
               </li>
             </ul>
 
-            <h2 className="font-press-start-2p text-[11px] mt-8 mb-4">You can stop any time</h2>
-            <p className="font-pixelify-sans text-lg">
+            <h2 className="u-h2 mt-9 mb-4">You can stop any time</h2>
+            <p className="u-stem">
               You can withdraw from your account page whenever you like. Your account is closed
               immediately and you can ask the course team to erase everything recorded about you.
               You can still use COMPGame to learn without taking part in the study — just tell the
@@ -159,7 +137,10 @@ export default function ConsentPage() {
             </p>
 
             {error && (
-              <div className="mt-6 bg-red-100 border border-red-400 text-red-700 px-4 py-2 font-pixelify-sans text-center">
+              <div
+                className="u-card-quiet mt-6 p-3 text-center"
+                style={{ borderColor: "var(--state-late)", color: "var(--state-late)" }}
+              >
                 {error}
               </div>
             )}
@@ -169,9 +150,10 @@ export default function ConsentPage() {
                 type="checkbox"
                 checked={agreed}
                 onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-1.5 w-5 h-5 border-2 border-black accent-[#0099db] flex-shrink-0"
+                className="mt-1 w-5 h-5 flex-shrink-0"
+                style={{ accentColor: "var(--accent)" }}
               />
-              <span className="font-pixelify-sans text-lg">
+              <span className="u-stem">
                 I have read the above and I agree to take part.
               </span>
             </label>
@@ -180,14 +162,14 @@ export default function ConsentPage() {
               <button
                 onClick={handleAgree}
                 disabled={!agreed || busy}
-                className="flex-1 bg-[#0099db] border-2 border-black hover:bg-[#007cb2] disabled:opacity-50 disabled:cursor-not-allowed text-white font-press-start-2p py-4 text-[11px] transition-transform active:scale-95 shadow-[4px_4px_0px_0px_#000]"
+                className="u-btn u-btn-primary u-btn-lg flex-1"
               >
                 {busy ? "Saving…" : "Agree and continue"}
               </button>
               <button
                 onClick={handleDecline}
                 disabled={busy}
-                className="sm:w-56 bg-white border-2 border-black hover:bg-gray-100 text-black font-press-start-2p py-4 text-[11px] transition-transform active:scale-95 shadow-[4px_4px_0px_0px_#000]"
+                className="u-btn u-btn-lg sm:w-48"
               >
                 No thanks
               </button>

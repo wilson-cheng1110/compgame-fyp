@@ -1,0 +1,325 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   THE SHELL — docs/revamp.md Part 14, the 太game fix.
+
+   Everything here is scoped under `.shell`. That is deliberate and it is the whole
+   safety story: globals.css REDEFINES Tailwind's .text-sm / .text-base / .text-lg
+   globally, and all 26 game routes are built on top of that. Scoping means the
+   games inherit nothing from this file and cannot regress — the pixel aesthetic
+   keeps its home, it just stops being the only voice in the building.
+
+   PALETTE RATIONALE. Not cream-and-terracotta, not a gradient hero. This is a
+   course about measuring human perception, so the surfaces read as paper and the
+   single accent reads as an instrument: a deepened version of the blue already in
+   this codebase (#0099db), pushed to #0b6e99 so it actually holds contrast on
+   paper instead of shimmering on it.
+
+   STATE COLOUR IS INFORMATION, not decoration — locked / open / late / done. Each
+   state carries a glyph and a word as well as a hue, because roughly 1 in 12 men
+   has a colour vision deficiency and this is, of all things, an HCI course.
+   Failing that in our own interface is not available to us.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.shell {
+  /* paper */
+  --paper: #fcfcfa;
+  --paper-raised: #ffffff;
+  --paper-sunken: #f2f2ee;
+
+  /* ink — near-black with a slight cool bias. A pure #000 reads as harsh beside
+     hairlines this fine. */
+  --ink: #14181c;
+  --ink-muted: #5a646e;
+  --ink-faint: #8b959e;
+
+  --rule: #e4e4de;
+  --rule-strong: #cfd0c9;
+
+  --accent: #0b6e99;
+  --accent-hover: #095a7d;
+  --accent-soft: #e6f2f8;
+  --accent-ink: #ffffff;
+
+  --state-open: #0b6e99;
+  --state-locked: #8b959e;
+  --state-late: #9a6700;
+  --state-done: #1a7f4b;
+
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(20, 24, 28, 0.05), 0 4px 12px rgba(20, 24, 28, 0.04);
+  --shadow-lift: 0 2px 4px rgba(20, 24, 28, 0.07), 0 12px 28px rgba(20, 24, 28, 0.07);
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  /* body sets image-rendering: pixelated for the games sprite art; in the shell it
+     only makes avatars and photographs look broken. */
+  image-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The app's theme switch is a cookie that puts .dark-mode on <body>, so the shell
+   follows that rather than inventing a second, competing mechanism. */
+.dark-mode .shell {
+  --paper: #0f1418;
+  --paper-raised: #161c22;
+  --paper-sunken: #0a0e11;
+
+  --ink: #e8ecef;
+  --ink-muted: #9aa5ae;
+  --ink-faint: #6f7c86;
+
+  --rule: #232c34;
+  --rule-strong: #313d47;
+
+  --accent: #4fb8e8;
+  --accent-hover: #79cbf1;
+  --accent-soft: #12313f;
+  --accent-ink: #06222e;
+
+  --state-open: #4fb8e8;
+  --state-locked: #6f7c86;
+  --state-late: #d9a441;
+  --state-done: #46c98a;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.45), 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+/* ── type ──────────────────────────────────────────────────────────────────── */
+
+.shell .u-h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.shell .u-h2 {
+  font-size: 1.1875rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+/* The uppercase micro-label. This is where the arcade past survives in the shell:
+   one small nod, not the whole voice. */
+.shell .u-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--ink-faint);
+}
+
+/* Question stems, briefs, anything read slowly. Serif, and measure-limited — line
+   length is the single biggest lever on sustained reading and it costs nothing. */
+.shell .u-stem {
+  font-family: var(--font-plex-serif), Georgia, serif;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.shell .u-prose {
+  max-width: 66ch;
+}
+.shell .u-muted {
+  color: var(--ink-muted);
+}
+.shell .u-faint {
+  color: var(--ink-faint);
+  font-size: 0.8125rem;
+}
+.shell .u-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── surfaces ──────────────────────────────────────────────────────────────── */
+
+.shell .u-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.shell .u-card-quiet {
+  background: var(--paper-sunken);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+/* The row a student clicks to enter a topic. Lifts a little; never bounces. */
+.shell .u-row {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.shell .u-row-actionable:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-1px);
+}
+
+.shell .u-row-locked {
+  background: var(--paper-sunken);
+  border-style: dashed;
+}
+
+/* ── controls ──────────────────────────────────────────────────────────────── */
+
+.shell .u-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.125rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 8px;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-raised);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.shell .u-btn:hover:not(:disabled) {
+  border-color: var(--ink-faint);
+  background: var(--paper-sunken);
+}
+
+.shell .u-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shell .u-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.shell .u-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.shell .u-btn-lg {
+  padding: 0.8125rem 1.5rem;
+  font-size: 1rem;
+}
+.shell .u-btn-block {
+  width: 100%;
+}
+
+.shell .u-field {
+  width: 100%;
+  padding: 0.6875rem 0.875rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+}
+
+.shell .u-field::placeholder {
+  color: var(--ink-faint);
+}
+
+/* One visible focus treatment for everything interactive. Keyboard users are not
+   an edge case in a class of 300. */
+.shell :is(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── state ─────────────────────────────────────────────────────────────────── */
+
+.shell .u-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.1875rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+/* ::before carries a glyph so the state survives greyscale and colour-vision
+   deficiency. Hue is never the only channel. */
+.shell .u-chip-open {
+  color: var(--state-open);
+}
+.shell .u-chip-open::before {
+  content: "●";
+}
+.shell .u-chip-locked {
+  color: var(--state-locked);
+}
+.shell .u-chip-locked::before {
+  content: "○";
+}
+.shell .u-chip-late {
+  color: var(--state-late);
+}
+.shell .u-chip-late::before {
+  content: "▲";
+}
+.shell .u-chip-done {
+  color: var(--state-done);
+}
+.shell .u-chip-done::before {
+  content: "✓";
+}
+
+/* ── the step rail ─────────────────────────────────────────────────────────── */
+/* Kept chunky and segmented while everything around it got quieter, because it is
+   the one graphic on the page that ENCODES something: how many steps this unit has
+   and which one you are on. Structure as information, not decoration. */
+
+.shell .u-rail {
+  display: flex;
+  gap: 3px;
+}
+
+.shell .u-rail-seg {
+  height: 5px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--rule);
+  transition: background 0.2s ease;
+}
+
+.shell .u-rail-seg.is-done {
+  background: var(--accent);
+}
+.shell .u-rail-seg.is-now {
+  background: var(--ink);
+}
+
+.shell hr,
+.shell .u-hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell *,
+  .shell *::before,
+  .shell *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

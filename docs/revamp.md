@@ -98,7 +98,7 @@ graded weeks later.
 | 04 | Grading | **done 2026-08-21** | Grading endpoint separate from the tutor + a batch pass that strips pre/post labels and shuffles before grading. Verified end-to-end on 42 answers | `grade.py` ✓ · `grade_batch.py` ✓ · `docs/grading-rubric.md` ✓ · probe step in `topic_api.py` ✓ · `components/topic-probe.tsx` ✓ |
 | 05 | Telemetry | **ships off** | Mouse hesitation, typing dynamics, idle gaps, paste + tab-switch counts. Aggregates per item, not raw traces. Flag defaults off until ethics approval | `lib/telemetry.ts` (new) · `lib/research-log.ts` |
 | 06 | Teacher report | **done 2026-08-21** | The tutorial brief generator. Counting in code, clustering + discussion points from the model, two versions out. Verified end-to-end | `generate_tutorial_report.py` ✓ · `reports/` (gitignored — holds verbatim answers + SIDs) |
-| 07 | Visual pass | queued | The 太game fix: typography, colour, demoting badge/avatar chrome off the main path. Last because it competes with everything above for September | frontend-wide |
+| 07 | Visual pass | **done 2026-08-21** | The 太game fix, done as REGISTER SEPARATION rather than a repaint: a `.shell` design system (`app/shell.css`) for every measured surface, the 26 game routes untouched | `app/shell.css` ✓ · `fonts.ts` ✓ · dashboard · topic unit · check · probe · consent · login |
 | R | Item banks | **rolling** | 9 topics still need pre/post sets. ~1 a week, drafted from each lecture deck as it becomes relevant | `docs/quiz-item-banks.md` · 4 of 13 done |
 
 **Prerequisites that are not this document's work but block it** — `stage2-deployment-plan.md`
@@ -672,11 +672,49 @@ Smaller than it sounds, because the games stay. What changes is what the app *le
 | Entry point | student picks any game, any order | student enters the **open** topic; order is server-assigned |
 | `app/games/[gameId]` | destination | step 03 *inside* a unit — keeps its own route, gains a "return to unit" contract |
 | Badges / avatar | primary reward layer | secondary — kept, moved off the main path, still logged for H2 (IMI) |
-| Typography | Press Start 2P throughout | retained for the game step only; unit shell uses Pixelify Sans. Full visual pass in scope (Part 0) |
+| Typography | Press Start 2P throughout | **retained for the 26 game routes only.** The shell is IBM Plex Sans (UI) + Plex Serif (question stems, briefs). Done 2026-08-21 |
 | `progress-context.tsx:89` | `playedUnderstandingFirst: current.understandingCompleted` (observed) | still recorded, **plus** the server-assigned arm — observation and assignment agree or you have a bug |
 
 **Do not delete the badge/avatar system.** It's the H2 motivation construct's reason to exist. Demote it;
 don't remove it. New: `app/topics/[topicId]/page.tsx` as the unit shell; the 26 game routes stay untouched.
+
+## 14.1 How it was actually done — register separation (2026-08-21)
+
+The diagnosis that decided the design is sharper than "too game-y". The shell was set in
+**Press Start 2P at 9–12px** — a face with no lowercase, no stroke contrast and a 1-bit grid,
+designed to be read six feet from an arcade cabinet. It was carrying 40-word question stems. A
+platform that teaches Gestalt grouping, legibility and Fitts' Law while rendering its own
+instructions illegibly is undermined by its own interface. That is a credibility problem, not a
+matter of taste, and it is why the change was worth doing before September.
+
+**The fix is not a repaint, it is two registers.**
+
+| | Shell | Games |
+|---|---|---|
+| Surfaces | dashboard, topic unit, checks, probe, consent, login | all 26 game routes |
+| Type | IBM Plex Sans + Plex Serif | Press Start 2P + Pixelify Sans |
+| Palette | paper + ink + one instrument accent (`#0b6e99`) | unchanged arcade |
+| Chrome | 1px hairlines, 10px radius, soft elevation | 2–4px black borders, hard offset shadows |
+
+The contrast now *means* something: stepping into a game feels like stepping somewhere else,
+which it could not do while everything was equally loud.
+
+**Everything new is scoped under `.shell`, and that scoping is the safety story.** `globals.css`
+redefines Tailwind's `.text-sm` / `.text-base` / `.text-lg` globally and all 26 game routes are
+built on top of that. Scoping means the games inherit nothing from `shell.css` and cannot regress
+— verified by screenshot, the Weber's Law game is pixel-identical.
+
+Three decisions inside the shell worth keeping:
+
+1. **The step rail stays chunky.** Everything else got quieter; the rail did not, because it is
+   the one graphic that *encodes* something — how many steps the unit has and which one you are
+   on. Structure as information.
+2. **State is never hue alone.** locked / open / late / done each carry a glyph (○ ● ▲ ✓) and a
+   word as well as a colour. Roughly 1 in 12 men has a colour vision deficiency; failing that in
+   an HCI course's own interface is not available to us.
+3. **The dashboard's avatar speech bubble became a "Next up" card.** With 13 topics on a release
+   schedule exactly one is normally actionable, and naming it answers the question the student
+   actually arrived with. The avatar moved to the profile card — demoted, not deleted.
 
 ---
 

@@ -45,7 +45,8 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
   const startedAt = useRef(Date.now())
   const tracker = useRef(new ItemTracker(telemetryEnabled))
 
-  const panel = darkMode ? "bg-[#1e293b]" : "bg-[#f8f6ee]"
+  // Colour comes from the .shell token layer (app/shell.css).
+  void darkMode
   const words = answer.trim() ? answer.trim().split(/\s+/).length : 0
 
   useEffect(() => {
@@ -101,32 +102,32 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
 
   if (loadError) {
     return (
-      <div className={`${panel} border-4 border-black p-6 rounded-lg`}>
-        <p className="text-sm">{loadError}</p>
+      <div className="u-card p-6">
+        <p className="u-stem">{loadError}</p>
       </div>
     )
   }
 
   if (!probe) {
     return (
-      <div className={`${panel} border-4 border-black p-6 rounded-lg`}>
-        <p className="text-sm opacity-70">Loading…</p>
+      <div className="u-card p-6">
+        <p className="u-muted">Loading…</p>
       </div>
     )
   }
 
   if (sent) {
     return (
-      <div className={`${panel} border-4 border-black p-6 rounded-lg space-y-4`}>
-        <h3 className="text-lg font-bold">Saved.</h3>
-        <p className="text-sm leading-relaxed">
+      <div className={"u-card p-6 space-y-4"}>
+        <h3 className="u-h2">Saved.</h3>
+        <p className="u-stem u-muted">
           {form === "A"
             ? "That's recorded. You won't get feedback on it now — seeing the answer here would give away what the rest of this topic is about."
             : "That's recorded. Your tutor will see the class's answers as a group, without names attached."}
         </p>
         <button
           onClick={onDone}
-          className="px-5 py-2 border-4 border-black bg-[#ffd166] font-bold rounded hover:translate-y-[-2px] transition-transform"
+          className="u-btn u-btn-primary"
         >
           Continue →
         </button>
@@ -135,12 +136,12 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
   }
 
   return (
-    <div className={`${panel} border-4 border-black p-6 rounded-lg space-y-5`}>
+    <div className={"u-card p-6 space-y-5"}>
       <div>
-        <p className="text-xs uppercase tracking-widest opacity-60 mb-2">
+        <p className="u-eyebrow mb-2">
           In your own words
         </p>
-        <p className="text-base leading-relaxed font-medium">{probe}</p>
+        <p className="u-stem">{probe}</p>
       </div>
 
       <textarea
@@ -153,11 +154,11 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
         rows={7}
         maxLength={4000}
         placeholder="Two or three sentences is plenty. Everyday words are fine — you don't need the textbook term."
-        className="w-full p-3 border-4 border-black rounded bg-white text-black resize-y focus:outline-none focus:ring-4 focus:ring-[#ffd166]"
+        className="u-field resize-y"
       />
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <p className="text-xs opacity-60">
+        <p className="u-faint">
           {words === 0
             ? "Not marked for spelling or grammar."
             : words < 4
@@ -167,15 +168,15 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
         <button
           onClick={submit}
           disabled={busy}
-          className="px-6 py-2 border-4 border-black bg-[#06d6a0] font-bold rounded disabled:opacity-50 hover:translate-y-[-2px] transition-transform"
+          className="u-btn u-btn-primary"
         >
           {busy ? "Saving…" : "Submit"}
         </button>
       </div>
 
-      {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+      {submitError && <p className="u-faint" style={{ color: "var(--state-late)" }}>{submitError}</p>}
 
-      <p className="text-xs opacity-50 leading-relaxed border-t-2 border-black/10 pt-3">
+      <p className="u-faint u-hr pt-3" style={{ borderTop: "1px solid var(--rule)" }}>
         One submission. This isn&apos;t marked for a grade — it goes to your tutor as
         part of the class picture, and it helps the AI tutor pitch its questions to
         where you actually are.

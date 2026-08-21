@@ -1,30 +1,24 @@
 import type React from "react"
 import "./globals.css"
+import "./shell.css"
 import type { Metadata } from "next"
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
+import { plexSans, plexSerif, pixelifySans, pressStart2P } from "./fonts"
 import { BadgeProvider } from "@/lib/badge-context"
 import { ProgressProvider } from "@/lib/progress-context"
 import { AiChatWidget } from "@/components/ai-chat-widget"
 import { ReflectionDialog } from "@/components/reflection-dialog"
 
-const pixelifySans = Pixelify_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-pixelify-sans",
-})
-
-const pressStart2P = Press_Start_2P({
-  weight: ["400"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-press-start-2p",
-})
+// All four families are declared here so every route can reach any of them, but
+// they are used in two separate registers (see app/fonts.ts): Plex in the shell,
+// the pixel faces in the 26 game routes. Declaring them together is not mixing
+// them — nothing outside `.shell` picks up Plex, and nothing inside it picks up
+// Press Start 2P unless it asks by name.
+const fontVars = `${plexSans.variable} ${plexSerif.variable} ${pixelifySans.variable} ${pressStart2P.variable}`
 
 export const metadata: Metadata = {
-  title: "COMPGame - Computer Science Learning Games",
-  description: "Learn computer science concepts through interactive games",
-    generator: 'v0.dev'
+  title: "COMPGame",
+  description:
+    "Flipped-learning units for COMP3423 Human–Computer Interaction: learn the concept, then test yourself, with an AI tutor throughout.",
 }
 
 export default function RootLayout({
@@ -33,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${pixelifySans.variable} ${pressStart2P.variable}`}>
-      <body className={`${pixelifySans.variable} ${pressStart2P.variable}`}>
+    <html lang="en" className={fontVars}>
+      <body className={fontVars}>
         <BadgeProvider>
           <ProgressProvider>
             {children}
@@ -48,6 +42,3 @@ export default function RootLayout({
     </html>
   )
 }
-
-
-import './globals.css'

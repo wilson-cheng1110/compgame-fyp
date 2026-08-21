@@ -12,7 +12,13 @@ FYP deliverable + EDC exhibition + academic paper (measuring flip-learning effec
   **server-side** (`backend/auth_store.py`, stdlib sqlite3 — same house pattern as `research_store.py`).
   The `user` cookie survives with its shape unchanged (`{ sid, username, avatarId }`) as **UI decoration
   only, never a security boundary**. See `docs/revamp.md` Part 0.
-- **Fonts**: Press Start 2P (headings), Pixelify Sans (body) — pixel art aesthetic
+- **Fonts — TWO REGISTERS since 2026-08-21 (`docs/revamp.md` Part 14.1).** The shell
+  (dashboard, topic unit, checks, probe, consent, login) is **IBM Plex Sans** + **IBM Plex
+  Serif**; the **26 game routes keep Press Start 2P + Pixelify Sans**. Declared together in
+  `app/fonts.ts`, applied apart. All shell styling lives in `app/shell.css` scoped under
+  `.shell` — `globals.css` redefines Tailwind's `.text-*` utilities globally and the games
+  depend on that, so the scope is what keeps them from regressing. **Do not move shell styles
+  into `globals.css`.**
 
 ## Project structure
 ```
