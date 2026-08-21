@@ -149,6 +149,37 @@ export async function apiFromPage(page, path, init) {
   )
 }
 
+/** Search the BUILT client bundle for a string.
+ *
+ *  docs/revamp.md Part 17 asks for this and the suite was not doing it: the answer
+ *  key could leak through the API payload, through the server-rendered markup, or
+ *  through the shipped JavaScript, and only the first two were being checked.
+ *  Returns the files that contain `needle`; empty means clean.
+ */
+export async function grepBuild(needle) {
+  const { readdir, readFile } = await import("node:fs/promises")
+  const { join } = await import("node:path")
+  const hits = []
+  async function walk(dir) {
+    let entries = []
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      const p = join(dir, e.name)
+      if (e.isDirectory()) await walk(p)
+      else if (/\.(js|css|json)$/.test(e.name)) {
+        const text = await readFile(p, "utf8").catch(() => "")
+        if (text.includes(needle)) hits.push(p)
+      }
+    }
+  }
+  await walk(".next/static")
+  return hits
+}
+
 // ── SID allocation ────────────────────────────────────────────────────────────
 // Every test that submits anything needs a student nobody else has touched: the
 // one-submission rule is enforced per (sid, topic, form), so a shared SID would make

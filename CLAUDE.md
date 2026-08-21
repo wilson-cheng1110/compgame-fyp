@@ -52,7 +52,7 @@ FYP_Submission/
     *.pdf                # COMP3423 lecture slides (6 weeks)
     requirements.txt
   frontend/              # Next.js 15 app
-    e2e/                 # 87 browser assertions: node e2e/run.mjs (see e2e/README.md).
+    e2e/                 # 92 browser assertions: node e2e/run.mjs (see e2e/README.md).
                          #   Catches what backend tests structurally cannot — the login
                          #   loop, the assets-400 deploy bug, the stale-session dashboard.
                          #   BUILD THEN START; never rebuild under a running server.

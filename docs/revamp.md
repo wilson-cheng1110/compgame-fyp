@@ -902,7 +902,7 @@ Things you can run, not things you can assert.
 python backend/tests/run_all.py     251 assertions   server logic
 npx tsc --noEmit                    the real type check — `next build` is NOT one,
                                     because typescript.ignoreBuildErrors is true
-node frontend/e2e/run.mjs            87 assertions   a real Chromium
+node frontend/e2e/run.mjs            92 assertions   a real Chromium
 ```
 
 The browser suite exists because **the backend suite cannot fail on the bugs that
@@ -922,6 +922,21 @@ actually shipped.** Three so far, all invisible to Python:
 Setup, exit codes and the full assertion table: `frontend/e2e/README.md`. The happy path
 needs an open topic, which real term dates never give you — `backend/make_e2e_schedule.py`
 generates one with today-relative dates (session 5 open, session 3 late, rest locked).
+
+## 17.1b Found by the audit, NOT fixed - a validity caveat
+
+`app/games/gestalt-assessment` ships its quiz answers inline in the client bundle
+(`answer:"similarity"`, ...). A student who opens devtools can read them.
+
+Pre-existing, and **not** a threat to H1: the primary DV is the fixed-key MC gain from
+`quiz-item-banks.md`, served without its key and graded server-side - the browser suite
+now greps the built bundle to prove it. But the **in-game assessment score is a
+secondary DV** (`CLAUDE.md`), and for that measure this is a real caveat. One of 26 game
+bundles was affected when checked on 2026-08-21.
+
+Options, increasing cost: report it as a limitation; treat the in-game score as
+descriptive only; or move that game's answer checking server-side. Wilson's call, and
+it does not block the rollout.
 
 ## 17.2 Checks that still need a human
 

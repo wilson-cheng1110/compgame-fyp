@@ -43,6 +43,33 @@ async function preflight() {
     }
   }
 
+  // Is this SID block already spent? A second run against the same databases hands
+  // out students who have already consented and already submitted, and the resulting
+  // failures read as app bugs. That is worse than a clean stop: a suite that goes red
+  // for setup reasons teaches people to ignore red. Probe the first SID of the block
+  // and refuse to run if it has been used.
+  if (!problems.length) {
+    const sid = `24E${String(sidBlockStart()).padStart(5, "0")}A`
+    try {
+      const r = await fetch(API + "/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sid }),
+      })
+      const body = await r.json()
+      if (r.ok && body.needsConsent === false) {
+        problems.push(
+          `SID block starting ${sid} has already been used (that student has consented). ` +
+            `Bump E2E_SID_OFFSET, or point AUTH_DB_PATH/RESEARCH_DB_PATH at fresh files.`,
+        )
+      } else if (r.status === 403) {
+        problems.push(`${sid} is not on the enrolment list — check ENROLMENT_PATH`)
+      }
+    } catch {
+      problems.push("could not probe the API for a fresh SID block")
+    }
+  }
+
   return problems
 }
 
@@ -57,8 +84,14 @@ if (problems.length) {
       "    python backend/make_e2e_schedule.py /tmp/sched.json\n" +
       "    TOPIC_SCHEDULE_PATH=/tmp/sched.json python -m uvicorn rag_api:app --port 8080\n",
   )
-  process.exit(2)
+  process.exitCode = 2
+  // exitCode, not exit(): process.exit() with an in-flight fetch handle aborts libuv
+  // on Windows with a bogus "Assertion failed" banner that looks like a crash.
 }
+
+if (process.exitCode === 2) {
+  // nothing further to do — the environment is not ready
+} else {
 
 console.log(`
   app=${APP}  api=${API}  SID block starts at 24E${String(sidBlockStart()).padStart(5, "0")}A
@@ -105,4 +138,5 @@ for (const { name, fn } of getTests()) {
 
 await browser.close()
 console.log(`\n${total} assertions, ${failures} failure(s)`)
-process.exit(failures ? 1 : 0)
+process.exitCode = failures ? 1 : 0
+}

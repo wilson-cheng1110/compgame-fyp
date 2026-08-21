@@ -1,6 +1,6 @@
 # Browser tests
 
-`node e2e/run.mjs` — 87 assertions across 13 tests, in a real Chromium.
+`node e2e/run.mjs` — 92 assertions across 13 tests, in a real Chromium.
 
 ## Why these exist when 250 backend assertions already pass
 
@@ -95,6 +95,46 @@ prove the *measurement* is sound.
 Every one has a server-side counterpart in `backend/tests`. They are re-asserted through
 the browser because the client is where they would actually be bypassed, and because a
 UI change can quietly stop honouring a rule the server still enforces.
+
+## Audited 2026-08-21 - does it fail when it should?
+
+A suite that has only ever been green is not known to work. Seven deliberate bugs were
+introduced into a running system and the suite re-run against each.
+
+| Mutation | Suite verdict |
+|---|---|
+| `items_for_student` ships `correct` | **caught** - 4 assertions red |
+| PRE branch returns the full graded payload | **caught** - 3 red |
+| one-submission guard removed | **caught** - 2 red |
+| consent gate removed from `submit_check` | **caught** - 2 red |
+| locked-topic gate removed from `topic_detail` | **caught** - 1 red |
+| `GRADE_TOKEN` defaulted non-empty | **caught** - 2 red |
+| FLIP/CONTROL step order inverted | **caught** (the unit stopped rendering, so it went red before the arm assertion could) |
+
+One mutation was **void**: flipping `reveal=(form == POST)` to `reveal=True` changes
+nothing observable, because the PRE branch discards `graded` and hand-builds its own
+`{ok, recorded, total}`. Two independent layers withhold the pre-check result. The
+mutation that actually leaks - returning `{**graded}` - was caught.
+
+Three real defects in the suite itself came out of the audit, all fixed:
+
+1. **A vacuous assertion.** "an explanation is shown" tested `/not|isn't|cannot|class
+   list/`, which matches the *clean* login page - it always says your SID needs to be
+   on the class list. It passed whether or not an error appeared. Now matches the
+   backend refusal string.
+2. **A comment promising an invariant the code never checked.** The header claimed the
+   test "checks the rendered steps match the arm it was given"; the only mention of
+   `arm` was a `t.note()` - a log line. The arm order is now genuinely asserted, proven
+   live on a FLIP student and against an inverted sequence.
+3. **A check `docs/revamp.md` Part 17 asks for and the suite never did** - grep the
+   built bundle for a known answer string. Added, with a positive control proving
+   `grepBuild` can find a string that *is* in the bundle.
+
+Also hardened: a spent SID block reports **SETUP** rather than a confusing red, and
+`process.exitCode` replaced `process.exit()`, which aborted libuv on Windows with a
+bogus "Assertion failed" banner and masked the exit code.
+
+Flakiness: two consecutive full runs produced byte-identical results.
 
 ## Conventions
 

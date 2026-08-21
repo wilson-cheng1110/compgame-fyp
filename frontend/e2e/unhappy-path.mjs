@@ -14,7 +14,7 @@
 
 import {
   test, T, go, ready, signIn, giveConsent, onboard, apiFromPage,
-  freshSid, UNENROLLED_SID, API,
+  freshSid, UNENROLLED_SID, API, grepBuild,
 } from "./lib.mjs"
 
 const POST = (body) => ({
@@ -28,7 +28,17 @@ test("a SID that is not on the class list cannot get in", async (page, t) => {
 
   t.check("stays on the login page", url.includes("/login"), url)
   const html = await page.content()
-  t.check("an explanation is shown, not a blank failure", /not|isn't|cannot|class list/i.test(html))
+
+  // AUDIT 2026-08-21: this used to test /not|isn't|cannot|class list/, which MATCHES
+  // THE CLEAN LOGIN PAGE — it always carries "your SID needs to be on the class
+  // list". The assertion passed whether or not an error was ever shown, and was
+  // padding the count. It now looks for the backend's actual refusal string, which
+  // appears nowhere on an untouched page (auth_api.py: "not_enrolled").
+  t.check(
+    "the specific refusal is shown",
+    /isn't on the class list for this study/i.test(html),
+    html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 180),
+  )
   t.check("no stack trace or raw error leaks to the student", !/Traceback|TypeError|undefined is not/i.test(html))
 
   const me = await apiFromPage(page, "/api/auth/me")
@@ -82,8 +92,10 @@ test("THE ANSWER KEY NEVER REACHES THE CLIENT", async (page, t) => {
   const topic = journey.body.topics.find((x) => x.state === "open" && x.has_bank)
   t.require("an open banked topic exists", !!topic)
 
+  let items0 = null
   for (const form of ["A", "B"]) {
     const res = await apiFromPage(page, `/api/topics/${topic.topic_id}/check/${form}`)
+    if (form === "A") items0 = res.body?.items?.[0]
     t.require(`form ${form} items load`, res.status === 200, res.status)
     const blob = JSON.stringify(res.body)
 
@@ -106,6 +118,25 @@ test("THE ANSWER KEY NEVER REACHES THE CLIENT", async (page, t) => {
   }
   const html = await page.content()
   t.check("no correct_option in the served markup", !/correct_option/.test(html))
+
+  // AUDIT 2026-08-21: docs/revamp.md Part 17 asks for exactly this — "grep the built
+  // bundle for a known pre-check answer string". The suite checked the API payload
+  // and the markup but never the SHIPPED JAVASCRIPT, which is a third, independent
+  // place the bank could leak (an innocent-looking import of the item bank into a
+  // client component would put every stem and every key in a file anyone can read).
+  // The needle is taken from the live API rather than hard-coded, so it cannot drift
+  // out of date with the bank.
+  const needle = (items0?.stem ?? "").slice(0, 34)
+  if (t.check("got a real stem to search for", needle.length > 20, needle)) {
+    const hits = await grepBuild(needle)
+    t.check("the stem is NOT in the built client bundle", hits.length === 0, hits.slice(0, 3))
+    // NOT a generic grep for '"correct":' — that was the first attempt and it is a
+    // FALSE POSITIVE: game bundles contain the literal "correct" as a UI state value
+    // (`state === answer ? "correct" : "wrong"`). Grep for the item bank's own marker
+    // instead, which appears nowhere else.
+    const keyHits = await grepBuild("Answer key")
+    t.check("the item bank's answer key is not in the bundle", keyHits.length === 0, keyHits.slice(0, 3))
+  }
 })
 
 test("the pre-check reveals nothing; the post-check reveals everything", async (page, t) => {

@@ -5,9 +5,9 @@
 //   landing -> sign in -> consent -> onboarding -> dashboard -> topic unit
 //           -> brief -> pre-check -> probe -> game -> post-check -> probe -> tutor -> done
 //
-// The step ORDER is not asserted loosely: it is the independent variable (the server
-// assigns FLIP or CONTROL per topic), so the test reads the arm off the API and
-// checks the rendered steps match the arm it was actually given.
+// The step ORDER is the independent variable — the server assigns FLIP or CONTROL per
+// topic — so the test reads the arm off the API and asserts that the ACTIVITY step
+// really did fall before the second check under FLIP, and after it under CONTROL.
 
 import { test, T, go, ready, signIn, giveConsent, onboard, apiFromPage, freshSid } from "./lib.mjs"
 
@@ -168,7 +168,33 @@ test("a full topic unit, in the arm the server assigned", async (page, t) => {
     break
   }
 
-  t.note(`walked: ${seen.slice(0, 10).join(" -> ")}`)
+  t.note(`walked: ${seen.slice(0, 12).join(" -> ")}`)
+
+  // THE INDEPENDENT VARIABLE, ASSERTED — not merely logged.
+  // AUDIT 2026-08-21: this file's header claimed the test "checks the rendered steps
+  // match the arm it was actually given". It did not. The only mention of `arm` was a
+  // t.note(), which is a log line. A comment promising an invariant the code never
+  // checks is worse than no comment: it stops the next person from adding the check.
+  //
+  //   FLIP    (plays_game_first) ... pre-check -> ACTIVITY -> post-check ...
+  //   CONTROL                    ... pre-check -> post-check -> ACTIVITY ...
+  //
+  // Getting this backwards silently inverts the experiment for every student in that
+  // arm, and nothing downstream would notice — the sink would faithfully record the
+  // wrong thing.
+  const labels = seen.map((x) => x.split("·").pop()?.trim() ?? "")
+  const iActivity = labels.findIndex((l) => /Activity/i.test(l))
+  const iSecond = labels.findIndex((l) => /Second check/i.test(l))
+
+  if (t.check("the walk saw both the activity and the second check", iActivity >= 0 && iSecond >= 0, labels)) {
+    t.check(
+      topic.plays_game_first
+        ? "FLIP: the activity came BEFORE the second check"
+        : "CONTROL: the activity came AFTER the second check",
+      topic.plays_game_first ? iActivity < iSecond : iActivity > iSecond,
+      { arm: topic.arm, plays_game_first: topic.plays_game_first, iActivity, iSecond, labels },
+    )
+  }
 
   const events = await apiFromPage(page, "/api/topics")
   const after = events.body.topics.find((x) => x.topic_id === topic.topic_id)
