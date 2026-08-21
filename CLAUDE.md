@@ -26,13 +26,18 @@ FYP_Submission/
     research_api.py      #   → /api/research/*  event, summary, pseudonymised export
     auth_store.py        # Participant accounts (stdlib sqlite3) + HMAC pseudonyms
     schedule.py          # Release windows per section + FLIP/CONTROL assignment
-    checks.py            # Item-bank parsing, server-side grading, key never ships
+    checks.py            # Item-bank parsing, server-side MC grading, key never ships
+    grade.py             # Short-answer grading: rubric, null filter, BLINDING, kappa,
+                         #   fail-closed /api/grade. temperature=0, offline by design
+    grade_batch.py       # The offline blind pass + --sample-for-human / --kappa
+    generate_tutorial_report.py # Teacher brief. Pass 1 counts in CODE, pass 2 is the
+                         #   LLM on text only. Writes teacher + anonymised, always both
     ops.py               # Concurrency gate (off the event loop), rate limit, health
     backup_sink.py       # Hourly sqlite online-backup of the sink + accounts
     check_corpus_coverage.py # Is the vector store still current? exits 1 if not
     topic_schedule.json  # Release config — dates are PLACEHOLDERS until the timetable lands
     enrolled_sids.txt    # Class list (SID,section). GITIGNORED — real personal data
-    tests/               # 173 assertions: python backend/tests/run_all.py
+    tests/               # 250 assertions: python backend/tests/run_all.py
     hci_chroma_db_local/ # Pre-built ChromaDB vector store (HCI lecture PDFs)
     *.pdf                # COMP3423 lecture slides (6 weeks)
     requirements.txt
@@ -131,6 +136,14 @@ it holds real student SIDs).
   5060 Ti dev box (`/api/ask` end-to-end; socratic ~8s). The older ~12s figure is
   pessimistic; the 3090 deployment box is still unmeasured. (Wilson 2026-06-23,
   commit bb94012; a per-topic `_EXAMPLE_BANK` backs it up when a student is stuck.)
+- **`num_predict` on `gemma4:e4b` has a cliff, measured 2026-08-21.** On the grader's
+  prompt, `num_predict` of 320/512/640/768 returns an **empty string**; 1024+ returns
+  correct JSON. An empty reply is indistinguishable from "not enough signal to grade",
+  so too low a cap silently turns every answer into a missing datum while the batch
+  looks like it ran fine. `grade.py` is pinned at 1536. **`/api/socratic` was tested
+  end-to-end at its own `num_predict=512` and is NOT affected** (325 chars, correct
+  flags) — its prompt shape differs. Do not "fix" socratic on the strength of the
+  grader's number; re-measure if you change its prompt.
 - **`/api/socratic` MUST keep `format="json"` + `num_predict` on its `ChatOllama`**
   (`get_socratic_chain`). The Socratic turn returns a `{response, understood, counts}`
   envelope; without JSON-mode the small model truncates long replies into BROKEN JSON
@@ -193,9 +206,11 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
 - RAG widget: floating chatbot feels bolted-on, not integrated into game flow
 - No progress visualization (e.g., skill tree or journey map)
 - Experiment instrumentation: pre-test-at-signup ✅, research sink ✅ (`backend/research_store.py`), per-topic `played_understanding_first` ✅.
-  - **ACTIVE (Stage 2 — no longer deferred, 2026-08-16):** wire per-topic pre/post gates
-    (`topic_pretest`/`topic_posttest`) + questionnaire/reflection logging into the topic unit. Payloads
-    in `docs/experiment-design.md` §8. Build order, phase by phase, in `docs/revamp.md` Part 3.
+  - Per-topic pre/post gates ✅ · short-answer probe ✅ (`topic_probe`/`topic_probe_post`,
+    fixed per topic — a per-student generated probe is a different instrument per student).
+    Blind offline grading ✅ (Phase 04) · teacher tutorial report ✅ (Phase 06) ·
+    `corpus_version`/`app_version` stamped on every event ✅ (Part 13.2).
+    **Still open:** questionnaire/reflection logging, Phase 07 visual pass (the 太game fix).
   - Server accounts ✅ (`backend/auth_store.py`, 26 tests). Corpus staleness check ✅
     (`backend/check_corpus_coverage.py` — currently **exits 1**: zero coverage on `norman` and
     `hicks-law`, because the vector store is built from 2023 decks. Fix is `docs/revamp.md` Part 9.3).

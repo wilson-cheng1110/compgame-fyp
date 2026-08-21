@@ -20,9 +20,11 @@ Schema (events):
   meta                       free-form JSON string, nullable
 """
 
+import hashlib
 import json
 import os
 import sqlite3
+import subprocess
 from datetime import datetime, timezone
 from threading import Lock
 
@@ -31,6 +33,49 @@ DB_PATH = os.environ.get("RESEARCH_DB_PATH", os.path.join(os.path.dirname(__file
 # sqlite3 connections are not safe to share across threads without care; a
 # module-level lock keeps the simple single-file store correct under uvicorn.
 _lock = Lock()
+
+
+# ── provenance (docs/revamp.md Part 13.2) ─────────────────────────────────────
+# "stale then stale lor, requirement updates happen" -- correct, and exactly the
+# problem. The corpus WILL be rebuilt again during the study, and a rebuild
+# silently changes what the tutor knows. Rebuild in week 6 and students in weeks
+# 1-5 had a materially different tutor from weeks 7-13: an uncontrolled variable
+# sitting underneath H2-H4 that, unrecorded, cannot be detected afterwards -- not
+# even in principle, because nothing in the data would distinguish the two groups.
+#
+# Preference is still to FREEZE (rebuild before launch, then leave it alone). This
+# stamp exists because that rule will eventually be broken by someone tidying up,
+# and the difference between a confound and a covariate is whether it was recorded.
+#
+# Computed ONCE at import: it is a filesystem stat, and doing it per event would
+# put an os.stat in the hot path of every single row.
+
+def _corpus_version() -> str:
+    db = os.path.join(os.path.dirname(__file__), "hci_chroma_db_local", "chroma.sqlite3")
+    try:
+        st = os.stat(db)
+        return hashlib.sha256(f"{st.st_size}:{int(st.st_mtime)}".encode()).hexdigest()[:12]
+    except OSError:
+        return "absent"
+
+
+def _app_version() -> str:
+    """Short git sha. Falls back to 'unknown' rather than raising -- a deployment
+    from a tarball with no .git must still record events."""
+    env = os.environ.get("APP_VERSION")
+    if env:
+        return env
+    try:
+        out = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                             cwd=os.path.dirname(__file__), capture_output=True,
+                             text=True, timeout=5)
+        return out.stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
+CORPUS_VERSION = _corpus_version()
+APP_VERSION = _app_version()
 
 
 def _connect() -> sqlite3.Connection:
@@ -86,7 +131,15 @@ def record_event(payload: dict) -> int:
         elif meta is not None:
             merged["_meta"] = meta
         meta = merged
-    meta_str = json.dumps(meta) if meta is not None else None
+    # Provenance is folded in SERVER-SIDE, so it is authoritative (a client cannot
+    # claim a different corpus) and research-log.ts needs no change. Purely additive
+    # to the free-form meta column -- no migration, and old rows simply lack it,
+    # which is itself the correct reading: they predate the stamp.
+    meta = dict(meta) if isinstance(meta, dict) else ({"_meta": meta} if meta is not None else {})
+    meta.setdefault("corpus_version", CORPUS_VERSION)
+    meta.setdefault("app_version", APP_VERSION)
+
+    meta_str = json.dumps(meta)
 
     puf = payload.get("played_understanding_first")
     puf_int = None if puf is None else (1 if puf else 0)

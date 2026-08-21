@@ -9,6 +9,7 @@ import Cookies from "js-cookie"
 import { topics as topicsApi, type JourneyTopic } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
 import TopicCheck from "@/components/topic-check"
+import TopicProbe from "@/components/topic-probe"
 
 // The topic unit (docs/revamp.md Part 2). This is the shell that turns "a grid of
 // games you can play in any order" into a sequenced journey.
@@ -18,6 +19,12 @@ import TopicCheck from "@/components/topic-check"
 //
 //   FLIP     brief -> pre-check -> GAME -> post-check -> tutor -> close
 //   CONTROL  brief -> pre-check -> post-check -> GAME -> tutor -> close
+//
+// Each check is followed by its short-answer probe when the topic has one. The two
+// instruments roll out on DIFFERENT schedules (4 topics have MC banks, 4 have
+// rubric probes, and they are not the same four), so `has_bank` and `has_probe`
+// are independent flags and neither is inferred from the other. A topic with
+// neither still runs — it is just brief -> game -> tutor -> close.
 //
 // The arm is never chosen here and never stored here — it comes down with the
 // topic state and is recorded server-side on every submission, so observation and
@@ -39,7 +46,7 @@ const pressStart2P = Press_Start_2P({
   variable: "--font-press-start-2p",
 })
 
-type Step = "brief" | "pre" | "game" | "post" | "tutor" | "close"
+type Step = "brief" | "pre" | "preProbe" | "game" | "post" | "postProbe" | "tutor" | "close"
 
 export default function TopicUnitPage() {
   const router = useRouter()
@@ -61,9 +68,16 @@ export default function TopicUnitPage() {
   const steps: Step[] = useMemo(() => {
     if (!state) return ["brief"]
     const hasChecks = state.has_bank
+    const hasProbe = state.has_probe === true
     const game: Step[] = ["game"]
-    const pre: Step[] = hasChecks ? ["pre"] : []
-    const post: Step[] = hasChecks ? ["post"] : []
+    const pre: Step[] = [
+      ...(hasChecks ? (["pre"] as Step[]) : []),
+      ...(hasProbe ? (["preProbe"] as Step[]) : []),
+    ]
+    const post: Step[] = [
+      ...(hasChecks ? (["post"] as Step[]) : []),
+      ...(hasProbe ? (["postProbe"] as Step[]) : []),
+    ]
     return state.plays_game_first
       ? ["brief", ...pre, ...game, ...post, "tutor", "close"]
       : ["brief", ...pre, ...post, ...game, "tutor", "close"]
@@ -226,6 +240,26 @@ export default function TopicUnitPage() {
             telemetryEnabled={telemetryEnabled}
             darkMode={darkMode}
             onDone={() => setPostDone(true)}
+          />
+        )}
+
+        {step === "preProbe" && (
+          <TopicProbe
+            topicId={state.topic_id}
+            form="A"
+            telemetryEnabled={telemetryEnabled}
+            darkMode={darkMode}
+            onDone={advance}
+          />
+        )}
+
+        {step === "postProbe" && (
+          <TopicProbe
+            topicId={state.topic_id}
+            form="B"
+            telemetryEnabled={telemetryEnabled}
+            darkMode={darkMode}
+            onDone={advance}
           />
         )}
 

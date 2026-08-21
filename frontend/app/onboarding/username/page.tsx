@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
+import { auth } from "@/lib/api"
 import { getUsers, setUsers } from "@/lib/user-store"
 import { ChevronLeft } from "lucide-react"
 
@@ -62,16 +63,29 @@ export default function UsernameSelectionPage() {
     }
   }, [router])
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!username.trim()) {
       setError("Please enter a username")
       return
     }
 
-    // Save username to user data
+    // THE SERVER IS THE RECORD, THE COOKIE IS DECORATION.
+    // This is the last step of onboarding, so it is the one that has to confirm the
+    // write landed. If it fails silently the account keeps needsOnboarding = true
+    // and the student is walked through onboarding again on their next device — a
+    // bug that is invisible on the machine where you test it.
+    const res = await auth.profile(
+      username.trim(),
+      userData?.avatarId != null ? String(userData.avatarId) : undefined,
+    )
+    if (!res.ok) {
+      setError(res.message ?? "Couldn't save that. Check your connection and try again.")
+      return
+    }
+
     if (userData) {
       userData.username = username
-      userData.needsOnboarding = false // Remove the onboarding flag
+      userData.needsOnboarding = false
       Cookies.set("user", JSON.stringify(userData), { expires: 7 })
 
       // Update in users storage too (keyed by SID — the user cookie has no email)
@@ -83,7 +97,6 @@ export default function UsernameSelectionPage() {
       }
     }
 
-    // Navigate to dashboard
     router.push("/dashboard")
   }
 

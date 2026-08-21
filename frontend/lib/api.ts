@@ -105,6 +105,11 @@ export interface JourneyTopic {
   late: boolean
   pre_done: boolean
   post_done: boolean
+  /** A topic can have a probe without an MC bank and vice versa — the two
+   *  instruments roll out on different schedules. Never infer one from the other. */
+  has_probe?: boolean
+  probe_pre_done?: boolean
+  probe_post_done?: boolean
   complete: boolean
 }
 
@@ -146,6 +151,13 @@ export interface CheckResult {
   items?: GradedItem[]
 }
 
+export interface ProbePayload {
+  topic_id: string
+  form: "A" | "B"
+  probe: string
+  telemetry_enabled: boolean
+}
+
 // ── calls ─────────────────────────────────────────────────────────────────────
 
 export const auth = {
@@ -173,6 +185,24 @@ export const topics = {
   ) =>
     api.post<CheckResult>(`/api/topics/${topicId}/check/${form}`, {
       answers,
+      duration_ms: durationMs,
+      telemetry,
+    }),
+  getProbe: (topicId: string, form: "A" | "B") =>
+    api.get<ProbePayload>(`/api/topics/${topicId}/probe/${form}`),
+  /** Returns `{ ok, recorded }` and NEVER a grade. Grading is offline and blind
+   *  (docs/revamp.md Part 8.2); a level returned here would leak the rubric's
+   *  judgement mid-unit and, on the pre-check, is exactly the feedback that
+   *  Part 8.5 withholds. Do not add a grade to this response later. */
+  submitProbe: (
+    topicId: string,
+    form: "A" | "B",
+    answer: string,
+    durationMs?: number,
+    telemetry?: Record<string, unknown>,
+  ) =>
+    api.post<{ ok: true; recorded: true }>(`/api/topics/${topicId}/probe/${form}`, {
+      answer,
       duration_ms: durationMs,
       telemetry,
     }),

@@ -22,6 +22,8 @@ each one is either required or defaults to *dev*, deliberately.
 | `OLLAMA_MAX_LOADED_MODELS` | — | `2` — `gemma4:e4b` **and** `nomic-embed-text` both stay resident; the vector leg embeds on every query |
 | `OLLAMA_KEEP_ALIVE` | — | `-1`, so the model never unloads between quiet periods |
 | `MAX_QUEUE` | `40` | tune from observed `waiting` in `/api/health` |
+| `GRADE_TOKEN` | *unset → `/api/grade` 503s* | set only if you want the endpoint reachable. **The batch does not need it** — `grade_batch.py` calls the model directly. Unset is the right production value |
+| `GRADE_NUM_PREDICT` | `1536` | **do not lower.** Measured on `gemma4:e4b`: 320/512/640/768 return an EMPTY string, 1024+ return correct JSON. An empty reply is indistinguishable from "the student wrote too little", so a low cap silently turns every answer into a missing datum while the batch looks like it ran |
 | `TELEMETRY_ENABLED` | `0` | **stays `0` until HSESC approval.** The backend strips telemetry while off |
 | `BACKUP_DIR` | `./backups` | a path on a **different disk** |
 
@@ -135,7 +137,41 @@ stored next to the data it pseudonymises, it protects nothing.
 
 ---
 
-## 5. Export for analysis
+## 5. Grade the short answers, and brief the tutor
+
+Both run **after** a topic's window closes, offline, on the box. Nobody is waiting.
+
+```powershell
+# 1. Grade, blind. Re-runnable: same seed -> same order -> same grades.
+python backend\grade_batch.py --dry-run                 # what would be graded, no model
+python backend\grade_batch.py --topic webers-law        # ~15 s per answer on the 5060 Ti
+python backend\grade_batch.py --resume                  # after an interruption
+
+# 2. Reliability. Do this ONCE, early, before any grade reaches the paper.
+python backend\grade_batch.py --sample-for-human 60     # blank sheet, no machine grades in it
+#    ... hand-code the 4th column ...
+python backend\grade_batch.py --kappa human-coding-sheet-60.csv
+
+# 3. The tutorial brief. Writes TWO files every time.
+python backend\generate_tutorial_report.py --topic webers-law --section B
+python backend\generate_tutorial_report.py --topic webers-law --section B --no-llm
+```
+
+`--no-llm` still produces a complete report: every number is computed in code and
+does not depend on a model being up. Only the clustering and discussion points are
+lost — which is the right thing to lose when Ollama is down.
+
+**`<topic>-<date>-teacher.md` carries SIDs and must not leave the machine.**
+`<topic>-<date>-discussion.md` is anonymised and safe to project; the generator
+greps it for roster SIDs and warns if any survived. `reports/` is gitignored.
+
+Below **κ ≈ 0.6** the short-answer grades are descriptive colour only and must be
+labelled that way. That is a reporting decision, not a bug to fix by re-grading
+until the number improves.
+
+---
+
+## 6. Export for analysis
 
 ```powershell
 curl -H "X-Export-Token: $env:EXPORT_TOKEN" "https://<host>/api/research/export?format=csv" -o events.csv
@@ -146,7 +182,7 @@ read the sqlite file **on the box** — identified data never travels.
 
 ---
 
-## 6. When it breaks
+## 7. When it breaks
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -157,10 +193,12 @@ read the sqlite file **on the box** — identified data never travels.
 | 503 `busy` under load | queue at `MAX_QUEUE` | expected under a spike. Raise it, or stagger windows |
 | Everything locked, nobody can start | schedule dates wrong | `python schedule.py --validate` then `--preview` |
 | Export returns 503 | `EXPORT_TOKEN` unset | set it. The 503 is deliberate — it fails closed |
+| Grading batch reports everything ungradeable | `num_predict` too low → model returns an empty string | raise `GRADE_NUM_PREDICT`; 1536 is the tested floor-with-margin |
+| Report says "n = 20 of 2" | it won't — the generator suppresses the ratio and flags a class-list mismatch instead | fix `enrolled_sids.txt`, then regenerate |
 
 ---
 
-## 7. Measured on the dev box (RTX 5060 Ti, 2026-08-16)
+## 8. Measured on the dev box (RTX 5060 Ti, 2026-08-16)
 
 Real numbers, not estimates. **The 3090 is the deployment box and was not measured** —
 treat these as a conservative floor, since it has roughly twice the memory bandwidth.

@@ -65,6 +65,12 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
 
     for st in states:
         st["has_bank"] = checks.has_bank(st["topic_id"])
+        # A topic can have a probe without an MC bank and vice versa -- the two
+        # instruments roll out on different schedules (Part 8.4), so the client
+        # must not infer one from the other.
+        st["has_probe"] = grade.probe_for(st["topic_id"]) is not None
+        st["probe_pre_done"] = (st["topic_id"], "topic_probe") in done
+        st["probe_post_done"] = (st["topic_id"], "topic_probe_post") in done
         st["pre_done"] = (st["topic_id"], "topic_pretest") in done
         st["post_done"] = (st["topic_id"], "topic_posttest") in done
         # A unit is finished when its post-check is in. Without a bank there is no
@@ -94,6 +100,7 @@ async def topic_detail(topic_id: str, response: Response,
                 "message": "This topic isn't open yet."}
 
     st["has_bank"] = checks.has_bank(topic_id)
+    st["has_probe"] = grade.probe_for(topic_id) is not None
     st["telemetry_enabled"] = TELEMETRY_ENABLED
     return st
 

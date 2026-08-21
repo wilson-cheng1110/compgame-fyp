@@ -95,9 +95,9 @@ graded weeks later.
 | 01 | Identity & consent | **next** | SID login against the class list, consent gate before any recording, withdrawal path. The `user` cookie keeps its exact shape so all 15 call sites keep working untouched | `rag_api.py` · `app/login/` · `app/consent/` (new) · `lib/user-store.ts` |
 | 02 | Schedule & sequencing | queued | Release windows per section, FLIP/CONTROL assignment, dashboard becomes a journey. **Where the IV actually gets manipulated** | `schedule.py` (new) · `topic_schedule.json` (new) · `app/dashboard/page.tsx` |
 | 03 | The topic unit | queued | The six-step shell, pre/post components, server-held keys. Biggest single piece of frontend work | `app/topics/[topicId]/` (new) · `checks.py` (new) |
-| 04 | Grading | offline | Grading endpoint separate from the tutor + a batch pass that strips pre/post labels and shuffles before grading | `grade.py` (new) · `grade_batch.py` (new) · `docs/grading-rubric.md` (new) |
+| 04 | Grading | **done 2026-08-21** | Grading endpoint separate from the tutor + a batch pass that strips pre/post labels and shuffles before grading. Verified end-to-end on 42 answers | `grade.py` ✓ · `grade_batch.py` ✓ · `docs/grading-rubric.md` ✓ · probe step in `topic_api.py` ✓ · `components/topic-probe.tsx` ✓ |
 | 05 | Telemetry | **ships off** | Mouse hesitation, typing dynamics, idle gaps, paste + tab-switch counts. Aggregates per item, not raw traces. Flag defaults off until ethics approval | `lib/telemetry.ts` (new) · `lib/research-log.ts` |
-| 06 | Teacher report | offline | The tutorial brief generator. Counting in code, clustering + discussion points from the model, two versions out | `generate_tutorial_report.py` (new) · `reports/` |
+| 06 | Teacher report | **done 2026-08-21** | The tutorial brief generator. Counting in code, clustering + discussion points from the model, two versions out. Verified end-to-end | `generate_tutorial_report.py` ✓ · `reports/` (gitignored — holds verbatim answers + SIDs) |
 | 07 | Visual pass | queued | The 太game fix: typography, colour, demoting badge/avatar chrome off the main path. Last because it competes with everything above for September | frontend-wide |
 | R | Item banks | **rolling** | 9 topics still need pre/post sets. ~1 a week, drafted from each lecture deck as it becomes relevant | `docs/quiz-item-banks.md` · 4 of 13 done |
 
@@ -335,6 +335,9 @@ Do **not** extend `/api/socratic` to grade. Opposite requirements:
 | Latency | live, student waiting | batched, nobody waiting |
 
 `/api/grade` returns `{ level: "full"|"partial"|"none"|null, evidence: "<quoted span>", rubric_hit: [...] }`.
+**Built 2026-08-21.** It also returns `evidence_verbatim`, which checks the quoted span actually
+appears in the student's answer — a grade quoting text the student never wrote is the model
+reasoning about a student it invented, and the batch warns loudly when any turn up.
 `null` = not enough signal to grade (blank, off-topic, one word) — distinct from `"none"` (a real attempt
 that misses). `null` is a missing datum; `"none"` is a data point.
 
@@ -652,7 +655,10 @@ that's an uncontrolled variable underneath H2–H4 with no way to detect it afte
 
    Fold `corpus_version` and an `app_version` into the event's `meta` JSON — purely additive, no migration.
 
-**Status: proposed, not applied.** Touches the live sink, which already holds real rows.
+**Status: APPLIED 2026-08-21** in `research_store.record_event`. `corpus_version` and
+`app_version` are folded into `meta` server-side on every event — purely additive, no migration,
+and rows written before today simply lack the keys, which reads correctly as "predates the stamp".
+Current values on this box: `corpus_version = d09e870e5ef8`, `app_version` = the short git sha.
 
 ---
 

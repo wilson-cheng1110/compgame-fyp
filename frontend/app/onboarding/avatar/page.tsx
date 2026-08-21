@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import Cookies from "js-cookie"
+import { auth } from "@/lib/api"
 import { getUsers, setUsers } from "@/lib/user-store"
 import { ChevronRight, ChevronLeft } from "lucide-react"
 
@@ -80,6 +81,13 @@ export default function AvatarSelectionPage() {
     if (userData) {
       userData.avatarId = avatars[currentAvatar].id
       Cookies.set("user", JSON.stringify(userData), { expires: 7 })
+      // Mirror to the server. The cookie is UI decoration (docs/revamp.md Part 0);
+      // without this the account row keeps avatar_id = null, and the student is
+      // sent back through onboarding every time they open the app on a different
+      // device. Not awaited here — the next screen is the one that must confirm.
+      // avatarId is numeric in the local avatar list but a string on the server
+      // (SessionUser.avatarId: string | null) — normalise at the boundary.
+      void auth.profile(undefined, String(avatars[currentAvatar].id))
 
       // Update in users storage too (keyed by SID — the user cookie has no email)
       const users = getUsers()
