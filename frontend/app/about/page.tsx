@@ -16,9 +16,17 @@ import Link from "next/link"
 //  * The header linked to /signup, which was retired when login became SID-only
 //    against an enrolled-SID allowlist. A dead link on a public page.
 //
-// LEFT ALONE ON PURPOSE — the authorship, supervisor, date and contact address.
-// They name a specific person and that is not something to quietly rewrite. Wilson
-// confirms or changes them; see the note in the reply that shipped this file.
+// PERSONAL DATA REMOVED 2026-08-21, on Wilson's instruction. The page previously
+// carried a named author, a named supervisor, "April 2025", and a personal
+// @connect.polyu.hk address presented as the support contact. All four were wrong
+// for a 2026 cohort — that address would have taken 300 students' account problems
+// to someone who is not running this study — and none of it belongs on a page read
+// during an ethics-approved run.
+//
+// NOTE FOR THE PAPER, not for this file: removing the credit from the PRODUCT is a
+// data-hygiene fix, not a licence to drop it from the write-up. If COMPGame builds
+// on a prior FYP, that still needs declaring in the report the same way the
+// WorldMonitor reference is (CLAUDE.md, "Academic integrity note").
 
 export default function AboutPage() {
   return (
@@ -79,25 +87,12 @@ export default function AboutPage() {
             </section>
 
             <section>
-              <h2 className="u-h2">The team</h2>
+              <h2 className="u-h2">Questions or problems</h2>
               <p className="u-stem u-muted mt-3">
-                COMPGame was developed at The Hong Kong Polytechnic University as a Final Year
-                Project by Chloe Wong, supervised by Dr Jeff Tang, and completed in April 2025.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="u-h2">Contact</h2>
-              <p className="u-stem u-muted mt-3">
-                Questions, feedback or problems with your account —{" "}
-                <a
-                  href="mailto:wing-yi-chloe.wong@connect.polyu.hk"
-                  style={{ color: "var(--accent)" }}
-                  className="hover:underline"
-                >
-                  wing-yi-chloe.wong@connect.polyu.hk
-                </a>
-                .
+                If you cannot sign in, or something here is not working, tell your course
+                team — they can check your student ID against the class list. Questions about
+                the study itself, including how to withdraw, are answered on the consent page
+                you saw when you first signed in.
               </p>
             </section>
           </div>

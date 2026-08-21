@@ -751,9 +751,23 @@ against source rather than rewritten to taste:
 - The header linked to `/signup`, retired when login became SID-only against the
   enrolled-SID allowlist. A dead link on the one public page.
 
-**Left alone deliberately:** the authorship ("Chloe Wong"), supervisor, "April 2025",
-and the contact address. They name a specific person; changing attribution is not a
-call to make silently. **Wilson to confirm or correct.**
+**Removed 2026-08-21 on Wilson's instruction.** The named author, named supervisor,
+"April 2025" and the personal `@connect.polyu.hk` address are gone from the product.
+The address was presented as the support contact, so every account problem from 300
+students would have gone to someone not running this study — and none of it belongs
+on pages read during an ethics-approved run. A second copy lived in
+`components/creator-footer.tsx`, which renders on the **public landing page**; that
+one is gone too. `/about` now points students at "your course team", matching the
+wording already used on the login and consent screens.
+
+**This is a product fix, not a paper decision.** If COMPGame builds on a prior FYP,
+the report still needs to declare it — the same way the WorldMonitor reference is
+declared (`CLAUDE.md`, "Academic integrity note"). Nothing in `docs/` currently
+credits prior work; that is Wilson's call, and it is a separate one from cleaning the
+UI.
+
+*(The lecturers' names in the vector store — "Johan F. HOORN and Jeff TANG" on the
+slide title pages — are legitimate corpus content and were left alone.)*
 
 ### Badges: `level` was in the data and invisible
 
