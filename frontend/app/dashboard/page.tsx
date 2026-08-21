@@ -82,7 +82,11 @@ export default function DashboardPage() {
       // typed /dashboard past the consent screen reached it with consent unrecorded.
       // Nothing of theirs could be saved (the server 403s every write), so they would
       // have hit a dead end they could not diagnose. Ask the server instead.
-      if (res.data?.needsConsent) router.push("/consent")
+      if (res.data?.needsConsent) { router.push("/consent"); return }
+      // Same reasoning as consent: the cookie cannot carry this, and a student who
+      // typed /dashboard would otherwise skip the covariate entirely — and unlike a
+      // check they can retake, this one is sat once and then gone for good.
+      if (res.data?.needsBaseline) router.push("/onboarding/baseline")
     })
     const darkModePref = Cookies.get("darkMode")
     if (darkModePref === "true") { setDarkMode(true); document.body.classList.add("dark-mode") }

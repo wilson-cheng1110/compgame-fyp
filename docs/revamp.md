@@ -816,6 +816,14 @@ Not laziness, and reversible if Wilson wants it. Three reasons, in order of weig
 
 ### Known gap
 
+**Wilson is supplying the real 2026/27 timetable** (decided 2026-08-21) rather than
+having it generated from a term start date. Until it lands, `topic_schedule.json` keeps
+placeholder dates, every topic renders `Locked`, and the open/late states plus the
+"Next up" card remain unverified against real data. `backend/make_e2e_schedule.py`
+generates a today-relative schedule so the browser tests can still exercise all three
+states.
+
+
 The "Next up" card and the teal `open` chip have **never been seen with real data**, because
 `topic_schedule.json` still holds placeholder dates and every topic renders `Locked`. They appear
 the moment real session dates land (Part 4).
@@ -902,7 +910,7 @@ Things you can run, not things you can assert.
 python backend/tests/run_all.py     251 assertions   server logic
 npx tsc --noEmit                    the real type check — `next build` is NOT one,
                                     because typescript.ignoreBuildErrors is true
-node frontend/e2e/run.mjs            92 assertions   a real Chromium
+node frontend/e2e/run.mjs           104 assertions   a real Chromium
 ```
 
 The browser suite exists because **the backend suite cannot fail on the bugs that
@@ -922,6 +930,21 @@ actually shipped.** Three so far, all invisible to Python:
 Setup, exit codes and the full assertion table: `frontend/e2e/README.md`. The happy path
 needs an open topic, which real term dates never give you — `backend/make_e2e_schedule.py`
 generates one with today-relative dates (session 5 open, session 3 late, rest locked).
+
+## 17.1a Baseline pre-test — restored 2026-08-21
+
+The 5-item prior-knowledge covariate (experiment-design.md §8) lost its home when signup
+was retired and was **not being collected at all**: the data export still asked for
+`preTestScore`, but nothing wrote it. Now `/onboarding/baseline`, the third onboarding
+step, gated before the dashboard.
+
+Rebuilt server-side (`backend/baseline.py`, `/api/auth/baseline`). The original shipped
+its key in the client — the file opened with `// Correct answers: [0, 1, 2, 1, 2]` — and
+these five items cover Fitts, Miller, Norman, Gestalt and Hick's: five of the thirteen
+units the same student is later measured on. A key in the bundle is a head start on
+five topics, not just a leaked baseline. Items now arrive without it, grading is
+server-side, and **no score is returned** for the same reason. Items are verbatim from
+commit 2f3a17d so the instrument is unchanged.
 
 ## 17.1b Found by the audit, NOT fixed - a validity caveat
 

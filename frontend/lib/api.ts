@@ -85,6 +85,19 @@ export interface SessionUser {
   section: string
   needsOnboarding: boolean
   needsConsent: boolean
+  /** The one-off prior-knowledge covariate (docs/experiment-design.md §8). Sat once,
+   *  during onboarding, never repeated. */
+  needsBaseline?: boolean
+}
+
+export interface BaselineItem {
+  id: string
+  stem: string
+  options: string[]
+}
+export interface BaselinePayload {
+  items: BaselineItem[]
+  n_items: number
 }
 
 export type TopicState = "locked" | "open" | "late" | "unscheduled"
@@ -169,6 +182,15 @@ export const auth = {
   profile: (username?: string, avatarId?: string) =>
     api.post<SessionUser>("/api/auth/profile", { username, avatar_id: avatarId }),
   withdraw: () => api.post<{ ok: boolean; message: string }>("/api/auth/withdraw"),
+  getBaseline: () => api.get<BaselinePayload>("/api/auth/baseline"),
+  /** Returns `{ ok, recorded, total }` and NEVER a score. These five items cover five
+   *  topics the student is about to be measured on; showing how they did would be a
+   *  head start on those units. Do not add a score to this response later. */
+  submitBaseline: (answers: Record<string, number>, durationMs?: number) =>
+    api.post<{ ok: true; recorded: number; total: number }>("/api/auth/baseline", {
+      answers,
+      duration_ms: durationMs,
+    }),
 }
 
 export const topics = {

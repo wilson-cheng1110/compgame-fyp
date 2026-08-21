@@ -31,6 +31,7 @@ from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel
 
 import auth_store
+import baseline
 import research_store
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -92,6 +93,7 @@ async def create_session(req: SessionRequest, response: Response):
         "section": result["section"],
         "needsOnboarding": result["needs_onboarding"],
         "needsConsent": not _has_consented(result["sid"]),
+        "needsBaseline": not baseline.already_taken(research_store.fetch_all(), result["sid"]),
     }
 
 
@@ -108,6 +110,7 @@ async def whoami(response: Response, session: str | None = Cookie(default=None))
         "section": user["section"],
         "needsOnboarding": user["needs_onboarding"],
         "needsConsent": not _has_consented(user["sid"]),
+        "needsBaseline": not baseline.already_taken(research_store.fetch_all(), user["sid"]),
     }
 
 
@@ -192,3 +195,73 @@ async def withdraw(response: Response, session: str | None = Cookie(default=None
     response.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True,
             "message": "Your account is closed. Ask the researcher to erase your recorded data."}
+
+
+# ── baseline pre-test ─────────────────────────────────────────────────────────
+# The prior-knowledge covariate (docs/experiment-design.md §8), sat once during
+# onboarding. It lives on the auth router rather than the topic router because it
+# belongs to the ACCOUNT, not to any topic: one sitting, before the first unit, never
+# repeated. See backend/baseline.py for why the key stays on this side of the wire.
+
+class BaselineSubmission(BaseModel):
+    answers: dict[str, int]
+    duration_ms: int | None = None
+
+
+@router.get("/baseline")
+async def get_baseline(response: Response, session: str | None = Cookie(default=None)):
+    user = auth_store.resolve_session(session or "")
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+
+    if baseline.already_taken(research_store.fetch_all(), user["sid"]):
+        response.status_code = 409
+        return {"error": "already_taken"}
+
+    return {"items": baseline.items_for_student(), "n_items": len(baseline.items_for_student())}
+
+
+@router.post("/baseline")
+async def submit_baseline(body: BaselineSubmission, response: Response,
+                          session: str | None = Cookie(default=None)):
+    user = auth_store.resolve_session(session or "")
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+
+    # Consent first, exactly as for every other recorded thing (Part 15). Onboarding
+    # runs after consent, so in the normal flow this is already satisfied; it is
+    # asserted anyway because "the UI never sends it out of order" is not a control.
+    if not _has_consented(user["sid"]):
+        response.status_code = 403
+        return {"error": "no_consent",
+                "message": "Consent has to be recorded before anything is saved."}
+
+    events = research_store.fetch_all()
+    if baseline.already_taken(events, user["sid"]):
+        response.status_code = 409
+        return {"error": "already_taken"}
+
+    graded = baseline.grade(body.answers)
+
+    research_store.record_event({
+        "participant_id": user["sid"],
+        "event_type": baseline.EVENT_TYPE,
+        "score": graded["score"],
+        "duration_ms": body.duration_ms,
+        "meta": {
+            "answered": graded["answered"],
+            "total": graded["total"],
+            "correct": graded["correct"],
+            "chance_pct": graded["chance_pct"],
+            "items": graded["items"],
+            "section": user["section"],
+        },
+    })
+
+    # No score comes back. These five items cover five topics the student is about to
+    # be measured on; telling them how they did, or which they missed, is a head start
+    # on those units and would contaminate the very gain this covariate exists to
+    # adjust. Acknowledgement only.
+    return {"ok": True, "recorded": graded["answered"], "total": graded["total"]}

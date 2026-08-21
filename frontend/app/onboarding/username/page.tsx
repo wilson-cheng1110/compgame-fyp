@@ -82,7 +82,8 @@ export default function UsernameSelectionPage() {
       }
     }
 
-    router.push("/dashboard")
+    // The baseline is the step after this one, when it has not been sat yet.
+    router.push(res.data?.needsBaseline ? "/onboarding/baseline" : "/dashboard")
   }
 
   return (

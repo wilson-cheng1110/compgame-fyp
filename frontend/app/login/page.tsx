@@ -57,16 +57,19 @@ export default function LoginPage() {
           }),
           { expires: 120 },
         )
-        router.push(nextStep(res.data.needsConsent, res.data.needsOnboarding))
+        router.push(nextStep(res.data.needsConsent, res.data.needsOnboarding, res.data.needsBaseline))
       } else if (res.status === 401) {
         Cookies.remove("user")
       }
     })
   }, [router])
 
-  function nextStep(needsConsent: boolean, needsOnboarding: boolean) {
+  function nextStep(needsConsent: boolean, needsOnboarding: boolean, needsBaseline?: boolean) {
     if (needsConsent) return "/consent"
     if (needsOnboarding) return "/onboarding/avatar"
+    // The baseline is the last onboarding step, and it is a GATE: it measures prior
+    // knowledge, so it has to be sat before the student sees any topic content.
+    if (needsBaseline) return "/onboarding/baseline"
     return "/dashboard"
   }
 
@@ -111,7 +114,7 @@ export default function LoginPage() {
       }),
       { expires: 120 },
     )
-    router.push(nextStep(res.data.needsConsent, res.data.needsOnboarding))
+    router.push(nextStep(res.data.needsConsent, res.data.needsOnboarding, res.data.needsBaseline))
   }
 
   return (

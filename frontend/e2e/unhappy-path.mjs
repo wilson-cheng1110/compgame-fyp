@@ -244,3 +244,52 @@ test("signing out actually ends the session", async (page, t) => {
   await page.waitForTimeout(2000)
   t.check("and the dashboard is no longer reachable", page.url().includes("/login"), page.url())
 })
+
+
+test("the baseline pre-test is a gate, sat once, and reveals nothing", async (page, t) => {
+  // docs/experiment-design.md §8. Five items across five topics the student is about
+  // to be measured on, so this one leaks harder than any other check if it leaks.
+  const sid = freshSid()
+  await signIn(page, sid)
+  await giveConsent(page)
+
+  // Get past avatar + username but STOP before the baseline.
+  for (let i = 0; i < 3 && page.url().includes("/onboarding") && !page.url().includes("/baseline"); i++) {
+    const field = page.locator('input[type="text"]').first()
+    if (await field.count()) await field.fill("E2E Student")
+    const next = page.getByRole("button", { name: "Continue", exact: true }).first()
+    if (!(await next.count())) break
+    await next.click()
+    await page.waitForTimeout(2200)
+  }
+  t.require("onboarding routes to the baseline, not the dashboard", page.url().includes("/baseline"), page.url())
+
+  // IT IS A GATE: the covariate is sat once and then gone forever, so a student who
+  // types /dashboard must not be able to skip past it.
+  await go(page, "/dashboard")
+  await page.waitForTimeout(2500)
+  t.check("typing /dashboard does not skip the baseline", !page.url().endsWith("/dashboard"), page.url())
+
+  const payload = await apiFromPage(page, "/api/auth/baseline")
+  t.require("items load", payload.status === 200, payload.status)
+  const blob = JSON.stringify(payload.body)
+  t.check("5 items", payload.body.items?.length === 5, payload.body.items?.length)
+  t.check("NO answer key in the payload", !/"correct/.test(blob))
+  t.check(
+    "each item is id/stem/options and nothing else",
+    payload.body.items.every((i) => JSON.stringify(Object.keys(i).sort()) === '["id","options","stem"]'),
+    payload.body.items?.[0] && Object.keys(payload.body.items[0]),
+  )
+
+  const answers = Object.fromEntries(payload.body.items.map((i) => [i.id, 0]))
+  const first = await apiFromPage(page, "/api/auth/baseline", POST({ answers }))
+  t.require("submits", first.status === 200, first)
+  t.check("NO score comes back", first.body.score === undefined, first.body)
+  t.check("no per-item outcome comes back", !/"correct|was_correct/.test(JSON.stringify(first.body)))
+
+  const second = await apiFromPage(page, "/api/auth/baseline", POST({ answers }))
+  t.check("a second sitting is refused (409)", second.status === 409, second)
+
+  const me = await apiFromPage(page, "/api/auth/me")
+  t.check("the session stops asking for it", me.body?.needsBaseline === false, me.body)
+})

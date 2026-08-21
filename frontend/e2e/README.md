@@ -1,6 +1,6 @@
 # Browser tests
 
-`node e2e/run.mjs` — 92 assertions across 13 tests, in a real Chromium.
+`node e2e/run.mjs` — 104 assertions across 14 tests, in a real Chromium.
 
 ## Why these exist when 250 backend assertions already pass
 
@@ -135,6 +135,19 @@ Also hardened: a spent SID block reports **SETUP** rather than a confusing red, 
 bogus "Assertion failed" banner and masked the exit code.
 
 Flakiness: two consecutive full runs produced byte-identical results.
+
+## Known intermittent, NOT root-caused
+
+Three times across this session, a topic-page test failed with the page stuck on
+"Loading…": hydrated, no JS errors, no failed assets — and **zero** `/api/topics`
+requests, meaning the effect never fired. It did not reproduce under instrumentation
+(`topicId` resolved, the effect ran, the step counter rendered), and the full suite has
+since passed repeatedly including the same tests.
+
+So it is recorded rather than explained. If it returns, the useful facts are: it is
+specific to `/topics/[topicId]`, the page hydrates, and no network request is made at
+all — so look at the effect's guard and `useParams`, not at the API. Do not assume the
+suite is broken; it was reporting a real hang each time.
 
 ## Conventions
 

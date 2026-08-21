@@ -451,3 +451,21 @@ source before submission; URLs are the retrieved ground truth.*
 - The 4 study topics' assessment formats and scoring were verified from the game code (§0). The pre/post item banks (`quiz-item-banks.md`) are content-aligned to that code and have passed a **desk review (self-pilot)** — one content-validity bug fixed (Weber A5). A **human pilot (n ≈ 5) protocol is documented and ready** in `quiz-item-banks.md`; run it to confirm difficulty/wording before the main study. The human pilot is the one step that genuinely needs participants and is not yet done.
 - van Alten (2019) full text was 403-blocked; its figures (114 studies; satisfaction g = 0.05, p = .73) are from the publisher portal + secondary reports — verify the exact learning-outcome g against the PDF.
 - Flipped-classroom effect sizes are highly heterogeneous (g = 0.05–1.2) — cite the range.
+
+
+---
+
+## Provenance and prior work
+
+**Decided 2026-08-21: this is independent work, and there is nothing to declare.**
+
+Recorded explicitly so the question does not resurface at submission. The product
+previously carried another person's name, supervisor and contact address in `/about`
+and in the public landing-page footer; those were removed on 2026-08-21 as a
+data-protection fix (a personal address was being presented as the support contact for
+a 300-student cohort). That removal raised the separate question of whether a prior FYP
+needed crediting in the report. It does not.
+
+If that ever changes, the pattern to follow is the WorldMonitor declaration described in
+`CLAUDE.md` under "Academic integrity note": name what was reviewed or inherited, name
+what is independently written, and say where the declaration lives in the report.

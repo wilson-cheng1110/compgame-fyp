@@ -106,7 +106,13 @@ export async function giveConsent(page) {
 }
 
 export async function onboard(page, name = "E2E Student") {
-  for (let i = 0; i < 4 && page.url().includes("/onboarding"); i++) {
+  // Three steps now: avatar, username, baseline. The baseline is a different shape —
+  // multiple choice rather than a Continue button — so it gets its own branch.
+  for (let i = 0; i < 6 && page.url().includes("/onboarding"); i++) {
+    if (page.url().includes("/baseline")) {
+      await answerBaseline(page)
+      continue
+    }
     const field = page.locator('input[type="text"]').first()
     if (await field.count()) await field.fill(name)
     const next = page.getByRole("button", { name: "Continue", exact: true }).first()
@@ -114,6 +120,20 @@ export async function onboard(page, name = "E2E Student") {
     await next.click()
     await page.waitForTimeout(2200)
   }
+  return page.url()
+}
+
+/** Answer every baseline item (first option) and submit. */
+export async function answerBaseline(page) {
+  await page.locator('[data-testid="baseline-item"]').first().waitFor({ timeout: 15000 }).catch(() => {})
+  const opts = page.locator('[data-testid="baseline-option"]')
+  const items = await page.locator('[data-testid="baseline-item"]').count()
+  for (let i = 0; i < items; i++) {
+    const first = page.locator('[data-testid="baseline-item"]').nth(i).locator('[data-testid="baseline-option"]').first()
+    if (await first.count()) await first.click().catch(() => {})
+  }
+  await page.locator('[data-testid="baseline-submit"]').first().click()
+  await page.waitForTimeout(2500)
   return page.url()
 }
 

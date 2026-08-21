@@ -113,9 +113,11 @@ and every API call fails CORS.
 ## 2b. Before you call a deploy done
 
 ```powershell
-python backend	estsun_all.py        # 250 assertions, server logic
+python backend	ests
+un_all.py        # 250 assertions, server logic
 cd frontend; npx tsc --noEmit           # the real type check (see above)
-node e2eun.mjs                        # 92 assertions, a real browser
+node e2e
+un.mjs                        # 92 assertions, a real browser
 ```
 
 The browser suite is the one that catches deployment-shaped breakage — a served build
