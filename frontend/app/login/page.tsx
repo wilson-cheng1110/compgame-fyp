@@ -116,7 +116,7 @@ export default function LoginPage() {
 
   return (
     <main className="shell min-h-screen">
-      <header style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-raised)" }}>
+      <header className="u-nav">
         <div className="mx-auto w-full max-w-5xl px-5 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <Image src="/images/logo.png" alt="" width={26} height={26} priority />

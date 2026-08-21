@@ -1,126 +1,149 @@
 /* ════════════════════════════════════════════════════════════════════════════
    THE SHELL — docs/revamp.md Part 14, the 太game fix.
 
-   Everything here is scoped under `.shell`. That is deliberate and it is the whole
-   safety story: globals.css REDEFINES Tailwind's .text-sm / .text-base / .text-lg
-   globally, and all 26 game routes are built on top of that. Scoping means the
-   games inherit nothing from this file and cannot regress — the pixel aesthetic
-   keeps its home, it just stops being the only voice in the building.
+   THIS IS THE CUBIK DESIGN SYSTEM, ported. Not an invented palette. Source of
+   truth is ~/.antigravity/cubik-website — its CLAUDE.md "Styling" section and
+   src/styles/globals.css. Values carried over verbatim so the two products read
+   as the same hand:
 
-   PALETTE RATIONALE. Not cream-and-terracotta, not a gradient hero. This is a
-   course about measuring human perception, so the surfaces read as paper and the
-   single accent reads as an instrument: a deepened version of the blue already in
-   this codebase (#0099db), pushed to #0b6e99 so it actually holds contrast on
-   paper instead of shimmering on it.
+     brand      #006666 primary teal · #004d4d dark teal
+     grounds    #FFFFFF · #F9FAFB · #F2F4F5
+     text       #454545 body · black headings
+     type       Inter, with Roboto Mono for stats and data
+     surfaces   liquid-glass (9 uses in cubik-website) at rounded-2xl (9 uses)
+     buttons    btn-primary is BLACK, going teal on hover, with a -0.5 lift
+     rhythm     py-24 md:py-32 sections — generous vertical space
 
-   STATE COLOUR IS INFORMATION, not decoration — locked / open / late / done. Each
-   state carries a glyph and a word as well as a hue, because roughly 1 in 12 men
-   has a colour vision deficiency and this is, of all things, an HCI course.
-   Failing that in our own interface is not available to us.
+   If cubik-website changes, this file is what gets updated. Do not drift it by
+   hand: a second palette that "looks about right" is how two products stop
+   looking related.
+
+   SCOPING IS THE SAFETY STORY. Everything is under `.shell`. globals.css
+   REDEFINES Tailwind's .text-sm / .text-base / .text-lg globally and all 26 game
+   routes are built on top of that. Scoped, the games inherit nothing from here
+   and cannot regress — the pixel arcade keeps its home, it just stops being the
+   only voice in the building.
+
+   ONE ADDITION CUBIK DOES NOT HAVE, kept deliberately: state is never carried by
+   hue alone. locked/open/late/done each get a glyph and a word as well as a
+   colour, because ~1 in 12 men has a colour vision deficiency and this is, of all
+   things, an HCI course. Failing that in our own interface is not available to us.
    ══════════════════════════════════════════════════════════════════════════ */
 
 .shell {
-  /* paper */
-  --paper: #fcfcfa;
+  /* grounds — all three are CUBIK's documented values */
+  --paper: #f9fafb;
   --paper-raised: #ffffff;
-  --paper-sunken: #f2f2ee;
+  --paper-sunken: #f2f4f5;
 
-  /* ink — near-black with a slight cool bias. A pure #000 reads as harsh beside
-     hairlines this fine. */
-  --ink: #14181c;
-  --ink-muted: #5a646e;
-  --ink-faint: #8b959e;
+  /* CUBIK splits these: black for headings, #454545 for body. Keeping the split
+     is most of why the type reads like theirs. */
+  --ink: #000000;
+  --ink-body: #454545;
+  --ink-muted: #6b7280;
+  --ink-faint: #8b8f96;
 
-  --rule: #e4e4de;
-  --rule-strong: #cfd0c9;
+  /* border-black/5, straight from .nav-glass */
+  --rule: rgba(0, 0, 0, 0.06);
+  --rule-strong: rgba(0, 0, 0, 0.12);
 
-  --accent: #0b6e99;
-  --accent-hover: #095a7d;
-  --accent-soft: #e6f2f8;
+  --accent: #006666;
+  --accent-hover: #004d4d;
+  --accent-soft: #e6f0f0;
   --accent-ink: #ffffff;
 
-  --state-open: #0b6e99;
-  --state-locked: #8b959e;
+  --state-open: #006666;
+  --state-locked: #8b8f96;
   --state-late: #9a6700;
-  --state-done: #1a7f4b;
+  --state-done: #047857;
 
-  --radius: 10px;
-  --shadow: 0 1px 2px rgba(20, 24, 28, 0.05), 0 4px 12px rgba(20, 24, 28, 0.04);
-  --shadow-lift: 0 2px 4px rgba(20, 24, 28, 0.07), 0 12px 28px rgba(20, 24, 28, 0.07);
+  --radius: 16px; /* rounded-2xl */
+  --radius-sm: 8px; /* rounded-lg, buttons and fields */
+
+  --shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
+  --shadow-lift: 0 8px 32px -4px rgba(0, 0, 0, 0.12);
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink-body);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   font-size: 16px;
-  line-height: 1.55;
-  /* body sets image-rendering: pixelated for the games sprite art; in the shell it
-     only makes avatars and photographs look broken. */
+  line-height: 1.6;
+  /* body sets image-rendering: pixelated for the games sprite art; in the shell
+     it only makes avatars and photographs look broken. */
   image-rendering: auto;
   -webkit-font-smoothing: antialiased;
 }
 
-/* The app's theme switch is a cookie that puts .dark-mode on <body>, so the shell
-   follows that rather than inventing a second, competing mechanism. */
+/* The theme switch is a cookie that puts .dark-mode on <body>, so the shell
+   follows it rather than inventing a second, competing mechanism. Dark values are
+   CUBIK's zinc-950 ground and its .liquid-glass-dark surface treatment; the teal
+   is lifted because #006666 is unreadable on near-black. */
 .dark-mode .shell {
-  --paper: #0f1418;
-  --paper-raised: #161c22;
-  --paper-sunken: #0a0e11;
+  --paper: #050505;
+  --paper-raised: #121212;
+  --paper-sunken: #0b0b0b;
 
-  --ink: #e8ecef;
-  --ink-muted: #9aa5ae;
-  --ink-faint: #6f7c86;
+  --ink: #ffffff;
+  --ink-body: #c9c9c9;
+  --ink-muted: #9a9a9a;
+  --ink-faint: #7a7a7a;
 
-  --rule: #232c34;
-  --rule-strong: #313d47;
+  --rule: rgba(255, 255, 255, 0.12);
+  --rule-strong: rgba(255, 255, 255, 0.2);
 
-  --accent: #4fb8e8;
-  --accent-hover: #79cbf1;
-  --accent-soft: #12313f;
-  --accent-ink: #06222e;
+  --accent: #17a2a2;
+  --accent-hover: #33bcbc;
+  --accent-soft: rgba(23, 162, 162, 0.14);
+  --accent-ink: #04211f;
 
-  --state-open: #4fb8e8;
-  --state-locked: #6f7c86;
+  --state-open: #17a2a2;
+  --state-locked: #7a7a7a;
   --state-late: #d9a441;
-  --state-done: #46c98a;
+  --state-done: #34d399;
 
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.45), 0 12px 28px rgba(0, 0, 0, 0.4);
+  --shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.5);
+  --shadow-lift: 0 12px 40px -4px rgba(0, 0, 0, 0.6);
 }
 
 /* ── type ──────────────────────────────────────────────────────────────────── */
+/* CUBIK's scale: heavy negative tracking, weight 500–600, never 700. The tight
+   tracking is the single most recognisable thing about their headings. */
 
 .shell .u-h1 {
-  font-size: 1.75rem;
+  color: var(--ink);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
   font-weight: 600;
-  letter-spacing: -0.018em;
-  line-height: 1.2;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
   text-wrap: balance;
 }
 
 .shell .u-h2 {
-  font-size: 1.1875rem;
+  color: var(--ink);
+  font-size: 1.25rem;
   font-weight: 600;
-  letter-spacing: -0.012em;
-  line-height: 1.3;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
   text-wrap: balance;
 }
 
-/* The uppercase micro-label. This is where the arcade past survives in the shell:
-   one small nod, not the whole voice. */
 .shell .u-eyebrow {
-  font-size: 0.6875rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.08em;
   color: var(--ink-faint);
 }
 
-/* Question stems, briefs, anything read slowly. Serif, and measure-limited — line
-   length is the single biggest lever on sustained reading and it costs nothing. */
+/* Question stems, briefs, anything read slowly. Inter, not a serif — CUBIK has no
+   serif and adding one would be the exact drift this file exists to prevent. The
+   care goes into MEASURE instead: line length is the biggest lever on sustained
+   reading and it costs nothing. */
 .shell .u-stem {
-  font-family: var(--font-plex-serif), Georgia, serif;
   font-size: 1.0625rem;
-  line-height: 1.6;
+  line-height: 1.65;
+  letter-spacing: -0.005em;
   max-width: 62ch;
 }
 
@@ -132,19 +155,37 @@
 }
 .shell .u-faint {
   color: var(--ink-faint);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
+
+/* Roboto Mono for stats and data, exactly as CUBIK uses it: SIDs, scores, counts,
+   step positions. Tabular figures so columns of digits line up. */
 .shell .u-num {
+  font-family: var(--font-roboto-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* ── surfaces ──────────────────────────────────────────────────────────────── */
+/* .liquid-glass, ported. The backdrop-filter does little over a flat ground; what
+   actually carries the look is the inset top highlight plus the wide, soft, very
+   low-opacity shadow. Both are kept. */
 
 .shell .u-card {
-  background: var(--paper-raised);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72)),
+    var(--paper-raised);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 0 rgba(0, 0, 0, 0.03),
+    var(--shadow);
+}
+
+.dark-mode .shell .u-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    var(--paper-raised);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.14), var(--shadow);
 }
 
 .shell .u-card-quiet {
@@ -153,67 +194,78 @@
   border-radius: var(--radius);
 }
 
-/* The row a student clicks to enter a topic. Lifts a little; never bounces. */
+/* The row a student clicks to enter a topic. -2px on hover, on CUBIK's easing. */
 .shell .u-row {
   background: var(--paper-raised);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  transition: all 0.4s var(--ease);
 }
 
 .shell .u-row-actionable:hover {
-  border-color: var(--accent);
+  border-color: rgba(0, 102, 102, 0.35);
   box-shadow: var(--shadow-lift);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .shell .u-row-locked {
   background: var(--paper-sunken);
-  border-style: dashed;
+  box-shadow: none;
 }
 
 /* ── controls ──────────────────────────────────────────────────────────────── */
+/* .btn-primary is BLACK and turns teal on hover. That inversion is CUBIK's most
+   distinctive control and the thing that would be most obvious if it were wrong. */
 
 .shell .u-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.625rem 1.125rem;
+  padding: 0.6875rem 1.5rem;
   font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1;
-  border-radius: 8px;
-  border: 1px solid var(--rule-strong);
-  background: var(--paper-raised);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--paper-sunken);
   color: var(--ink);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: all 0.2s var(--ease);
 }
 
 .shell .u-btn:hover:not(:disabled) {
-  border-color: var(--ink-faint);
-  background: var(--paper-sunken);
+  background: #d4d4d4;
+  transform: translateY(-2px);
+}
+
+.dark-mode .shell .u-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .shell .u-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  transform: none;
 }
 
 .shell .u-btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper-raised);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .shell .u-btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  transform: translateY(-2px);
 }
 
 .shell .u-btn-lg {
-  padding: 0.8125rem 1.5rem;
+  padding: 0.875rem 1.75rem;
   font-size: 1rem;
 }
 .shell .u-btn-block {
@@ -222,12 +274,19 @@
 
 .shell .u-field {
   width: 100%;
-  padding: 0.6875rem 0.875rem;
+  padding: 0.75rem 1rem;
   font: inherit;
   color: var(--ink);
   background: var(--paper-raised);
   border: 1px solid var(--rule-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.shell .u-field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .shell .u-field::placeholder {
@@ -239,7 +298,7 @@
 .shell :is(a, button, input, textarea, select, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 /* ── state ─────────────────────────────────────────────────────────────────── */
@@ -248,10 +307,10 @@
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.1875rem 0.5rem;
+  padding: 0.1875rem 0.625rem;
   font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-weight: 500;
+  letter-spacing: -0.005em;
   border-radius: 999px;
   border: 1px solid currentColor;
   white-space: nowrap;
@@ -261,6 +320,8 @@
    deficiency. Hue is never the only channel. */
 .shell .u-chip-open {
   color: var(--state-open);
+  background: var(--accent-soft);
+  border-color: transparent;
 }
 .shell .u-chip-open::before {
   content: "●";
@@ -285,21 +346,21 @@
 }
 
 /* ── the step rail ─────────────────────────────────────────────────────────── */
-/* Kept chunky and segmented while everything around it got quieter, because it is
-   the one graphic on the page that ENCODES something: how many steps this unit has
-   and which one you are on. Structure as information, not decoration. */
+/* Kept as a real graphic while everything around it went quiet, because it is the
+   one thing on the page that ENCODES something: how many steps this unit has and
+   which one you are on. Structure as information, not decoration. */
 
 .shell .u-rail {
   display: flex;
-  gap: 3px;
+  gap: 4px;
 }
 
 .shell .u-rail-seg {
-  height: 5px;
+  height: 4px;
   flex: 1;
-  border-radius: 2px;
-  background: var(--rule);
-  transition: background 0.2s ease;
+  border-radius: 999px;
+  background: var(--rule-strong);
+  transition: background 0.4s var(--ease);
 }
 
 .shell .u-rail-seg.is-done {
@@ -313,6 +374,17 @@
 .shell .u-hr {
   border: 0;
   border-top: 1px solid var(--rule);
+}
+
+/* .nav-glass, ported: white/90 + blur + a 5%-black hairline. */
+.shell .u-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--paper-raised) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 @media (prefers-reduced-motion: reduce) {

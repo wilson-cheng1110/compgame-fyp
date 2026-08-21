@@ -2,18 +2,18 @@ import type React from "react"
 import "./globals.css"
 import "./shell.css"
 import type { Metadata } from "next"
-import { plexSans, plexSerif, pixelifySans, pressStart2P } from "./fonts"
+import { inter, robotoMono, pixelifySans, pressStart2P } from "./fonts"
 import { BadgeProvider } from "@/lib/badge-context"
 import { ProgressProvider } from "@/lib/progress-context"
 import { AiChatWidget } from "@/components/ai-chat-widget"
 import { ReflectionDialog } from "@/components/reflection-dialog"
 
 // All four families are declared here so every route can reach any of them, but
-// they are used in two separate registers (see app/fonts.ts): Plex in the shell,
-// the pixel faces in the 26 game routes. Declaring them together is not mixing
-// them — nothing outside `.shell` picks up Plex, and nothing inside it picks up
-// Press Start 2P unless it asks by name.
-const fontVars = `${plexSans.variable} ${plexSerif.variable} ${pixelifySans.variable} ${pressStart2P.variable}`
+// they are used in two separate registers (see app/fonts.ts): Inter + Roboto Mono
+// (CUBIK's faces) in the shell, the pixel faces in the 26 game routes. Declaring
+// them together is not mixing them — nothing outside `.shell` picks up Inter, and
+// nothing inside it picks up Press Start 2P unless it asks by name.
+const fontVars = `${inter.variable} ${robotoMono.variable} ${pixelifySans.variable} ${pressStart2P.variable}`
 
 export const metadata: Metadata = {
   title: "COMPGame",

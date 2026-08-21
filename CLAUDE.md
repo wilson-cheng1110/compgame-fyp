@@ -12,13 +12,15 @@ FYP deliverable + EDC exhibition + academic paper (measuring flip-learning effec
   **server-side** (`backend/auth_store.py`, stdlib sqlite3 — same house pattern as `research_store.py`).
   The `user` cookie survives with its shape unchanged (`{ sid, username, avatarId }`) as **UI decoration
   only, never a security boundary**. See `docs/revamp.md` Part 0.
-- **Fonts — TWO REGISTERS since 2026-08-21 (`docs/revamp.md` Part 14.1).** The shell
-  (dashboard, topic unit, checks, probe, consent, login) is **IBM Plex Sans** + **IBM Plex
-  Serif**; the **26 game routes keep Press Start 2P + Pixelify Sans**. Declared together in
-  `app/fonts.ts`, applied apart. All shell styling lives in `app/shell.css` scoped under
-  `.shell` — `globals.css` redefines Tailwind's `.text-*` utilities globally and the games
-  depend on that, so the scope is what keeps them from regressing. **Do not move shell styles
-  into `globals.css`.**
+- **Fonts / design - TWO REGISTERS since 2026-08-21 (`docs/revamp.md` Part 14.1).** The shell
+  (dashboard, topic unit, checks, probe, consent, login) runs the **CUBIK design system**, ported:
+  **Inter** + **Roboto Mono** (data only), teal `#006666` on `#FFFFFF`/`#F9FAFB`/`#F2F4F5`, glass
+  cards at `rounded-2xl`, black primary buttons that go teal on hover. Source of truth is
+  `~/.antigravity/cubik-website` (`CLAUDE.md` Styling + `src/styles/globals.css`) - **if that
+  changes, update `app/shell.css` and `app/fonts.ts`; never hand-drift the palette.** The **26
+  game routes keep Press Start 2P + Pixelify Sans** and are untouched. All shell styling is scoped
+  under `.shell` because `globals.css` redefines Tailwind's `.text-*` utilities globally and the
+  games depend on it. **Do not move shell styles into `globals.css`.**
 
 ## Project structure
 ```

@@ -32,10 +32,10 @@ import TopicProbe from "@/components/topic-probe"
 // The 26 existing game routes are UNTOUCHED. The unit links out to them and the
 // student returns; nothing about the games had to change.
 //
-// VISUAL REGISTER (Part 14). This file is `.shell`: Plex, paper, hairlines. The
-// game it launches is not. That contrast is deliberate — stepping into the game
-// should feel like stepping somewhere else, which it cannot do if the measured
-// steps are dressed like an arcade too.
+// VISUAL REGISTER (Part 14.1). This file is `.shell`: the CUBIK system — Inter,
+// white/light-gray grounds, teal accent, glass cards. The game it launches is not.
+// That contrast is deliberate — stepping into the game should feel like stepping
+// somewhere else, which it cannot if the measured steps are dressed as an arcade.
 
 type Step = "brief" | "pre" | "preProbe" | "game" | "post" | "postProbe" | "tutor" | "close"
 
@@ -329,7 +329,7 @@ export default function TopicUnitPage() {
 
 function UnitHeader() {
   return (
-    <header style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-raised)" }}>
+    <header className="u-nav">
       <div className="mx-auto w-full max-w-3xl px-5 h-14 flex items-center justify-between">
         <Link href="/dashboard" className="flex items-center gap-2.5">
           {/* Local asset rather than the v0-generated vercel-storage blob URL the
