@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 import auth_store
 import checks
+import grade
 import research_store
 import schedule
 
@@ -32,6 +33,7 @@ TELEMETRY_ENABLED = os.environ.get("TELEMETRY_ENABLED", "0") == "1"
 
 PRE, POST = "A", "B"
 _EVENT = {PRE: "topic_pretest", POST: "topic_posttest"}
+_PROBE_EVENT = {PRE: "topic_probe", POST: "topic_probe_post"}
 
 
 class Submission(BaseModel):
@@ -193,3 +195,119 @@ async def submit_check(topic_id: str, form: str, body: Submission, response: Res
         # student infer the key by resubmitting, and contaminates the post-check.
         return {"ok": True, "recorded": graded["answered"], "total": graded["total"]}
     return {"ok": True, **graded}
+
+
+class ProbeAnswer(BaseModel):
+    answer: str
+    duration_ms: int | None = None
+    telemetry: dict | None = None
+
+
+@router.get("/{topic_id}/probe/{form}")
+async def get_probe(topic_id: str, form: str, response: Response,
+                    session: str | None = Cookie(default=None)):
+    """The short-answer probe. docs/revamp.md Part 8.1.
+
+    THE PROBE IS FIXED PER TOPIC, NOT GENERATED PER STUDENT. The original note said
+    "AI ask question", and the AI does the two jobs it is good at -- grading the
+    answer (offline, blind) and the Socratic follow-up. It does NOT author the
+    question, because a probe that varies per student is a different instrument per
+    student, and answers to different questions cannot be pooled or compared pre to
+    post. The question text lives in docs/grading-rubric.md beside the rubric that
+    grades it, so the two can never drift apart.
+
+    Unlike the MC items there is no key to protect -- the probe is the question, and
+    the answer is prose. It is safe to serve in full.
+    """
+    user = _me(session)
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+
+    form = form.upper()
+    if form not in (PRE, POST):
+        response.status_code = 400
+        return {"error": "bad_form"}
+
+    if not schedule.is_enterable(user["sid"], user["section"], topic_id):
+        response.status_code = 403
+        return {"error": "not_open"}
+
+    probe = grade.probe_for(topic_id)
+    if not probe:
+        response.status_code = 404
+        return {"error": "no_probe",
+                "message": "This topic has no short-answer probe yet."}
+
+    if checks.already_submitted(research_store.fetch_all(), user["sid"], topic_id,
+                                _PROBE_EVENT[form]):
+        response.status_code = 409
+        return {"error": "already_submitted"}
+
+    return {"topic_id": topic_id, "form": form, "probe": probe,
+            "telemetry_enabled": TELEMETRY_ENABLED}
+
+
+@router.post("/{topic_id}/probe/{form}")
+async def submit_probe(topic_id: str, form: str, body: ProbeAnswer, response: Response,
+                       session: str | None = Cookie(default=None)):
+    """Record a short answer. NEVER returns a grade.
+
+    Grading is offline and blind (Part 8.2). Returning a level here would leak the
+    rubric's judgement to the student mid-unit, and on the pre-check that is exactly
+    the feedback Part 8.5 withholds -- it would teach from the test rather than from
+    the intervention. The post-check's feedback is the Socratic turn, which is
+    formative and deliberately not a grade.
+    """
+    user = _me(session)
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+
+    form = form.upper()
+    if form not in (PRE, POST):
+        response.status_code = 400
+        return {"error": "bad_form"}
+
+    if not _consented(user["sid"]):
+        response.status_code = 403
+        return {"error": "no_consent"}
+
+    st = schedule.topic_state(user["sid"], user["section"], topic_id)
+    if st is None or st["state"] in ("locked", "unscheduled"):
+        response.status_code = 403
+        return {"error": "not_open"}
+
+    if checks.already_submitted(research_store.fetch_all(), user["sid"], topic_id,
+                                _PROBE_EVENT[form]):
+        response.status_code = 409
+        return {"error": "already_submitted"}
+
+    text = (body.answer or "").strip()
+    if not text:
+        response.status_code = 400
+        return {"error": "empty"}
+
+    meta = {
+        "form": form,
+        "answer": text[:4000],          # bounded: one textarea should not be able to
+                                        # write a megabyte into the sink
+        "arm": st["arm"],
+        "section": user["section"],
+        "late": st["late"],
+        "probe": grade.probe_for(topic_id),   # stamped, so a later rubric edit cannot
+                                              # silently change what was asked
+    }
+    if TELEMETRY_ENABLED and body.telemetry:
+        meta["telemetry"] = body.telemetry
+
+    research_store.record_event({
+        "participant_id": user["sid"],
+        "event_type": _PROBE_EVENT[form],
+        "topic_id": topic_id,
+        "played_understanding_first": st["plays_game_first"],
+        "duration_ms": body.duration_ms,
+        "meta": meta,
+    })
+
+    return {"ok": True, "recorded": True}

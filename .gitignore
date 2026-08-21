@@ -78,3 +78,17 @@ backend/*.bak
 
 # Local DB snapshots from backup_sink.py
 backups/
+
+# Stray binaries / file-transfer residue in frontend/. A UPX-packed static Linux
+# ELF was committed on 2026-06-18 inside a commit titled "Increase font sizes for
+# game readability" (6987bcc); a second, different one appeared 2026-08-19.
+# Nothing in this repo fetches them. Quarantined, not deleted -- see
+# docs/incident-2026-08-21-stray-binary.md
+frontend/let
+frontend/let;chmod
+frontend/.b
+*.elf
+
+# Grading output and teacher reports. BOTH CONTAIN VERBATIM STUDENT ANSWERS and
+# the teacher version carries real SIDs (docs/revamp.md Part 12). Never tracked.
+reports/
