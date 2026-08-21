@@ -153,6 +153,7 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
         onTouchStart={() => tracker.current.onTouch()}
         rows={7}
         maxLength={4000}
+        data-testid="probe-answer"
         placeholder="Two or three sentences is plenty. Everyday words are fine — you don't need the textbook term."
         className="u-field resize-y"
       />
@@ -168,6 +169,7 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
         <button
           onClick={submit}
           disabled={busy}
+          data-testid="probe-submit"
           className="u-btn u-btn-primary"
         >
           {busy ? "Saving…" : "Submit"}

@@ -192,6 +192,7 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
                     onMouseEnter={() => t?.onHoverStart(opt.letter)}
                     onMouseLeave={() => t?.onHoverEnd(opt.letter)}
                     style={style}
+                    data-testid="mc-option"
                     className="w-full text-left px-4 py-3 border rounded-lg transition-colors disabled:cursor-default flex gap-3 items-baseline"
                   >
                     <span className="u-eyebrow" style={{ opacity: 0.75 }}>
@@ -225,6 +226,7 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
           <button
             onClick={submit}
             disabled={!allAnswered || busy}
+            data-testid="mc-submit"
             className="u-btn u-btn-primary u-btn-lg u-btn-block"
           >
             {busy ? "Saving…" : allAnswered ? "Submit" : `Answer all ${items.length} to continue`}

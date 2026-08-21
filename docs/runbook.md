@@ -47,10 +47,25 @@ ollama serve
 cd backend
 python -m uvicorn rag_api:app --host 0.0.0.0 --port 8080
 
-# 3. Frontend
+# 3. Frontend  — BUILD FIRST, THEN START, IN THAT ORDER
 cd frontend
 npm run build; npm run start
 ```
+
+**Never run `npm run build` while `npm run start` is serving.** The build id changes
+underneath the running process and every `/_next/static/*` asset starts returning
+**400** — pages still render 200, so a smoke test passes, while the app has no CSS, no
+JS and no hydration. Stop the server, build, start again.
+
+**`output: 'standalone'` must stay out of `next.config`.** It was in
+`v0-user-next.config.mjs` until 2026-08-21 and produced exactly the failure above:
+`next start` refuses to serve a standalone build. If it is ever wanted back, this
+section must change to `node .next/standalone/server.js` in the same commit, and
+`public/` and `.next/static/` have to be copied into `.next/standalone/` by hand.
+
+**`next build` is not a type check here.** `typescript.ignoreBuildErrors` is `true`, so
+a build can succeed with type errors in it. Run `npx tsc --noEmit` separately — the
+deploy checklist below does.
 
 `START_ALL_SERVICES.ps1` does the dev version of this in three terminals. It is **not**
 suitable for production: nothing restarts on failure and nothing survives logout.
@@ -92,6 +107,20 @@ cloudflared tunnel route dns compgame compgame.<your-domain>
 Then set `ALLOWED_ORIGINS` and `NEXT_PUBLIC_API_BASE` to that hostname and **rebuild the
 frontend**. Forgetting the rebuild is the most likely launch-day failure: the app loads
 and every API call fails CORS.
+
+---
+
+## 2b. Before you call a deploy done
+
+```powershell
+python backend	estsun_all.py        # 250 assertions, server logic
+cd frontend; npx tsc --noEmit           # the real type check (see above)
+node e2eun.mjs                        # 87 assertions, a real browser
+```
+
+The browser suite is the one that catches deployment-shaped breakage — a served build
+whose assets 400, a login loop, a session the UI keeps believing in. Setup and exit
+codes: `frontend/e2e/README.md`.
 
 ---
 
@@ -192,6 +221,8 @@ read the sqlite file **on the box** — identified data never travels.
 | Server dies at startup, no traceback in the window | console-encoding crash on a log line | already guarded; if it returns, run with `PYTHONUTF8=1` |
 | 503 `busy` under load | queue at `MAX_QUEUE` | expected under a spike. Raise it, or stagger windows |
 | Everything locked, nobody can start | schedule dates wrong | `python schedule.py --validate` then `--preview` |
+| Server exits at boot with FileNotFoundError | `TOPIC_SCHEDULE_PATH` points at nothing | the schedule is loaded before the try/except that protects the sink, so a bad path takes the WHOLE server down, not just the tutor. Fix the path |
+| Pages load but are unstyled and nothing is clickable | assets 400 — rebuilt under a live server, or `output: standalone` came back | stop, rebuild, restart (§2) |
 | Export returns 503 | `EXPORT_TOKEN` unset | set it. The 503 is deliberate — it fails closed |
 | Grading batch reports everything ungradeable | `num_predict` too low → model returns an empty string | raise `GRADE_NUM_PREDICT`; 1536 is the tested floor-with-margin |
 | Report says "n = 20 of 2" | it won't — the generator suppresses the ratio and flags a class-list mismatch instead | fix `enrolled_sids.txt`, then regenerate |

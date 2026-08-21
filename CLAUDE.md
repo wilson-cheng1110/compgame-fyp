@@ -46,11 +46,16 @@ FYP_Submission/
     check_corpus_coverage.py # Is the vector store still current? exits 1 if not
     topic_schedule.json  # Release config — dates are PLACEHOLDERS until the timetable lands
     enrolled_sids.txt    # Class list (SID,section). GITIGNORED — real personal data
-    tests/               # 250 assertions: python backend/tests/run_all.py
+    tests/               # 251 assertions: python backend/tests/run_all.py
+    make_e2e_schedule.py # today-relative schedule so the browser tests have an open topic
     hci_chroma_db_local/ # Pre-built ChromaDB vector store (HCI lecture PDFs)
     *.pdf                # COMP3423 lecture slides (6 weeks)
     requirements.txt
   frontend/              # Next.js 15 app
+    e2e/                 # 87 browser assertions: node e2e/run.mjs (see e2e/README.md).
+                         #   Catches what backend tests structurally cannot — the login
+                         #   loop, the assets-400 deploy bug, the stale-session dashboard.
+                         #   BUILD THEN START; never rebuild under a running server.
     app/
       page.tsx           # Landing page
       layout.tsx         # Root layout — BadgeProvider + AiChatWidget global

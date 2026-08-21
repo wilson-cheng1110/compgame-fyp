@@ -141,7 +141,7 @@ export default function TopicUnitPage() {
       <main className="shell min-h-screen">
         <UnitHeader />
         <div className="mx-auto w-full max-w-2xl px-5 py-16">
-          <div className="u-card p-8">
+          <div className="u-card p-8" data-testid="topic-blocked">
             <p className="u-eyebrow">Not open yet</p>
             <p className="u-stem mt-3">{error}</p>
             <Link href="/dashboard">
@@ -176,7 +176,7 @@ export default function TopicUnitPage() {
               <p className="u-eyebrow">Session {state.session}</p>
               <h1 className="u-h1 mt-1">{meta.title}</h1>
             </div>
-            <p className="u-faint u-num whitespace-nowrap pt-1">
+            <p className="u-faint u-num whitespace-nowrap pt-1" data-testid="step-counter">
               Step {position} of {steps.length} · {STEP_LABEL[step]}
             </p>
           </div>

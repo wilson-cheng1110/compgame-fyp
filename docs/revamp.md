@@ -896,6 +896,35 @@ estimate and a `Retry-After` rather than joining an unbounded queue. Operations 
 
 Things you can run, not things you can assert.
 
+## 17.1 The three suites (2026-08-21)
+
+```
+python backend/tests/run_all.py     251 assertions   server logic
+npx tsc --noEmit                    the real type check — `next build` is NOT one,
+                                    because typescript.ignoreBuildErrors is true
+node frontend/e2e/run.mjs            87 assertions   a real Chromium
+```
+
+The browser suite exists because **the backend suite cannot fail on the bugs that
+actually shipped.** Three so far, all invisible to Python:
+
+1. **A login loop that locked out every new student.** `login` wrote a cookie without
+   `needsOnboarding`; the avatar page read `!undefined`, bounced to `/dashboard`, which
+   deleted the cookie and bounced back to `/login`. 250 assertions passed throughout.
+2. **`output: 'standalone'`** in `v0-user-next.config.mjs` meant `next start` — the
+   command the runbook deploys with — served HTML 200 while every `/_next/static/*`
+   asset 400'd. No CSS, no JS, no hydration. **A smoke test that checks for HTTP 200
+   passes this straight into launch day.**
+3. **The dashboard trusted the cookie and never the server**, so a student whose session
+   was gone — expired, or *withdrawn*, which is supposed to end every session at once —
+   still saw a full dashboard whose every call quietly 401'd.
+
+Setup, exit codes and the full assertion table: `frontend/e2e/README.md`. The happy path
+needs an open topic, which real term dates never give you — `backend/make_e2e_schedule.py`
+generates one with today-relative dates (session 5 open, session 3 late, rest locked).
+
+## 17.2 Checks that still need a human
+
 | Claim | Check |
 |---|---|
 | Release gate is server-authoritative | With a locked topic, `curl` the unit endpoint directly — must 403, not just hide in the UI |

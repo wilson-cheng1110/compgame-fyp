@@ -9,7 +9,7 @@ import { getUsers } from "@/lib/user-store"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
-import { topics as topicsApi, type JourneyTopic } from "@/lib/api"
+import { topics as topicsApi, auth, type JourneyTopic } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
 import type { TopicId } from "@/lib/topic-definitions"
 
@@ -63,6 +63,27 @@ export default function DashboardPage() {
     setUser(userData)
     refreshBadges()
     refreshProgress()
+
+    // THE SERVER SESSION IS THE TRUTH; THE COOKIE IS DECORATION (revamp.md Part 0).
+    // Everything above only reads the cookie, so a student whose session is gone —
+    // expired, server restarted with a fresh DB, or WITHDRAWN, which is supposed to
+    // kill every session immediately — still saw a full dashboard whose every data
+    // call quietly 401'd. Withdrawal that leaves you looking signed in is the one
+    // that matters: it is a promise made on the consent form.
+    // Found by the browser tests, 2026-08-21. The login page has always done this
+    // check; the dashboard did not.
+    auth.me().then((res) => {
+      if (res.status === 401) {
+        Cookies.remove("user")
+        router.push("/login")
+        return
+      }
+      // The cookie carries needsOnboarding but NOT needsConsent, so a student who
+      // typed /dashboard past the consent screen reached it with consent unrecorded.
+      // Nothing of theirs could be saved (the server 403s every write), so they would
+      // have hit a dead end they could not diagnose. Ask the server instead.
+      if (res.data?.needsConsent) router.push("/consent")
+    })
     const darkModePref = Cookies.get("darkMode")
     if (darkModePref === "true") { setDarkMode(true); document.body.classList.add("dark-mode") }
   }, [router, refreshBadges, refreshProgress])
