@@ -98,6 +98,7 @@ console.log(`
 `)
 
 const browser = await chromium.launch()
+let envBroken = false
 let total = 0
 let failures = 0
 
@@ -126,6 +127,18 @@ for (const { name, fn } of getTests()) {
   }
   t.check("no uncaught JS errors on the page", pageErrors.length === 0, pageErrors.slice(0, 3))
 
+  // PREFLIGHT RUNS ONCE, AT THE START. If the API dies or stalls part-way through, every
+  // test after it fails for a reason that has nothing to do with the code — and reads as
+  // a red suite. Re-check health on any failure so a broken environment is named as one.
+  // (A dead API was mistaken for an app bug during this suite's own development, twice.)
+  if (t.failed) {
+    const alive = await fetch(API + "/api/health").then((r) => r.json()).catch(() => null)
+    if (!alive || alive.status === "down") {
+      t.note("!! THE API IS NOT HEALTHY — treat this failure as SETUP, not as a defect")
+      envBroken = true
+    }
+  }
+
   const secs = ((Date.now() - started) / 1000).toFixed(1)
   const status = (t.failed ? "FAIL" : "ok").padStart(4)
   console.log(`  ${status}  ${name}  (${t.passed} passed, ${t.failed} failed, ${secs}s)`)
@@ -138,5 +151,12 @@ for (const { name, fn } of getTests()) {
 
 await browser.close()
 console.log(`\n${total} assertions, ${failures} failure(s)`)
-process.exitCode = failures ? 1 : 0
+if (envBroken) {
+  console.log()
+  console.log('  The API stopped being healthy DURING the run. Those failures are')
+  console.log('  environment, not code - restart it and re-run before believing any.')
+  process.exitCode = 2
+} else {
+  process.exitCode = failures ? 1 : 0
+}
 }

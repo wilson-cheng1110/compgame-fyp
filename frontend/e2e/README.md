@@ -136,18 +136,34 @@ bogus "Assertion failed" banner and masked the exit code.
 
 Flakiness: two consecutive full runs produced byte-identical results.
 
-## Known intermittent, NOT root-caused
+## KNOWN OPEN DEFECT: the topic page can mount without its effect running
 
-Three times across this session, a topic-page test failed with the page stuck on
-"Loading…": hydrated, no JS errors, no failed assets — and **zero** `/api/topics`
-requests, meaning the effect never fired. It did not reproduce under instrumentation
-(`topicId` resolved, the effect ran, the step counter rendered), and the full suite has
-since passed repeatedly including the same tests.
+**This is not flaky any more — it reproduces in every suite run**, in the same two
+tests (`a full topic unit`, `a locked topic cannot be entered early`).
 
-So it is recorded rather than explained. If it returns, the useful facts are: it is
-specific to `/topics/[topicId]`, the page hydrates, and no network request is made at
-all — so look at the effect's guard and `useParams`, not at the API. Do not assume the
-suite is broken; it was reporting a real hang each time.
+```
+FAIL  the unit opens (step counter rendered)
+      {"journeyRequests":0,"journeyResponses":0,"url":".../topics/webers-law"}
+```
+
+What is known, measured rather than assumed:
+
+- The page **mounts** — the body is its own `Loading…` branch, not a redirect or an
+  error card — and it **hydrates**, with no JS errors and no failed assets.
+- Its `useEffect` **never fires**: zero requests for `/api/topics`. That is the
+  `journeyRequests` counter, left in the happy path on purpose, because that one number
+  separates "the effect never ran" from "the API stalled" and it took three rounds of
+  guessing before anyone measured it.
+- **It is not the API.** Health is ok, warm requests are 19 ms, and twelve other tests
+  make successful API calls in the same run.
+- It does **not** reproduce in a standalone loop of 12 full sign-in-and-navigate
+  cycles — only inside the suite.
+
+Where to look next: `app/topics/[topicId]/page.tsx`, the `if (!topicId) return` guard
+and `useParams()`. Under single-context instrumentation `topicId` resolved and the
+effect ran, so the difference is something about running as the 4th and 7th context in
+a shared browser. Do not assume the suite is broken: it is reporting a real hang, and
+the two tests it hangs in are the only two that load a topic page.
 
 ## Conventions
 

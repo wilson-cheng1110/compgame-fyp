@@ -4,13 +4,15 @@ import { useState, useEffect, type ReactElement } from "react"
 import { ChevronLeft, ChevronRight, Home } from "lucide-react"
 import Link from "next/link"
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "http://localhost:8080"
+
 const PRINCIPLES = ["similarity", "proximity", "continuity", "symmetry", "closure"]
 
 type Principle = (typeof PRINCIPLES)[number]
 
 interface Question {
   id: number
-  answer: Principle
   caption: string
   render: () => ReactElement
 }
@@ -21,7 +23,6 @@ interface Question {
 const QUESTIONS: Question[] = [
   {
     id: 1,
-    answer: "similarity",
     caption: "Why do most people see vertical columns here, not horizontal rows?",
     render: () => (
       <svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -39,7 +40,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 2,
-    answer: "proximity",
     caption: "Why do you perceive two groups rather than twelve separate dots?",
     render: () => (
       <svg viewBox="0 0 220 110" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -59,7 +59,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 3,
-    answer: "closure",
     caption: "What shape does your brain 'complete' even though lines are broken?",
     render: () => (
       <svg viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -73,7 +72,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 4,
-    answer: "continuity",
     caption: "Do you see an X, or two lines that each flow smoothly through the crossing?",
     render: () => (
       <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -86,7 +84,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 5,
-    answer: "symmetry",
     caption: "How many objects do you see — the black shapes, or the white gaps between them?",
     render: () => (
       <svg viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -107,7 +104,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 6,
-    answer: "similarity",
     caption: "Color creates grouping here. Which principle is at work?",
     render: () => (
       <svg viewBox="0 0 220 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -123,7 +119,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 7,
-    answer: "proximity",
     caption: "Why do you know which label belongs to which input field?",
     render: () => (
       <svg viewBox="0 0 240 145" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -142,7 +137,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 8,
-    answer: "closure",
     caption: "You perceive a complete circle — but is it really there?",
     render: () => (
       <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -154,7 +148,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 9,
-    answer: "continuity",
     caption: "What does your eye naturally do with this arrangement of dots?",
     render: () => {
       const dots = Array.from({ length: 13 }, (_, i) => ({
@@ -174,7 +167,6 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 10,
-    answer: "closure",
     caption: "The IBM logo uses horizontal stripes. What principle makes you still read the letters?",
     render: () => (
       <svg viewBox="0 0 240 130" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -223,13 +215,31 @@ export default function QuizGame() {
     return `${String(m).padStart(2, "0")} : ${String(s).padStart(2, "0")}`
   }
 
-  const handleAnswerSelect = (answer: string) => {
+  // THE ANSWER KEY IS NOT IN THIS FILE ANY MORE.
+  // It used to be, one `answer:` field per question, which put all ten in the client
+  // bundle for anyone who opened devtools. The in-game score is a secondary DV, and a
+  // key anyone can read makes it a measure of curiosity rather than of learning.
+  // It now lives in backend/game_keys.py and the server returns a verdict only —
+  // never the right answer, so a wrong guess reveals nothing but "not that one".
+  const handleAnswerSelect = async (answer: string) => {
     const newAnswers = [...userAnswers]
     newAnswers[currentQuestion] = answer
     setUserAnswers(newAnswers)
 
-    // Brief feedback flash
-    const isCorrect = answer === QUESTIONS[currentQuestion].answer
+    let isCorrect = false
+    try {
+      const res = await fetch(`${API_BASE}/api/games/gestalt-assessment/check`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question_id: QUESTIONS[currentQuestion].id, answer }),
+      })
+      if (res.ok) isCorrect = (await res.json()).correct === true
+    } catch {
+      // Offline or the API is down. The answer is still recorded and scored at the
+      // end; only the instant flash is lost, which is the right thing to lose.
+    }
+
     setFeedback(isCorrect ? "correct" : "wrong")
     setTimeout(() => {
       setFeedback(null)
@@ -239,13 +249,27 @@ export default function QuizGame() {
     }, 500)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (isSubmitted) return
     setIsSubmitted(true)
-    const score = userAnswers.reduce(
-      (total, answer, i) => (answer === QUESTIONS[i].answer ? total + 1 : total),
-      0,
-    )
+
+    // Scored server-side too, so the final number cannot be edited on the way out.
+    const answers: Record<string, string> = {}
+    QUESTIONS.forEach((q, i) => {
+      if (userAnswers[i]) answers[String(q.id)] = userAnswers[i]
+    })
+    let score = 0
+    try {
+      const res = await fetch(`${API_BASE}/api/games/gestalt-assessment/score`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      })
+      if (res.ok) score = (await res.json()).correct ?? 0
+    } catch {
+      /* scored as 0 rather than inventing a number the server never agreed to */
+    }
     window.location.href = `/games/gestalt-assessment/app/results?score=${score}`
   }
 

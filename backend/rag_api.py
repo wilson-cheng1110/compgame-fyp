@@ -83,6 +83,7 @@ from auth_api import router as auth_router          # noqa: E402
 from topic_api import router as topic_router        # noqa: E402
 from research_api import router as research_router  # noqa: E402
 import grade                                       # noqa: E402
+import game_keys                                   # noqa: E402
 
 app.include_router(auth_router)
 app.include_router(topic_router)
@@ -91,6 +92,9 @@ app.include_router(research_router)
 # batch and the occasional spot check can reach the model. It fails CLOSED -- with
 # GRADE_TOKEN unset every route 503s, so mounting it does not expose anything.
 app.include_router(grade.build_router())
+# In-game assessment keys. They used to sit in the client bundle where anyone could
+# read them; the score is a secondary DV, so a freely-readable key made it worthless.
+app.include_router(game_keys.build_router())
 
 
 # ── operations (stage2-deployment-plan.md Loops A + C) ────────────────────────

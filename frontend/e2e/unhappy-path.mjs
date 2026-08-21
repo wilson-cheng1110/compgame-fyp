@@ -136,6 +136,21 @@ test("THE ANSWER KEY NEVER REACHES THE CLIENT", async (page, t) => {
     // instead, which appears nowhere else.
     const keyHits = await grepBuild("Answer key")
     t.check("the item bank's answer key is not in the bundle", keyHits.length === 0, keyHits.slice(0, 3))
+
+    // The in-game assessments too. gestalt-assessment shipped all ten of its answers
+    // as `answer:"similarity"` etc. until 2026-08-21; the score is a secondary DV and
+    // a freely-readable key made it a measure of curiosity. The option LABELS are
+    // still in the bundle and must be — they are the buttons. What must not be there
+    // is the question -> answer mapping.
+    // NARROWED, deliberately. A grep for any `answer:"` also flags the UNDERSTANDING
+    // games, which ship answers alongside `reason:` explanations — that is teaching
+    // content the student is meant to see, and no Understanding game feeds a DV.
+    // What must not ship is an ASSESSMENT key, so this greps for gestalt's principle
+    // answers specifically; if that key ever comes back, these reappear.
+    for (const needle of ['answer:"similarity"', 'answer:"closure"', 'answer:"proximity"']) {
+      const hits = await grepBuild(needle)
+      t.check(`gestalt assessment key absent: ${needle}`, hits.length === 0, hits.slice(0, 2))
+    }
   }
 })
 

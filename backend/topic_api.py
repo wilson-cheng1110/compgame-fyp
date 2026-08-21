@@ -47,8 +47,8 @@ def _me(session: str | None):
 
 
 def _consented(sid: str) -> bool:
-    return any(r.get("participant_id") == sid and r.get("event_type") == "consent_recorded"
-               for r in research_store.fetch_all())
+    # Indexed lookup, not a scan of the whole sink — see research_store.has_event.
+    return research_store.has_event(sid, "consent_recorded")
 
 
 @router.get("")
@@ -128,7 +128,7 @@ async def get_check(topic_id: str, form: str, response: Response,
         response.status_code = 404
         return {"error": "no_bank", "message": "This topic has no question set yet."}
 
-    if checks.already_submitted(research_store.fetch_all(), user["sid"], topic_id, _EVENT[form]):
+    if research_store.has_event(user["sid"], _EVENT[form], topic_id):
         response.status_code = 409
         return {"error": "already_submitted",
                 "message": "You've already submitted this one — it can only be answered once."}
@@ -246,8 +246,7 @@ async def get_probe(topic_id: str, form: str, response: Response,
         return {"error": "no_probe",
                 "message": "This topic has no short-answer probe yet."}
 
-    if checks.already_submitted(research_store.fetch_all(), user["sid"], topic_id,
-                                _PROBE_EVENT[form]):
+    if research_store.has_event(user["sid"], _PROBE_EVENT[form], topic_id):
         response.status_code = 409
         return {"error": "already_submitted"}
 
@@ -285,8 +284,7 @@ async def submit_probe(topic_id: str, form: str, body: ProbeAnswer, response: Re
         response.status_code = 403
         return {"error": "not_open"}
 
-    if checks.already_submitted(research_store.fetch_all(), user["sid"], topic_id,
-                                _PROBE_EVENT[form]):
+    if research_store.has_event(user["sid"], _PROBE_EVENT[form], topic_id):
         response.status_code = 409
         return {"error": "already_submitted"}
 

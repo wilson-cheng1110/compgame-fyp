@@ -175,6 +175,35 @@ def record_event(payload: dict) -> int:
             conn.close()
 
 
+def has_event(participant_id: str, event_type: str, topic_id: str | None = None) -> bool:
+    """Does this participant have this event? One indexed query, not a table scan.
+
+    ADDED 2026-08-21 after measuring the alternative. Callers were asking this question
+    with `fetch_all()` — pulling the ENTIRE sink into Python and scanning it in a list
+    comprehension — and `/api/auth/me` did it TWICE per call (consent, then baseline).
+    `/api/auth/me` runs on nearly every page load, `fetch_all()` holds the module lock
+    for its whole duration, and the sink is designed to reach roughly 300 students x 13
+    topics x several events. On this box each identity check was costing ~2 s, which is
+    what made the browser tests flake: the topic page's journey request queued behind a
+    lock held by a scan it did not need.
+
+    `idx_events_participant` already existed; nothing was using it.
+    """
+    sql = "SELECT 1 FROM events WHERE participant_id = ? AND event_type = ?"
+    args = [str(participant_id), str(event_type)]
+    if topic_id is not None:
+        sql += " AND topic_id = ?"
+        args.append(topic_id)
+    sql += " LIMIT 1"
+
+    with _lock:
+        conn = _connect()
+        try:
+            return conn.execute(sql, args).fetchone() is not None
+        finally:
+            conn.close()
+
+
 def fetch_all() -> list[dict]:
     with _lock:
         conn = _connect()

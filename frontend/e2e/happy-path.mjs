@@ -96,12 +96,22 @@ test("a full topic unit, in the arm the server assigned", async (page, t) => {
   t.require("an open topic WITH an item bank exists", !!topic, "needed for the check steps")
   t.note(`topic=${topic.topic_id} arm=${topic.arm} plays_game_first=${topic.plays_game_first}`)
 
+  // Diagnostic for the intermittent "Loading…" hang: did the page even ASK for the
+  // journey? No request at all means the effect never fired; a request with no
+  // response means the API stalled. The two have different fixes.
+  let journeyReqs = 0
+  let journeyRes = 0
+  page.on("request", (r) => { if (r.url().includes("/api/topics")) journeyReqs++ })
+  page.on("response", (r) => { if (r.url().includes("/api/topics")) journeyRes++ })
+
   await go(page, `/topics/${topic.topic_id}`)
   // Wait for the unit to actually render rather than sleeping and hoping. A fixed
   // timeout here is how this test failed twice while the app was fine.
   const counter = page.locator('[data-testid="step-counter"]')
   await counter.waitFor({ state: "visible", timeout: 20000 }).catch(() => {})
   t.require("the unit opens (step counter rendered)", await counter.count() > 0, {
+    journeyRequests: journeyReqs,
+    journeyResponses: journeyRes,
     url: page.url(),
     snippet: (await page.content()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 200),
   })

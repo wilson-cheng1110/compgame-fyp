@@ -93,7 +93,7 @@ async def create_session(req: SessionRequest, response: Response):
         "section": result["section"],
         "needsOnboarding": result["needs_onboarding"],
         "needsConsent": not _has_consented(result["sid"]),
-        "needsBaseline": not baseline.already_taken(research_store.fetch_all(), result["sid"]),
+        "needsBaseline": not research_store.has_event(result["sid"], baseline.EVENT_TYPE),
     }
 
 
@@ -110,7 +110,7 @@ async def whoami(response: Response, session: str | None = Cookie(default=None))
         "section": user["section"],
         "needsOnboarding": user["needs_onboarding"],
         "needsConsent": not _has_consented(user["sid"]),
-        "needsBaseline": not baseline.already_taken(research_store.fetch_all(), user["sid"]),
+        "needsBaseline": not research_store.has_event(user["sid"], baseline.EVENT_TYPE),
     }
 
 
@@ -146,10 +146,8 @@ async def set_profile(req: ProfileRequest, response: Response,
 # it must survive in the same append-only log as everything it authorises.
 
 def _has_consented(sid: str) -> bool:
-    for row in research_store.fetch_all():
-        if row.get("participant_id") == sid and row.get("event_type") == "consent_recorded":
-            return True
-    return False
+    # Indexed lookup, not a scan of the whole sink — see research_store.has_event.
+    return research_store.has_event(sid, "consent_recorded")
 
 
 @router.post("/consent")
@@ -215,7 +213,7 @@ async def get_baseline(response: Response, session: str | None = Cookie(default=
         response.status_code = 401
         return {"error": "no_session"}
 
-    if baseline.already_taken(research_store.fetch_all(), user["sid"]):
+    if research_store.has_event(user["sid"], baseline.EVENT_TYPE):
         response.status_code = 409
         return {"error": "already_taken"}
 
@@ -238,8 +236,7 @@ async def submit_baseline(body: BaselineSubmission, response: Response,
         return {"error": "no_consent",
                 "message": "Consent has to be recorded before anything is saved."}
 
-    events = research_store.fetch_all()
-    if baseline.already_taken(events, user["sid"]):
+    if research_store.has_event(user["sid"], baseline.EVENT_TYPE):
         response.status_code = 409
         return {"error": "already_taken"}
 
