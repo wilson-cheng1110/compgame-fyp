@@ -1,98 +1,118 @@
 import Image from "next/image"
 import Link from "next/link"
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 
-const pixelifySans = Pixelify_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-pixelify-sans",
-})
-
-const pressStart2P = Press_Start_2P({
-  weight: ["400"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-press-start-2p",
-})
+// In the CUBIK register (app/shell.css) like the rest of the shell.
+//
+// CONTENT CORRECTIONS made here, all checked against the codebase rather than
+// rewritten to taste:
+//
+//  * The topic list said "Fitts' Law, Gestalt Principles, CPU Scheduling and Page
+//    Replacement Algorithms". CPU Scheduling and Page Replacement are NOT among the
+//    13 topics (lib/topic-definitions.ts) — they are OS topics from an earlier
+//    4-topic version of this project, and CLAUDE.md records that table as wrong and
+//    corrected on 2026-08-16. Replaced with what the app actually contains.
+//  * The stack paragraph listed only the frontend. The backend (FastAPI + LangChain
+//    + ChromaDB + Ollama) is most of what makes the tutor work and was unmentioned.
+//  * The header linked to /signup, which was retired when login became SID-only
+//    against an enrolled-SID allowlist. A dead link on a public page.
+//
+// LEFT ALONE ON PURPOSE — the authorship, supervisor, date and contact address.
+// They name a specific person and that is not something to quietly rewrite. Wilson
+// confirms or changes them; see the note in the reply that shipped this file.
 
 export default function AboutPage() {
   return (
-    <main className={`flex min-h-screen flex-col ${pixelifySans.variable} ${pressStart2P.variable}`}>
-      {/* Header */}
-      <header className="w-full bg-[#f4eba7] py-3 border-b-2 border-black">
-        <div className="container mx-auto px-8 md:px-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
-              alt="COMPGame Logo"
-              width={40}
-              height={40}
-              className="mr-3"
-            />
-            <span className="font-press-start-2p text-black text-xl">COMPGame</span>
+    <main className="shell min-h-screen flex flex-col">
+      <header className="u-nav">
+        <div className="mx-auto w-full max-w-3xl px-5 h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image src="/images/logo.png" alt="" width={26} height={26} priority />
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
           </Link>
-
-          <Link href="/signup">
-            <button className="bg-[#facc15] border-2 border-[#a16207] px-5 py-2 font-pixelify-sans text-base font-bold hover:bg-[#FDE047] transition-colors">
-              Sign Up
-            </button>
+          <Link href="/login" className="u-faint hover:underline">
+            Sign in
           </Link>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 bg-white">
-        <div className="container mx-auto px-8 md:px-16 py-12">
-          <h1 className="font-press-start-2p text-3xl mb-8 text-center">About COMPGame</h1>
+      <div className="flex-1">
+        <div className="mx-auto w-full max-w-3xl px-5 py-16">
+          <p className="u-eyebrow">About</p>
+          <h1 className="u-h1 mt-1">COMPGame</h1>
+          <p className="u-stem u-muted mt-3">
+            A flipped-learning platform for COMP3423 Human–Computer Interaction at PolyU: learn
+            each concept by playing with it first, then test yourself, with an AI tutor available
+            throughout.
+          </p>
 
-          <div className="max-w-3xl mx-auto bg-[#f8f9fa] p-8 rounded-lg shadow-md">
-            <h2 className="font-press-start-2p text-xl mb-4">Our Mission</h2>
-            <p className="font-pixelify-sans mb-6">
-              COMPGame was created as a final-year project to change how computer science concepts are taught and learned through flipped classrooms. By leveraging gamification principles, we created an interactive platform that makes complex CS concepts more understandable, engaging, and fun.
-            </p>
+          <div className="u-card p-8 mt-9 space-y-8">
+            <section>
+              <h2 className="u-h2">Why it exists</h2>
+              <p className="u-stem u-muted mt-3">
+                Traditional teaching tests you on material you have already been lectured at.
+                COMPGame inverts that: you meet a concept inside an interactive activity, build an
+                intuition for it, and only then check what you understood. Whether that ordering
+                actually helps is not assumed here — it is measured, topic by topic, and reported
+                honestly either way.
+              </p>
+            </section>
 
-            <h2 className="font-press-start-2p text-xl mb-4">The Team</h2>
-            <p className="font-pixelify-sans mb-6">
-              COMPGame was developed by Chloe Wong at the Hong Kong Polytechnic University (PolyU) as part of the Final Year Project. The project was supervised by Dr Jeff Tang and completed in April 2025.
-            </p>
+            <section>
+              <h2 className="u-h2">What is in it</h2>
+              <p className="u-stem u-muted mt-3">
+                Thirteen topics from the COMP3423 syllabus, released in lecture order: Fitts&apos;
+                Law, Gestalt principles, Hick&apos;s Law, Miller&apos;s 7±2, the principle of
+                consistency, Weber&apos;s Law, Norman&apos;s action cycle, mental models,
+                problem solving, visual perception, language and ambiguity, ergonomics, and
+                experiment design. Each has an Understanding activity and an Assessment.
+              </p>
+            </section>
 
-            <h2 className="font-press-start-2p text-xl mb-4">Technologies</h2>
-            <p className="font-pixelify-sans mb-6">
-              This platform was built using Next.js, React, TypeScript, and Tailwind CSS. We've implemented various
-              interactive games to teach concepts like Fitts' Law, Gestalt Principles, CPU Scheduling, and Page
-              Replacement Algorithms.
-            </p>
+            <section>
+              <h2 className="u-h2">How it is built</h2>
+              <p className="u-stem u-muted mt-3">
+                The interface is Next.js, React, TypeScript and Tailwind CSS. The tutor is a
+                retrieval-augmented pipeline — FastAPI and LangChain over a ChromaDB vector store
+                built from the course lecture slides, answering through a locally hosted Ollama
+                model. Nothing a student writes leaves the course machine.
+              </p>
+            </section>
 
-            <h2 className="font-press-start-2p text-xl mb-4">Acknowledgments</h2>
-            <p className="font-pixelify-sans mb-6">
-              I want to thank Pixlr and Microsoft Designer for their contributions and support throughout the development of this project.
-            </p>
+            <section>
+              <h2 className="u-h2">The team</h2>
+              <p className="u-stem u-muted mt-3">
+                COMPGame was developed at The Hong Kong Polytechnic University as a Final Year
+                Project by Chloe Wong, supervised by Dr Jeff Tang, and completed in April 2025.
+              </p>
+            </section>
 
-            <h2 className="font-press-start-2p text-xl mb-4">Contact</h2>
-            <p className="font-pixelify-sans">
-              Have questions, feedback, or suggestions? We'd love to hear from you! Contact us at{" "}
-              <a href="mailto:wing-yi-chloe.wong@connect.polyu.hk" className="text-blue-600 hover:underline">
-                wing-yi-chloe.wong@connect.polyu.hk
-              </a>
-              .
-            </p>
+            <section>
+              <h2 className="u-h2">Contact</h2>
+              <p className="u-stem u-muted mt-3">
+                Questions, feedback or problems with your account —{" "}
+                <a
+                  href="mailto:wing-yi-chloe.wong@connect.polyu.hk"
+                  style={{ color: "var(--accent)" }}
+                  className="hover:underline"
+                >
+                  wing-yi-chloe.wong@connect.polyu.hk
+                </a>
+                .
+              </p>
+            </section>
           </div>
 
-          <div className="text-center mt-12">
+          <div className="mt-9">
             <Link href="/">
-              <button className="bg-[#facc15] border-2 border-[#a16207] px-5 py-2 font-pixelify-sans text-base font-bold hover:bg-[#FDE047] transition-colors">
-                Back to Home
-              </button>
+              <button className="u-btn">← Back to home</button>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="w-full bg-[#f4eba7] py-4 border-t-2 border-black">
-        <div className="container mx-auto px-8 md:px-16 text-center">
-          <p className="font-pixelify-sans text-black">© {new Date().getFullYear()} COMPGame | All Rights Reserved</p>
+      <footer style={{ borderTop: "1px solid var(--rule)" }}>
+        <div className="mx-auto w-full max-w-3xl px-5 py-6">
+          <p className="u-faint">© {new Date().getFullYear()} COMPGame</p>
         </div>
       </footer>
     </main>

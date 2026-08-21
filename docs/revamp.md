@@ -98,7 +98,7 @@ graded weeks later.
 | 04 | Grading | **done 2026-08-21** | Grading endpoint separate from the tutor + a batch pass that strips pre/post labels and shuffles before grading. Verified end-to-end on 42 answers | `grade.py` ✓ · `grade_batch.py` ✓ · `docs/grading-rubric.md` ✓ · probe step in `topic_api.py` ✓ · `components/topic-probe.tsx` ✓ |
 | 05 | Telemetry | **ships off** | Mouse hesitation, typing dynamics, idle gaps, paste + tab-switch counts. Aggregates per item, not raw traces. Flag defaults off until ethics approval | `lib/telemetry.ts` (new) · `lib/research-log.ts` |
 | 06 | Teacher report | **done 2026-08-21** | The tutorial brief generator. Counting in code, clustering + discussion points from the model, two versions out. Verified end-to-end | `generate_tutorial_report.py` ✓ · `reports/` (gitignored — holds verbatim answers + SIDs) |
-| 07 | Visual pass | **done 2026-08-21** | The 太game fix, done as REGISTER SEPARATION rather than a repaint: the **CUBIK design system ported** into a `.shell` layer (`app/shell.css`) for every measured surface; the 26 game routes untouched | `app/shell.css` ✓ · `fonts.ts` ✓ · dashboard · topic unit · check · probe · consent · login |
+| 07 | Visual pass | **done 2026-08-21** | The 太game fix, done as REGISTER SEPARATION rather than a repaint: the **CUBIK design system ported** into a `.shell` layer (`app/shell.css`) for every measured surface; the 26 game routes untouched | `app/shell.css` ✓ · `fonts.ts` ✓ · dashboard · topic unit · check · probe · consent · login · badges · about |
 | R | Item banks | **rolling** | 9 topics still need pre/post sets. ~1 a week, drafted from each lecture deck as it becomes relevant | `docs/quiz-item-banks.md` · 4 of 13 done |
 
 **Prerequisites that are not this document's work but block it** — `stage2-deployment-plan.md`
@@ -691,7 +691,7 @@ of an examiner, not a matter of taste.
 
 | | Shell | Games |
 |---|---|---|
-| Surfaces | dashboard, topic unit, checks, probe, consent, login | all 26 game routes |
+| Surfaces | dashboard, topic unit, checks, probe, consent, login, badges, about | all 26 game routes |
 | Type | Inter + Roboto Mono (data) | Press Start 2P + Pixelify Sans |
 | Palette | CUBIK: `#006666` teal on `#FFFFFF`/`#F9FAFB`/`#F2F4F5` | unchanged arcade |
 | Chrome | glass cards, `rounded-2xl`, 5%-black hairlines | 2-4px black borders, hard offset shadows |
@@ -737,6 +737,31 @@ coming back **empty**, and by screenshot.
    schedule exactly one is normally actionable, and naming it answers the question the student
    actually arrived with. The avatar moved to the profile card - demoted, not deleted, since the
    badge/avatar layer is H2's reason to exist.
+
+### /about carried wrong facts, not just old styling
+
+Restyling it surfaced content that contradicts the codebase. Fixed, each checked
+against source rather than rewritten to taste:
+
+- It listed the topics as "Fitts' Law, Gestalt Principles, **CPU Scheduling and Page
+  Replacement Algorithms**". The last two are OS topics from the superseded 4-topic
+  version — they are not in `lib/topic-definitions.ts`. Replaced with the real 13.
+- The stack paragraph named only the frontend; the FastAPI + LangChain + ChromaDB +
+  Ollama tutor, which is most of what makes this project what it is, went unmentioned.
+- The header linked to `/signup`, retired when login became SID-only against the
+  enrolled-SID allowlist. A dead link on the one public page.
+
+**Left alone deliberately:** the authorship ("Chloe Wong"), supervisor, "April 2025",
+and the contact address. They name a specific person; changing attribution is not a
+call to make silently. **Wilson to confirm or correct.**
+
+### Badges: `level` was in the data and invisible
+
+`level` (1–5) has been in the badge record all along and was never rendered — it is
+the only field that says *how well*, so the row now leads with it, drawn with the same
+step rail the topic unit uses (same kind of quantity, same graphic, rather than a
+second invented one). Also removed: a dead `truncateEmail()` and a `goToBadgesPage()`
+that navigated to the page you were already on.
 
 ### Known gap
 
