@@ -13,6 +13,13 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // `next dev` and `next start` must NOT share a build directory. When they did,
+  // dev rewrote .next/app-build-manifest.json into its own form and the production
+  // server started serving dev chunk names (unhashed main-app.js / polyfills.js).
+  // Those 404, so pages rendered and then never hydrated -- the topic unit sat on
+  // "Loading..." forever. It looked like the machine was corrupting .next at random;
+  // it was a dev server in the same checkout. Diagnosed 2026-08-27.
+  distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   eslint: {
     ignoreDuringBuilds: true,
   },
