@@ -127,6 +127,12 @@ export interface JourneyTopic {
   /** When the post-check landed (or, for a bankless topic, the game). Null until
    *  the topic is complete. Lets a badge carry a date without a second query. */
   completed_at?: string | null
+  /** The pre->post change, as counts. Only populated once the topic is finished —
+   *  the checks themselves still never reveal a pre-check score (Part 8.5). */
+  pre_correct?: number | null
+  pre_total?: number | null
+  post_correct?: number | null
+  post_total?: number | null
 }
 
 export interface Journey {

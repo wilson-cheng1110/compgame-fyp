@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Cookies from "js-cookie"
-import { type JourneyTopic } from "@/lib/api"
+import { topics as topicsApi, type JourneyTopic } from "@/lib/api"
 import { logResearchEvent } from "@/lib/research-log"
+import JourneyPath from "@/components/journey-path"
 import { TOPICS } from "@/lib/topic-definitions"
 import TopicCheck from "@/components/topic-check"
 import TopicProbe from "@/components/topic-probe"
@@ -253,22 +254,7 @@ export default function TopicUnitClient({
         )}
 
         {step === "close" && <RecordCompletion topicId={state.topic_id} arm={state.arm} />}
-        {step === "close" && (
-          <div className="u-card p-8">
-            <p className="u-eyebrow" style={{ color: "var(--state-done)" }}>
-              ✓ Finished
-            </p>
-            <h2 className="u-h2 mt-2">{meta.title}</h2>
-            <p className="u-stem u-muted mt-4">
-              Your answers are saved and this topic is complete.
-            </p>
-            <Link href="/dashboard">
-              <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
-                Back to my topics
-              </button>
-            </Link>
-          </div>
-        )}
+        {step === "close" && <CloseScreen topicId={state.topic_id} title={meta.title} />}
       </div>
     </main>
   )
@@ -292,4 +278,82 @@ function RecordCompletion({ topicId, arm }: { topicId: string; arm: string }) {
     logResearchEvent({ event_type: "topic_complete", topic_id: topicId, meta: { arm } })
   }, [topicId, arm])
   return null
+}
+
+// The end of a topic. It used to say "Your answers are saved and this topic is
+// complete" and offer a link back to a list -- a full stop on the one screen that
+// should feel like an arrival, after eight steps and about half an hour.
+//
+// It now leads with the thing no other product can tell a student: what changed
+// between the check they sat before the activity and the one after it. Both numbers
+// were already in the sink; the journey just never returned them.
+//
+// Fetched rather than lifted out of TopicCheck on purpose. The close step is
+// resumable -- localStorage remembers it -- so a student who reloads here has to see
+// the same thing, and only the server still knows it.
+function CloseScreen({ topicId, title }: { topicId: string; title: string }) {
+  const [journey, setJourney] = useState<JourneyTopic[] | null>(null)
+
+  useEffect(() => {
+    topicsApi.journey().then((r) => setJourney(r.ok && r.data ? r.data.topics : []))
+  }, [])
+
+  const me = journey?.find((t) => t.topic_id === topicId)
+  const pre = me?.pre_correct
+  const post = me?.post_correct
+  const hasDelta = typeof pre === "number" && typeof post === "number"
+  const delta = hasDelta ? post - pre : 0
+
+  // Said plainly, and only what the numbers support. A drop is not scolded: the two
+  // forms are different items, and a student who went down needs the tutor, not a
+  // telling-off.
+  const sentence = !hasDelta
+    ? "Your answers are saved."
+    : delta > 0
+      ? `You got ${delta} more right after the activity than before it.`
+      : delta === 0
+        ? "Same score both times — the tutor is a good place to take that."
+        : "The second set asked different things, and some landed differently. Worth a word with the tutor."
+
+  return (
+    <div className="u-card p-8" data-testid="close-screen">
+      <p className="u-eyebrow" style={{ color: "var(--state-done)" }}>
+        ✓ Finished
+      </p>
+      <h2 className="u-h2 mt-2">{title}</h2>
+
+      {hasDelta && (
+        <div className="mt-6" data-testid="delta">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="u-muted">Before you started</span>
+            <span className="u-num">{pre} / {me?.pre_total}</span>
+          </div>
+          <div className="flex items-baseline justify-between gap-4 mt-2">
+            <span className="u-muted">After the activity</span>
+            <span className="u-num">{post} / {me?.post_total}</span>
+          </div>
+          <p
+            className="u-h2 mt-3"
+            style={{ color: delta > 0 ? "var(--state-done)" : "var(--muted)" }}
+          >
+            {delta > 0 ? `▲ +${delta}` : delta === 0 ? "no change" : `▼ ${delta}`}
+          </p>
+        </div>
+      )}
+
+      <p className="u-stem u-muted mt-4">{sentence}</p>
+
+      {journey && journey.length > 0 && (
+        <div className="mt-7 pt-6" style={{ borderTop: "1px solid var(--rule)" }}>
+          <JourneyPath topics={journey} showNext />
+        </div>
+      )}
+
+      <Link href="/dashboard">
+        <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-6">
+          Continue the path →
+        </button>
+      </Link>
+    </div>
+  )
 }

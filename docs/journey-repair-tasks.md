@@ -52,7 +52,7 @@ Rules that hold across every stage:
 
 ---
 
-## Stage 2 — make finishing a topic mean something
+## Stage 2 — make finishing a topic mean something · **DONE**
 
 - [x] dashboard ring reads the server's `complete` per topic, not the cookie's
       `assessmentCompleted`. The value is already typed and already arriving
@@ -63,12 +63,30 @@ Rules that hold across every stage:
       games are its last writer, and they get rewired there. Nothing reads it for display
       any more.
 - [x] the unit records its own completion — one `logResearchEvent` at the close step
-- [ ] close screen rebuilt: pre→post delta first, one plain sentence about what changed,
+- [x] close screen rebuilt: pre→post delta first, one plain sentence about what changed,
       path underneath, and a button that continues the journey rather than retreating
       to a list
-- [ ] path strip above the dashboard list: 13 nodes, position marked, `n of 13`
+- [x] path strip above the dashboard list: 13 nodes, position marked, `n of 13`
 - [x] browser test: finishing a unit moves the ring and puts a badge on `/badges`, and
       both survive a fresh browser
+
+### Stage 2 aftermath — surfaced by the path strip
+
+- [ ] **The release order and the displayed order disagreed for 10 of the 13 topics.**
+      The dashboard iterated `topic-definitions.ts` and numbered 01..13 by array index,
+      while the copy directly above it promised "topics open in the order they are
+      lectured" and the server released in a different order entirely — Gestalt is
+      `order: 9` and was displayed as "02". The list now follows the server, so the
+      strip, the numbering and the release all agree.
+      **What still needs your eye:** that order comes from `topic_schedule.json`'s
+      topics array — norman, memory, problem-solving, stroop, hicks-law, fitts-law … —
+      and the dates in that file are placeholders, so the order may be a placeholder
+      too. It is now numbered and shown prominently, which makes it worth checking
+      against the real timetable. *(Wilson)*
+- [x] the e2e test named "dashboard shows the journey in lecture order" only ever
+      checked the API payload, never the rendered page, so it passed throughout the
+      bug. It now asserts what the student sees, and was mutation-checked against the
+      old ordering.
 
 ## Stage 3 — reconnect the games, stop guessing whether they were played
 

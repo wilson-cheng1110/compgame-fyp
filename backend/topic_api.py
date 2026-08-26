@@ -63,9 +63,13 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
     # (topic, event) -> when. Still ONE pass over the sink; a dict rather than a set
     # so the client can say WHEN a topic was finished without a second query. The
     # `in done` membership tests below are unchanged by this.
-    done = {}
+    done, scores = {}, {}
     for r in research_store.fetch_for_participant(user["sid"]):
-        done[(r.get("topic_id"), r.get("event_type"))] = r.get("server_ts")
+        key = (r.get("topic_id"), r.get("event_type"))
+        done[key] = r.get("server_ts")
+        if r.get("score") is not None:
+            scores[key] = r.get("score")
+    banks = checks.bank_report()
 
     for st in states:
         st["has_bank"] = checks.has_bank(st["topic_id"])
@@ -81,6 +85,17 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
         # post-check, so the game completion is what closes it.
         st["complete"] = st["post_done"] or (
             not st["has_bank"] and (st["topic_id"], "assessment_complete") in done)
+        # The pre->post change, as counts rather than the percentage the sink
+        # stores. "2 of 6" is a thing a student recognises; "33.3" is not. The
+        # pre score is safe to send only because the topic is finished -- the
+        # check itself still never reveals it (Part 8.5).
+        bank = banks.get(st["topic_id"], {})
+        for form, ev, n_key in (("pre", "topic_pretest", "A"),
+                                ("post", "topic_posttest", "B")):
+            pct, total = scores.get((st["topic_id"], ev)), bank.get(n_key)
+            st[f"{form}_total"] = total
+            st[f"{form}_correct"] = (round(pct / 100 * total)
+                                     if pct is not None and total else None)
         # When it closed, so a badge can carry a date the student recognises.
         st["completed_at"] = (done.get((st["topic_id"], "topic_posttest"))
                               or done.get((st["topic_id"], "assessment_complete")))
@@ -167,8 +182,10 @@ async def submit_check(topic_id: str, form: str, body: Submission, response: Res
         response.status_code = 403
         return {"error": "not_open"}
 
-    events = research_store.fetch_all()
-    if checks.already_submitted(events, user["sid"], topic_id, _EVENT[form]):
+    # One indexed question, not a scan of the whole sink. This was the same
+    # fetch_all() pattern journey() had: measured at 7 s wall for 100 concurrent
+    # loads on a full-term sink, because fetch_all holds the module lock.
+    if research_store.has_event(user["sid"], _EVENT[form], topic_id):
         response.status_code = 409
         return {"error": "already_submitted",
                 "message": "You've already submitted this one — it can only be answered once."}

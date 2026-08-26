@@ -74,6 +74,28 @@ test("dashboard shows the journey in lecture order", async (page, t) => {
 
   const body = await page.content()
   t.check("the page renders topic titles", /Weber|Gestalt|Fitts/i.test(body))
+
+  // This test was named for the DASHBOARD and only ever checked the API payload,
+  // so it passed while the page rendered topic-definitions.ts order and numbered
+  // 01..13 by array index. Ten of the thirteen sat in the wrong place; Gestalt is
+  // order 9 on the server and was shown as "02". Assert what the student sees.
+  const rendered = await page.evaluate(() =>
+    [...document.querySelectorAll("ol li, ol > a")]
+      .map((el) => (el.textContent || "").trim())
+      .filter(Boolean))
+  const expected = [...journey.body.topics].sort((a, b) => a.order - b.order)
+  const titleOf = { "fitts-law": "Fitts", gestalt: "Gestalt", "hicks-law": "Hick",
+    memory: "Miller", stroop: "Consistency", "webers-law": "Weber",
+    norman: "Norman", "mental-model": "Mental Model", "problem-solving": "Problem Solving",
+    "visual-perception": "Visual Perception", language: "Language",
+    ergonomics: "Ergonomics", "experiment-design": "Experiment Design" }
+  const positions = expected.map((tpc) =>
+    rendered.findIndex((r) => r.includes(titleOf[tpc.topic_id])))
+  t.check(
+    "the list is rendered in the order the server releases them",
+    positions.every((pos, i) => pos >= 0 && (i === 0 || pos > positions[i - 1])),
+    { serverOrder: expected.map((x) => x.topic_id), positions },
+  )
   t.check("state is shown as words, not colour alone", /Locked|Open|Done|Late/i.test(body))
 
   const open = journey.body.topics.filter((x) => x.state === "open")

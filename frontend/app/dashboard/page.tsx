@@ -11,6 +11,7 @@ import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
 import { topics as topicsApi, auth, type JourneyTopic } from "@/lib/api"
 import { badgesFromJourney, completedCount } from "@/lib/badges"
+import JourneyPath from "@/components/journey-path"
 import { TOPICS } from "@/lib/topic-definitions"
 import { useSlowLoad } from "@/lib/use-slow-load"
 import type { TopicId } from "@/lib/topic-definitions"
@@ -150,6 +151,19 @@ export default function DashboardPage() {
   const doneCount = completedCount(journeyList)
   const earned = badgesFromJourney(journeyList)
 
+  // Rendered in the order the SERVER releases them, not the order they happen to sit
+  // in topic-definitions.ts. Those disagreed for 10 of the 13 topics -- Gestalt is
+  // order 9 on the server and was rendered as "02" here -- while the copy above
+  // promises "topics open in the order they are lectured" and the comment below
+  // calls that order the independent variable. Now they agree.
+  const orderedTopics =
+    journeyLoaded && journeyList.length
+      ? [...journeyList]
+          .sort((a, b) => a.order - b.order)
+          .map((j) => TOPICS.find((t) => t.id === j.topic_id))
+          .filter((t): t is (typeof TOPICS)[number] => !!t)
+      : TOPICS
+
   // THE ONE THING TO DO NEXT. This replaced an avatar with a speech bubble telling
   // the student they were doing great. At 13 topics released on a schedule, exactly
   // one is normally actionable, and surfacing it is more useful than encouragement
@@ -193,6 +207,14 @@ export default function DashboardPage() {
               the rest unlock on their own.
             </p>
 
+            {/* The run as one thing, above the list rather than instead of it --
+                thirteen states still scan better as rows than as nodes. */}
+            {journeyLoaded && journeyList.length > 0 && (
+              <div className="mt-6">
+                <JourneyPath topics={journeyList} currentId={nextUp?.id} />
+              </div>
+            )}
+
             {nextUp && nextUpState && (
               <Link href={`/topics/${nextUp.id}`} className="block mt-6">
                 <div className="u-row u-row-actionable p-5" style={{ borderColor: "var(--accent)" }}>
@@ -218,7 +240,7 @@ export default function DashboardPage() {
             )}
 
             <ol className="mt-8 space-y-2.5">
-              {TOPICS.map((topic, idx) => {
+              {orderedTopics.map((topic, idx) => {
                 const tp = getTopicProgress(topic.id as TopicId)
                 const aDone = tp.assessmentCompleted
                 const js = journey[topic.id]
