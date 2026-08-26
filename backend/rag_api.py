@@ -328,8 +328,45 @@ def get_socratic_chain():
     return llm, retriever
 
 
+def _warn_if_publicly_bound() -> None:
+    """Shout if this process is listening on every interface.
+
+    On 2026-08-27 this API was started with `--host 0.0.0.0` because docs/runbook.md
+    said to, on a box that turns out to be internet-reachable. Within a minute the log
+    had scanner traffic in it — `GET /manager/html` from 20.65.193.137, plus two others
+    probing `/`. Nothing in the system objected, because nothing was watching.
+
+    The tunnel connects OUTBOUND, so loopback is sufficient for the real deployment;
+    binding wider buys nothing and exposes an API holding 300 students' coursework.
+    Set ALLOW_PUBLIC_BIND=1 to acknowledge it deliberately and silence this.
+    """
+    host = ""
+    argv = sys.argv
+    for i, a in enumerate(argv):
+        if a == "--host" and i + 1 < len(argv):
+            host = argv[i + 1]
+        elif a.startswith("--host="):
+            host = a.split("=", 1)[1]
+    if host in ("0.0.0.0", "::", "*") and os.environ.get("ALLOW_PUBLIC_BIND") != "1":
+        # flush=True is not cosmetic: stdout is block-buffered when it is redirected
+        # to a log file (which is how this runs as a service), so an unflushed warning
+        # can sit in the buffer for minutes -- long after the port is already open and
+        # being scanned. A warning that arrives after the event is not a warning.
+        bar = "!" * 74
+        for line in (
+            bar,
+            "!! BOUND TO EVERY INTERFACE (--host %s)." % host,
+            "!! This API holds participant data and has no auth on /api/health.",
+            "!! The Cloudflare tunnel connects OUTBOUND -- 127.0.0.1 is enough for it.",
+            "!! Use --host 127.0.0.1, or set ALLOW_PUBLIC_BIND=1 if you mean it.",
+            bar,
+        ):
+            print(line, flush=True)
+
+
 @app.on_event("startup")
 async def startup_event():
+    _warn_if_publicly_bound()
     global rag_llm, rag_retriever, socratic_llm, socratic_retriever
     # Research-event store is independent of the RAG model — init it first so
     # data collection works even if Ollama/Chroma fails to load.

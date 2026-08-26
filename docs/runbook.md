@@ -43,9 +43,9 @@ Required files, none of them in git:
 $env:OLLAMA_NUM_PARALLEL=4; $env:OLLAMA_MAX_LOADED_MODELS=2; $env:OLLAMA_KEEP_ALIVE="-1"
 ollama serve
 
-# 2. API  (port 8080)
+# 2. API  (port 8080) — LOOPBACK ONLY. Not 0.0.0.0.
 cd backend
-python -m uvicorn rag_api:app --host 0.0.0.0 --port 8080
+python -m uvicorn rag_api:app --host 127.0.0.1 --port 8080
 
 # 3. Frontend  — BUILD FIRST, THEN START, IN THAT ORDER
 cd frontend
@@ -100,6 +100,22 @@ powercfg /change disk-timeout-ac 0
 powercfg /change hibernate-timeout-ac 0
 ```
 
+### Bind to loopback, always
+
+**`--host 0.0.0.0` is wrong for this deployment, and this runbook used to say it.**
+On 2026-08-27 the API was started that way on this box and the log had internet scanner
+traffic in it within a minute — `GET /manager/html` from 20.65.193.137, plus probes from
+188.166.41.44 and 34.204.53.150. This machine is internet-reachable.
+
+That is an API holding 300 students' identifiable coursework, under ethics approval,
+with an unauthenticated `/api/health`. Binding wide buys **nothing**, because
+**the Cloudflare tunnel connects outbound** — `cloudflared` dials Cloudflare and
+forwards to `127.0.0.1:8080`. Loopback is all it ever needed.
+
+The server now prints a loud banner at startup if it is bound to every interface. Set
+`ALLOW_PUBLIC_BIND=1` only if you have deliberately decided to, and put a firewall rule
+in front of it if so.
+
 ### Public URL
 
 A Cloudflare named tunnel (not a quick tunnel — those get a new hostname on every
@@ -132,6 +148,30 @@ whose assets 400, a login loop, a session the UI keeps believing in. Setup and e
 codes: `frontend/e2e/README.md`.
 
 ---
+
+## 2c. Go-live gate — everything green BEFORE the tunnel opens
+
+Run the whole system on loopback and make it boring first. Nothing here needs the
+internet, so there is no reason to be exposed while any of it is still red.
+
+| Gate | Command | Must show |
+|---|---|---|
+| Server logic | `python backend	estsun_all.py` | 253 assertions, 0 failures |
+| Types | `cd frontend; npx tsc --noEmit` | no output (`next build` is NOT a type check) |
+| Build is whole | `node frontenderify-build.mjs` | build is complete |
+| Real browser | `node frontend\e2eun.mjs` | 113 assertions, 0 failures |
+| Bound to loopback | start the API | **no** public-bind banner |
+| Fails closed | `curl /api/research/export`, `curl -X POST /api/grade` | 503 both |
+| Cookies | `COOKIE_SECURE=1` in the environment | — |
+| Class list | `/api/health` | `enrolment.enrolled` = your real cohort size |
+| Corpus | `python backend\check_corpus_coverage.py` | exit 0 — **currently exits 1** on `norman` and `hicks-law` |
+| Backups | `python backendackup_sink.py --verify` | integrity_check ok |
+| Schedule | `python backend\schedule.py --validate` | no problems, real 2026/27 dates |
+
+The last three are the ones still open. Do not open the tunnel to 300 students with a
+corpus that cannot answer two of the thirteen topics, a placeholder timetable, or no
+backup running — none of those are recoverable after the fact, because each student
+sits each topic once.
 
 ## 3. Watch
 

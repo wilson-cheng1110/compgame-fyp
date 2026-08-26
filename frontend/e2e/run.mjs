@@ -137,6 +137,14 @@ for (const { name, fn } of getTests()) {
       t.note("!! THE API IS NOT HEALTHY — treat this failure as SETUP, not as a defect")
       envBroken = true
     }
+    // The FRONTEND too. The first version of this check only watched the API, and a
+    // frontend that died mid-run duly reported eight red tests instead of one broken
+    // environment — the exact mistake this check exists to prevent, made one layer up.
+    const web = await fetch(APP + "/login").then((r) => r.ok).catch(() => false)
+    if (!web) {
+      t.note("!! THE FRONTEND IS NOT SERVING — treat this failure as SETUP, not a defect")
+      envBroken = true
+    }
   }
 
   const secs = ((Date.now() - started) / 1000).toFixed(1)
