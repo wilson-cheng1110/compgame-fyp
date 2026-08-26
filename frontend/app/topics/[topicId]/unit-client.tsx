@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Cookies from "js-cookie"
 import { type JourneyTopic } from "@/lib/api"
+import { logResearchEvent } from "@/lib/research-log"
 import { TOPICS } from "@/lib/topic-definitions"
 import TopicCheck from "@/components/topic-check"
 import TopicProbe from "@/components/topic-probe"
@@ -251,6 +252,7 @@ export default function TopicUnitClient({
           </div>
         )}
 
+        {step === "close" && <RecordCompletion topicId={state.topic_id} arm={state.arm} />}
         {step === "close" && (
           <div className="u-card p-8">
             <p className="u-eyebrow" style={{ color: "var(--state-done)" }}>
@@ -270,4 +272,24 @@ export default function TopicUnitClient({
       </div>
     </main>
   )
+}
+
+// The unit recorded nothing of its own. Every row in the sink came from a check, a
+// probe or a game, so "this student finished this topic" was only ever inferred from
+// the post-check. Now it is stated.
+//
+// Fires once per browser per topic. The sink is append-only and a duplicate from a
+// refresh would be harmless, but the guard keeps the table honest.
+function RecordCompletion({ topicId, arm }: { topicId: string; arm: string }) {
+  useEffect(() => {
+    const key = `compgame:unit:${topicId}:recorded`
+    try {
+      if (window.localStorage.getItem(key)) return
+      window.localStorage.setItem(key, "1")
+    } catch {
+      /* storage blocked -- record anyway; a duplicate beats a missing row */
+    }
+    logResearchEvent({ event_type: "topic_complete", topic_id: topicId, meta: { arm } })
+  }, [topicId, arm])
+  return null
 }

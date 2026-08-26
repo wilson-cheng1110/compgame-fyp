@@ -124,6 +124,9 @@ export interface JourneyTopic {
   probe_pre_done?: boolean
   probe_post_done?: boolean
   complete: boolean
+  /** When the post-check landed (or, for a bankless topic, the game). Null until
+   *  the topic is complete. Lets a badge carry a date without a second query. */
+  completed_at?: string | null
 }
 
 export interface Journey {

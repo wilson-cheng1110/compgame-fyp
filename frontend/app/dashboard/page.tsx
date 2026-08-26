@@ -10,6 +10,7 @@ import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
 import { topics as topicsApi, auth, type JourneyTopic } from "@/lib/api"
+import { badgesFromJourney, completedCount } from "@/lib/badges"
 import { TOPICS } from "@/lib/topic-definitions"
 import { useSlowLoad } from "@/lib/use-slow-load"
 import type { TopicId } from "@/lib/topic-definitions"
@@ -180,7 +181,12 @@ export default function DashboardPage() {
     )
   }
 
-  const doneCount = Object.values(progress).filter((p) => p?.assessmentCompleted).length
+  // Server truth, not the cookie. This used to read `assessmentCompleted` out of
+  // `topicProgress`, which the unit never sets -- so a student could finish a topic,
+  // watch it turn "Done" in the list, and read "0 of 13" in the rail beside it.
+  const journeyList = Object.values(journey)
+  const doneCount = completedCount(journeyList)
+  const earned = badgesFromJourney(journeyList)
 
   // THE ONE THING TO DO NEXT. This replaced an avatar with a speech bubble telling
   // the student they were doing great. At 13 topics released on a schedule, exactly
@@ -387,8 +393,8 @@ export default function DashboardPage() {
 
               <div className="flex items-center justify-between gap-2">
                 <span className="u-faint">
-                  <span className="u-num">{badges.length}</span> badge
-                  {badges.length === 1 ? "" : "s"}
+                  <span className="u-num">{earned.length}</span> badge
+                  {earned.length === 1 ? "" : "s"}
                 </span>
                 <Link href="/badges" className="u-faint hover:underline">
                   View

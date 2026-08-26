@@ -54,17 +54,20 @@ Rules that hold across every stage:
 
 ## Stage 2 — make finishing a topic mean something
 
-- [ ] dashboard ring reads the server's `complete` per topic, not the cookie's
+- [x] dashboard ring reads the server's `complete` per topic, not the cookie's
       `assessmentCompleted`. The value is already typed and already arriving
       (`lib/api.ts:126`); `app/dashboard/page.tsx:183` ignores it.
-- [ ] badges derive from server truth too, one per completed topic; delete the cookie
+- [x] badges derive from server truth (display side), one per completed topic; delete the cookie
       badge store. Level is 1 until Stage 3 has an assessment score to raise it with.
-- [ ] the unit records its own completion — one `logResearchEvent` at the close step
+      *Deferred to stage 3:* the cookie store itself still exists because the assessment
+      games are its last writer, and they get rewired there. Nothing reads it for display
+      any more.
+- [x] the unit records its own completion — one `logResearchEvent` at the close step
 - [ ] close screen rebuilt: pre→post delta first, one plain sentence about what changed,
       path underneath, and a button that continues the journey rather than retreating
       to a list
 - [ ] path strip above the dashboard list: 13 nodes, position marked, `n of 13`
-- [ ] browser test: finishing a unit moves the ring and puts a badge on `/badges`, and
+- [x] browser test: finishing a unit moves the ring and puts a badge on `/badges`, and
       both survive a fresh browser
 
 ## Stage 3 — reconnect the games, stop guessing whether they were played

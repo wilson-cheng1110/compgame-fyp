@@ -60,8 +60,13 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
         return {"error": "no_session"}
 
     states = schedule.topic_states(user["sid"], user["section"])
-    done = {(r.get("topic_id"), r.get("event_type")) for r in research_store.fetch_all()
-            if r.get("participant_id") == user["sid"]}
+    # (topic, event) -> when. Still ONE pass over the sink; a dict rather than a set
+    # so the client can say WHEN a topic was finished without a second query. The
+    # `in done` membership tests below are unchanged by this.
+    done = {}
+    for r in research_store.fetch_all():
+        if r.get("participant_id") == user["sid"]:
+            done[(r.get("topic_id"), r.get("event_type"))] = r.get("server_ts")
 
     for st in states:
         st["has_bank"] = checks.has_bank(st["topic_id"])
@@ -77,6 +82,9 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
         # post-check, so the game completion is what closes it.
         st["complete"] = st["post_done"] or (
             not st["has_bank"] and (st["topic_id"], "assessment_complete") in done)
+        # When it closed, so a badge can carry a date the student recognises.
+        st["completed_at"] = (done.get((st["topic_id"], "topic_posttest"))
+                              or done.get((st["topic_id"], "assessment_complete")))
 
     return {"section": user["section"], "telemetry_enabled": TELEMETRY_ENABLED,
             "topics": states}

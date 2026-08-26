@@ -5,7 +5,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Cookies from "js-cookie"
-import { useBadges } from "@/lib/badge-context"
+import { topics as topicsApi } from "@/lib/api"
+import { badgesFromJourney, MAX_LEVEL, type Badge } from "@/lib/badges"
 import { TOPICS } from "@/lib/topic-definitions"
 
 // The badge collection. docs/revamp.md Part 14: DEMOTED, NOT DELETED — badges are
@@ -25,13 +26,11 @@ const AVATAR_URLS: Record<number, string> = {
   2: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/avatar_2-QeIlj2Z9JERNw3e1qM9bzmMMkbbGso.png",
 }
 
-const MAX_LEVEL = 5
-
 export default function BadgesPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [darkMode, setDarkMode] = useState(false)
-  const { badges, refreshBadges } = useBadges()
+  const [badges, setBadges] = useState<Badge[]>([])
 
   useEffect(() => {
     const userCookie = Cookies.get("user")
@@ -40,13 +39,17 @@ export default function BadgesPage() {
       return
     }
     setUser(JSON.parse(userCookie))
-    refreshBadges()
+    // The server decides what is complete; this page just renders it. A cleared
+    // cache no longer costs a student their collection.
+    topicsApi.journey().then((res) => {
+      if (res.ok && res.data) setBadges(badgesFromJourney(res.data.topics))
+    })
 
     if (Cookies.get("darkMode") === "true") {
       setDarkMode(true)
       document.body.classList.add("dark-mode")
     }
-  }, [router, refreshBadges])
+  }, [router])
 
   const toggleDarkMode = () => {
     const next = !darkMode
@@ -70,11 +73,6 @@ export default function BadgesPage() {
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
-
-  const topicTitle = (gameId: string) => {
-    const t = TOPICS.find((t) => gameId.startsWith(t.id))
-    return t?.title ?? gameId.replace(/-/g, " ")
-  }
 
   // Newest first — a collection reads as a history, and the thing you just earned
   // is the thing you came to look at.
@@ -129,7 +127,10 @@ export default function BadgesPage() {
                       <div className="flex items-baseline justify-between gap-4 flex-wrap">
                         <div className="min-w-0">
                           <p style={{ fontWeight: 600, color: "var(--ink)" }}>{badge.name}</p>
-                          <p className="u-faint mt-0.5">{topicTitle(badge.gameId)}</p>
+                          {/* The badge IS the topic now that they are derived from
+                              completion, so the old second line just said the title
+                              twice. What is worth saying instead is what earned it. */}
+                          <p className="u-faint mt-0.5">Topic completed</p>
                         </div>
                         <p className="u-faint u-num whitespace-nowrap">
                           {formatDate(badge.earnedAt)}
