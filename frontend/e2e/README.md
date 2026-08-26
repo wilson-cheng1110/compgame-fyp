@@ -136,42 +136,54 @@ bogus "Assertion failed" banner and masked the exit code.
 
 Flakiness: two consecutive full runs produced byte-identical results.
 
-## The "Loading…" hang — found, 2026-08-27
+## The "Loading…" hang — CORRECTION, and still open
 
-**Cause: a corrupt `.next` build.** Not app code.
+**An earlier version of this file, and commit c0d1043, said the cause was a corrupt
+`.next` build. That conclusion does not survive the evidence and is withdrawn.**
 
-It reproduced in three consecutive suite runs, always the same two tests — the only two
-that load a topic page — with the page stuck on its own `Loading…` branch and
-**`journeyRequests: 0`**, meaning the effect never fired.
+The build WAS corrupt — `next start` logged `Cannot find module
+'./vendor-chunks/lucide-react.js'` and served 500s, which is real and is worth the
+tooling below. But after a clean rebuild that `verify-build.mjs` passes, the topic page
+still reproduces:
 
-The evidence that settled it:
+```
+url: http://localhost:3000/topics/webers-law
+/api/topics requests: 0    hydrated: false
+body: Loading…
+```
 
-1. On restarting the frontend, `next start` logged
-   `Cannot find module './vendor-chunks/lucide-react.js'` and served **500s**. The build
-   on disk was genuinely incomplete.
-2. `rm -rf .next && npx next build` → the two tests pass, suite **107/107**, twice.
-3. Deliberately deleting the topic route's client chunk reproduces
-   `journeyRequests: 0` exactly — the page server-renders, React never gets the
-   component, the effect never runs.
+A clean build, a fully signed-in student (login -> consent -> onboarding -> dashboard),
+and the page renders its `Loading…` branch and **never hydrates**. No JS errors, no
+failed assets, no chunk-load exception.
 
-**Why the topic page and nothing else.** Its first meaningful render *is* the effect:
-server-side `state` is null, so the SSR output is the `Loading…` branch, and everything
-real happens after hydration. A page whose client code never arrives therefore looks
-like it is loading forever rather than looking broken. Pages that render their content
-server-side degrade visibly; this one degrades silently.
+**What is established**
 
-**How the build got corrupt: rebuilding under a running server.** `next build` was run
-several times while `next start` was serving — the same hazard that produces 400s on
-`/_next/static/*`, one step worse: instead of visible 400s you get a page that renders
-and never wakes up.
+- It is *not* a missing chunk. `verify-build.mjs` passes on this build, and deliberately
+  deleting a chunk produces a *different* symptom (a visible "Application error" plus a
+  chunk-load exception).
+- It is not the API: health ok, ~19 ms warm.
+- `hydrated: false` is the key fact. Everything downstream — the effect, the fetch, and
+  any client-side timeout — depends on hydration that never happens.
 
-**The rule, therefore:** stop the server, build, start. If a build is ever suspect,
-**delete `.next` and rebuild** — a partial `.next` does not announce itself.
+**What is NOT established**
 
-*Honest limit:* deleting a chunk reproduces the zero-requests symptom but also throws a
-visible "Application error", whereas the original was silent with no JS errors at all.
-The exact sub-mechanism is unrecoverable because the corrupt build was deleted to fix
-it. What is established: the build was corrupt, and a clean rebuild fixed it.
+Why. And why the same route on the same build passes 107/107 inside the suite while
+failing in a standalone script that performs the same steps. That difference is the
+thread to pull: it is either a genuine hydration fragility or an artifact of how the
+standalone script drives the browser, and I could not separate the two.
+
+**A client-side timeout cannot fix this, and it was a mistake to reach for one first.**
+`useSlowLoad` (lib/use-slow-load.ts) is still worth having — it covers the case where
+hydration succeeds and the *fetch* stalls, which a dropped tunnel will cause often
+across 300 students — but it is powerless here, because a timer needs hydration too.
+**The guard for a page that never hydrates has to live somewhere that does not depend on
+hydration**: render something meaningful server-side, or put the fallback in the shell.
+That is the architectural fix and it is not done.
+
+**Reproducing it:** sign a student fully in, then hard-navigate to `/topics/<open-topic>`
+in a standalone Playwright script and assert on `[data-testid="step-counter"]`. The
+`journeyRequests` / `diag` capture in the happy path prints the two numbers that matter
+— zero requests with `hydrated: false` means the client bundle, not the API.
 
 ## Conventions
 

@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation"
 import Cookies from "js-cookie"
 import { topics as topicsApi, type JourneyTopic } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
+import { useSlowLoad } from "@/lib/use-slow-load"
 import TopicCheck from "@/components/topic-check"
 import TopicProbe from "@/components/topic-probe"
 
@@ -63,6 +64,8 @@ export default function TopicUnitPage() {
   const [darkMode, setDarkMode] = useState(false)
 
   const meta = useMemo(() => TOPICS.find((t) => t.id === topicId), [topicId])
+  // No page may hang forever. If the journey never arrives, say so and offer a way out.
+  const slowToLoad = useSlowLoad(!state && !error)
   const stepKey = `compgame:unit:${topicId}:step`
 
   // Steps in this student's arm order. A topic with no item bank yet simply has no
@@ -154,6 +157,36 @@ export default function TopicUnitPage() {
   }
 
   if (!state || !meta) {
+    // A dead end with nothing to click is the worst thing this page can do. After
+    // twelve seconds it becomes a visible, reportable, retryable failure instead.
+    if (slowToLoad) {
+      return (
+        <main className="shell min-h-screen">
+          <UnitHeader />
+          <div className="mx-auto w-full max-w-2xl px-5 py-16">
+            <div className="u-card p-8">
+              <p className="u-eyebrow">Couldn&apos;t load this topic</p>
+              <p className="u-stem mt-3">
+                It&apos;s taking longer than it should. That usually means the connection
+                dropped — your work is saved on the server, so nothing is lost.
+              </p>
+              <div className="flex gap-3 mt-7 flex-wrap">
+                <button onClick={() => window.location.reload()} className="u-btn u-btn-primary">
+                  Try again
+                </button>
+                <Link href="/dashboard">
+                  <button className="u-btn">Back to my topics</button>
+                </Link>
+              </div>
+              <p className="u-faint mt-5">
+                If it keeps happening, tell your course team — say which topic and roughly
+                when.
+              </p>
+            </div>
+          </div>
+        </main>
+      )
+    }
     return (
       <main className="shell min-h-screen flex items-center justify-center">
         <p className="u-muted">Loading…</p>

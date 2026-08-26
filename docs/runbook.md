@@ -232,7 +232,7 @@ read the sqlite file **on the box** — identified data never travels.
 | Everything locked, nobody can start | schedule dates wrong | `python schedule.py --validate` then `--preview` |
 | Server exits at boot with FileNotFoundError | `TOPIC_SCHEDULE_PATH` points at nothing | the schedule is loaded before the try/except that protects the sink, so a bad path takes the WHOLE server down, not just the tutor. Fix the path |
 | Pages load but are unstyled and nothing is clickable | assets 400 — rebuilt under a live server, or `output: standalone` came back | stop, rebuild, restart (§2) |
-| A page sits on "Loading…" forever, no errors anywhere | partial `.next` — the client chunk never arrives, so the page renders server-side and never hydrates | stop the server, **delete `.next`**, rebuild, start |
+| A page sits on "Loading…" forever, no errors anywhere | **OPEN — cause unknown.** The page renders server-side and never hydrates. A clean, verified build still reproduces it, so "rebuild" is not a reliable fix | run `npm run verify:build` to rule the build in or out, then see `frontend/e2e/README.md` |
 | `next start` logs `Cannot find module './vendor-chunks/...'` | same partial build | as above — this is the loud version of the row before it |
 | Export returns 503 | `EXPORT_TOKEN` unset | set it. The 503 is deliberate — it fails closed |
 | Grading batch reports everything ungradeable | `num_predict` too low → model returns an empty string | raise `GRADE_NUM_PREDICT`; 1536 is the tested floor-with-margin |

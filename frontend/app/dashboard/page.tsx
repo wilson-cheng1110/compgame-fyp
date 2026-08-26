@@ -11,6 +11,7 @@ import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
 import { topics as topicsApi, auth, type JourneyTopic } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
+import { useSlowLoad } from "@/lib/use-slow-load"
 import type { TopicId } from "@/lib/topic-definitions"
 
 const AVATAR_URLS: Record<number, string> = {
@@ -34,6 +35,8 @@ export default function DashboardPage() {
   // the student is allowed to open.
   const [journey, setJourney] = useState<Record<string, JourneyTopic>>({})
   const [journeyLoaded, setJourneyLoaded] = useState(false)
+  // No page may hang forever — see lib/use-slow-load.ts.
+  const slowToLoad = useSlowLoad(!user)
 
   useEffect(() => {
     let alive = true
@@ -151,6 +154,25 @@ export default function DashboardPage() {
   }
 
   if (!user) {
+    if (slowToLoad) {
+      return (
+        <main className="shell min-h-screen flex items-center justify-center px-5">
+          <div className="u-card p-8 max-w-md">
+            <p className="u-eyebrow">Couldn&apos;t load your topics</p>
+            <p className="u-stem mt-3">
+              It&apos;s taking longer than it should — usually a dropped connection.
+              Nothing of yours is lost.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="u-btn u-btn-primary mt-7"
+            >
+              Try again
+            </button>
+          </div>
+        </main>
+      )
+    }
     return (
       <main className="shell min-h-screen flex items-center justify-center">
         <p className="u-muted">Loading…</p>

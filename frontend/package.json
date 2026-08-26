@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:e2e": "node e2e/run.mjs"
+    "test:e2e": "node e2e/run.mjs",
+    "verify:build": "node verify-build.mjs",
+    "deploy": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next build && node verify-build.mjs && next start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
