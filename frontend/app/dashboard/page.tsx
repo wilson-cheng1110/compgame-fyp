@@ -26,7 +26,10 @@ export default function DashboardPage() {
   useForceScrollbar()
   const [user, setUser] = useState<any>(null)
   const [darkMode, setDarkMode] = useState(false)
-  const { badges, refreshBadges } = useBadges()
+  // `badges` is no longer read here: the rail counts completed topics from the
+  // journey. refreshBadges stays because the games still write the cookie store
+  // until stage 3 rewires them.
+  const { refreshBadges } = useBadges()
   const { progress, refreshProgress, getTopicProgress } = useProgress()
 
   // Server-assigned release state per topic (docs/revamp.md Parts 7, 10). This is
@@ -112,47 +115,6 @@ export default function DashboardPage() {
   }
 
   const handleSignOut = () => { Cookies.remove("user"); router.push("/") }
-
-  const handleExportData = () => {
-    if (!user?.sid) return
-    try {
-      const users = getUsers()
-      const userData = users[user.sid] ?? {}
-
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        sid: user.sid,
-        username: user.username,
-        avatarId: user.avatarId,
-        badges: userData.badges ?? [],
-        topicProgress: userData.topicProgress ?? {},
-        // Pre-test baseline (captured at signup — key DV control for the paper)
-        preTest: {
-          score: userData.preTestScore ?? null,
-          answers: userData.preTestAnswers ?? null,
-          completedAt: userData.preTestCompletedAt ?? null,
-        },
-        // Flip-learning metrics for paper
-        flipMetrics: Object.fromEntries(
-          TOPICS.map((t) => {
-            const tp = (userData.topicProgress ?? {})[t.id]
-            return [t.id, {
-              understandingCompleted: tp?.understandingCompleted ?? false,
-              assessmentCompleted: tp?.assessmentCompleted ?? false,
-              playedUnderstandingFirst: tp?.playedUnderstandingFirst ?? false,
-              assessmentScore: tp?.assessmentScore ?? null,
-            }]
-          })
-        ),
-      }
-
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url; link.download = `COMPGame_Progress_${user.sid}.json`
-      document.body.appendChild(link); link.click(); document.body.removeChild(link)
-    } catch (e) { console.error("Export failed", e) }
-  }
 
   if (!user) {
     if (slowToLoad) {

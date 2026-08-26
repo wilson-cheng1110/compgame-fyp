@@ -114,6 +114,41 @@ Rules that hold across every stage:
 - [ ] **the real class list** for `backend/enrolled_sids.txt`
 - [ ] a backup of `backend/.participant_secret` held off this machine
 
+## Red hat on stages 1-2 — run, not just named
+
+Three premises were named as load-bearing and all three were then tested.
+
+1. **"A badge means you finished the topic."** FALSE as built. Student `24E00273A`
+   has no `understanding_complete` and no `assessment_complete` in the sink -- they
+   never opened the activity -- and still earned the badge and counted 1 of 13,
+   because `complete` is `post_done`. Correct for the measurement, off-message for
+   the reward on a product whose whole thesis is play-then-check.
+   **Recommendation, for stage 3 when `game_done` lands:** keep the badge at the
+   post-check so nobody is stranded and the reward tracks the measurement, and let
+   the LEVEL carry what they actually did. No new gate. *(needs Wilson's yes)*
+
+2. **"The assessment games' badge writes are now unread."** TRUE. Four `addBadge`
+   call sites still write the cookie store and nothing displays it any more. Stage 3
+   rewires them. The grep also found dead code I had just left: `handleExportData`
+   (40 lines) lost its caller when the rail became a link to `/account`, and `badges`
+   was destructured unused. Both removed.
+
+3. **"The lock serialises a section opening the dashboard together."** TRUE, and now
+   measured instead of argued. 100 concurrent loads, sink seeded to a full term
+   (27,514 rows):
+
+   | | wall | p50 | p95 | max |
+   |---|---|---|---|---|
+   | old `fetch_all` + filter | 7,042 ms | 3,584 ms | 6,675 ms | 7,024 ms |
+   | new `fetch_for_participant` | 511 ms | 256 ms | 476 ms | 504 ms |
+   | same, end to end over HTTP | 560 ms | 247 ms | 466 ms | 491 ms |
+
+   The last student in a section of 100 waited seven seconds for a dashboard.
+
+**Still unratified:** the consent wording. The sentence I removed is not in the
+approved Stage-1 pack, so the app moved toward the approved language -- but the
+Stage-2 amendment does not exist, so that screen is governed by no approved document.
+
 ## Measured, then closed
 
 - ~~`journey()` scans the whole sink per dashboard load~~ — **measured and fixed.**
