@@ -84,8 +84,10 @@ Windows Update *will* restart this box mid-term. Register all three as services 
 
 ```powershell
 nssm install COMPGameOllama   "C:\path\to\ollama.exe" serve
-nssm install COMPGameAPI      "C:\path\to\python.exe" "-m uvicorn rag_api:app --host 0.0.0.0 --port 8080"
+nssm install COMPGameAPI      "C:\path\to\python.exe" "-m uvicorn rag_api:app --host 127.0.0.1 --port 8080"
 nssm set     COMPGameAPI      AppDirectory "C:\path\to\backend"
+nssm set     COMPGameAPI      AppStdout    "C:\path\to\logs\api.log"
+nssm set     COMPGameAPI      AppStderr    "C:\path\to\logs\api.log"
 nssm install COMPGameWeb      "C:\path\to\npm.cmd" "run start"
 nssm set     COMPGameWeb      AppDirectory "C:\path\to\frontend"
 nssm install COMPGameTunnel   "C:\path\to\cloudflared.exe" "tunnel run compgame"
@@ -116,6 +118,12 @@ The server now prints a loud banner at startup if it is bound to every interface
 `ALLOW_PUBLIC_BIND=1` only if you have deliberately decided to, and put a firewall rule
 in front of it if so.
 
+**The same applies to the frontend, and it is easier to get wrong: `next start`
+defaults to `0.0.0.0`.** On 2026-08-27 the API was closed while the Next server was
+still answering on this box's public address. `npm run start` and `npm run deploy`
+now pass `-H 127.0.0.1`; `npm run start:public` is there if a wide bind is ever
+genuinely wanted, so that it has to be chosen rather than inherited.
+
 ### Public URL
 
 A Cloudflare named tunnel (not a quick tunnel — those get a new hostname on every
@@ -136,11 +144,9 @@ and every API call fails CORS.
 ## 2b. Before you call a deploy done
 
 ```powershell
-python backend	ests
-un_all.py        # 250 assertions, server logic
+python backend/tests/run_all.py         # 253 assertions, server logic
 cd frontend; npx tsc --noEmit           # the real type check (see above)
-node e2e
-un.mjs                        # 92 assertions, a real browser
+node e2e/run.mjs                        # 113 assertions, a real browser
 ```
 
 The browser suite is the one that catches deployment-shaped breakage — a served build
@@ -156,16 +162,16 @@ internet, so there is no reason to be exposed while any of it is still red.
 
 | Gate | Command | Must show |
 |---|---|---|
-| Server logic | `python backend	estsun_all.py` | 253 assertions, 0 failures |
+| Server logic | `python backend/tests/run_all.py` | 253 assertions, 0 failures |
 | Types | `cd frontend; npx tsc --noEmit` | no output (`next build` is NOT a type check) |
-| Build is whole | `node frontenderify-build.mjs` | build is complete |
-| Real browser | `node frontend\e2eun.mjs` | 113 assertions, 0 failures |
+| Build is whole | `node frontend/verify-build.mjs` | build is complete |
+| Real browser | `node frontend/e2e/run.mjs` | 113 assertions, 0 failures |
 | Bound to loopback | start the API | **no** public-bind banner |
-| Fails closed | `curl /api/research/export`, `curl -X POST /api/grade` | 503 both |
+| Fails closed | `curl /api/research/export?format=csv`, and POST /api/grade **with a valid body** | 503 both. A bodiless POST returns 422 from validation and never reaches the token check — it tests nothing |
 | Cookies | `COOKIE_SECURE=1` in the environment | — |
 | Class list | `/api/health` | `enrolment.enrolled` = your real cohort size |
 | Corpus | `python backend\check_corpus_coverage.py` | exit 0 — **currently exits 1** on `norman` and `hicks-law` |
-| Backups | `python backendackup_sink.py --verify` | integrity_check ok |
+| Backups | `python backend/backup_sink.py --verify` | integrity_check ok |
 | Schedule | `python backend\schedule.py --validate` | no problems, real 2026/27 dates |
 
 The last three are the ones still open. Do not open the tunnel to 300 students with a

@@ -16,9 +16,14 @@
 // the failure mode that actually occurred, and the one that is silent at runtime.
 
 import { readFile, access } from "node:fs/promises"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 
-const NEXT = ".next"
+// Resolved from THIS FILE, not the cwd: the go-live gate invokes it as
+// `node frontend/verify-build.mjs` from the repo root, and a cwd-relative
+// ".next" made that exit 1 on a perfectly good build. A gate that goes red
+// for the wrong reason teaches people to ignore it.
+const NEXT = join(dirname(fileURLToPath(import.meta.url)), ".next")
 const problems = []
 let checked = 0
 

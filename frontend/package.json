@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
+    "start:public": "next start -H 0.0.0.0",
     "lint": "next lint",
     "test:e2e": "node e2e/run.mjs",
     "verify:build": "node verify-build.mjs",
-    "deploy": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next build && node verify-build.mjs && next start"
+    "deploy": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next build && node verify-build.mjs && next start -H 127.0.0.1"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
