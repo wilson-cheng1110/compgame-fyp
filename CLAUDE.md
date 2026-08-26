@@ -52,7 +52,7 @@ FYP_Submission/
     *.pdf                # COMP3423 lecture slides (6 weeks)
     requirements.txt
   frontend/              # Next.js 15 app
-    e2e/                 # 104 browser assertions: node e2e/run.mjs (see e2e/README.md).
+    e2e/                 # 113 browser assertions: node e2e/run.mjs (see e2e/README.md).
                          #   Catches what backend tests structurally cannot — the login
                          #   loop, the assets-400 deploy bug, the stale-session dashboard.
                          #   BUILD THEN START; never rebuild under a running server.
@@ -65,6 +65,11 @@ FYP_Submission/
       dashboard/         # Game launcher (HCI + OS categories)
       games/
         [gameId]/        # Dynamic route — wrappers per game
+      topics/[topicId]/  # The topic unit. page.tsx is a SERVER COMPONENT and must stay
+                         #   one: it renders the unit's content (and the locked panel)
+                         #   before any JS runs. When it was a client component, any
+                         #   hydration failure showed "Loading…" forever, silently.
+                         #   unit-client.tsx holds the interactive half.
         fitts-law-understanding/
         fitts-law-assessment/
         gestalt-understanding/

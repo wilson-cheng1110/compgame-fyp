@@ -172,6 +172,13 @@ failing in a standalone script that performs the same steps. That difference is 
 thread to pull: it is either a genuine hydration fragility or an artifact of how the
 standalone script drives the browser, and I could not separate the two.
 
+**FIXED ARCHITECTURALLY 2026-08-27, without knowing the root cause.** The topic unit is
+now a **server component** (`page.tsx` fetches; `unit-client.tsx` interacts). Its
+content is in the HTML before any JavaScript runs, so hydration failing is now a
+degraded page rather than a dead one — verified with JS disabled, and held by the test
+"the topic unit renders WITHOUT JavaScript". The question below is still open, but it no
+longer costs a student their session.
+
 **A client-side timeout cannot fix this, and it was a mistake to reach for one first.**
 `useSlowLoad` (lib/use-slow-load.ts) is still worth having — it covers the case where
 hydration succeeds and the *fetch* stalls, which a dropped tunnel will cause often

@@ -9,7 +9,7 @@
 // topic — so the test reads the arm off the API and asserts that the ACTIVITY step
 // really did fall before the second check under FLIP, and after it under CONTROL.
 
-import { test, T, go, ready, signIn, giveConsent, onboard, apiFromPage, freshSid } from "./lib.mjs"
+import { test, T, go, ready, signIn, giveConsent, onboard, apiFromPage, freshSid, APP } from "./lib.mjs"
 
 test("landing page invites a student in", async (page, t) => {
   await go(page, "/")
@@ -228,4 +228,48 @@ test("a full topic unit, in the arm the server assigned", async (page, t) => {
     pre_done: after?.pre_done, post_done: after?.post_done,
   })
   t.check("the unit is marked complete", after?.complete === true, { complete: after?.complete })
+})
+
+
+test("the topic unit renders WITHOUT JavaScript", async (page, t) => {
+  // The regression test for the whole "Loading…" saga. The unit used to be a client
+  // component that fetched its own state, so its first meaningful render depended on
+  // hydration — and when hydration did not happen the student got "Loading…" forever,
+  // silently, with a 200 in the server log. It is a server component now.
+  //
+  // Disabling JavaScript is the only honest way to assert that: if the content is
+  // there with JS off, hydration cannot be a single point of failure again.
+  const sid = freshSid()
+  await signIn(page, sid)
+  await giveConsent(page)
+  await onboard(page)
+
+  const journey = await apiFromPage(page, "/api/topics")
+  const open = journey.body?.topics?.find((x) => x.state === "open")
+  const locked = journey.body?.topics?.find((x) => x.state === "locked")
+  t.require("an open and a locked topic exist", !!open && !!locked)
+
+  const cookies = await page.context().cookies()
+  const browser = page.context().browser()
+  const noJs = await browser.newContext({ javaScriptEnabled: false })
+  await noJs.addCookies(cookies)
+  const q = await noJs.newPage()
+
+  try {
+    await q.goto(`${APP}/topics/${open.topic_id}`, { waitUntil: "domcontentloaded" })
+    const openText = (await q.locator("body").innerText()).replace(/\s+/g, " ")
+    t.check("the OPEN unit has real content with JS off", /Step \d+ of \d+/.test(openText), openText.slice(0, 120))
+    t.check("it is not stuck on Loading", !/^\s*Loading/.test(openText), openText.slice(0, 60))
+
+    await q.goto(`${APP}/topics/${locked.topic_id}`, { waitUntil: "domcontentloaded" })
+    const lockedText = (await q.locator("body").innerText()).replace(/\s+/g, " ")
+    t.check("the LOCKED panel renders with JS off", /not open yet|opens on/i.test(lockedText), lockedText.slice(0, 120))
+    t.check(
+      "and it still refuses to show the unit",
+      !/Step \d+ of \d+/.test(lockedText),
+      lockedText.slice(0, 80),
+    )
+  } finally {
+    await noJs.close()
+  }
 })
