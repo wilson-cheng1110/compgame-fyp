@@ -64,9 +64,8 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
     # so the client can say WHEN a topic was finished without a second query. The
     # `in done` membership tests below are unchanged by this.
     done = {}
-    for r in research_store.fetch_all():
-        if r.get("participant_id") == user["sid"]:
-            done[(r.get("topic_id"), r.get("event_type"))] = r.get("server_ts")
+    for r in research_store.fetch_for_participant(user["sid"]):
+        done[(r.get("topic_id"), r.get("event_type"))] = r.get("server_ts")
 
     for st in states:
         st["has_bank"] = checks.has_bank(st["topic_id"])

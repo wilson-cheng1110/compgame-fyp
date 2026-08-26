@@ -114,8 +114,11 @@ Rules that hold across every stage:
 - [ ] **the real class list** for `backend/enrolled_sids.txt`
 - [ ] a backup of `backend/.participant_secret` held off this machine
 
-## Watch, not scheduled
+## Measured, then closed
 
-- `journey()` builds its event set with `research_store.fetch_all()` and filters in
-  Python — a full scan per dashboard load. Stages 2 and 3 lean on it harder. Not
-  measured at cohort scale.
+- ~~`journey()` scans the whole sink per dashboard load~~ — **measured and fixed.**
+  Seeded a full term (300 students x 13 topics x 7 events = 27,483 rows):
+  `fetch_all()` took **64 ms** to find the ~91 rows belonging to one student, and it
+  holds the module lock, so a section opening the dashboard together would serialise
+  behind it. Now `fetch_for_participant()` off the existing `idx_events_participant`:
+  **4.5 ms**.
