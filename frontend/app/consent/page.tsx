@@ -132,8 +132,6 @@ export default function ConsentPage() {
             <p className="u-stem">
               You can withdraw from your account page whenever you like. Your account is closed
               immediately and you can ask the course team to erase everything recorded about you.
-              You can still use COMPGame to learn without taking part in the study — just tell the
-              course team.
             </p>
 
             {error && (
@@ -158,7 +156,16 @@ export default function ConsentPage() {
               </span>
             </label>
 
-            <div className="flex flex-col sm:flex-row gap-4 mt-6">
+            {/* Said BEFORE the button, not discovered after it. Declining used to sign the
+                student out to the landing page with no explanation, and signing in again
+                returned them straight here -- which reads as a bug rather than a choice. */}
+            <p className="u-faint mt-6">
+              COMPGame is part of the study — there is no separate version without it. Declining
+              is completely fine and does not affect your grade, but it does mean not using
+              COMPGame. If you change your mind, sign in again and you will be asked once more.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 mt-5">
               <button
                 onClick={handleAgree}
                 disabled={!agreed || busy}

@@ -308,3 +308,80 @@ test("the baseline pre-test is a gate, sat once, and reveals nothing", async (pa
   const me = await apiFromPage(page, "/api/auth/me")
   t.check("the session stops asking for it", me.body?.needsBaseline === false, me.body)
 })
+
+test("a student can actually withdraw, and withdrawal holds", async (page, t) => {
+  // The consent form has always said "you can withdraw from your account page".
+  // There was no account page and auth.withdraw() had zero call sites, so the one
+  // thing a participant is unconditionally entitled to do was unreachable. This
+  // test exists so that cannot quietly become true again.
+  const sid = freshSid()
+  await signIn(page, sid)
+  await giveConsent(page)
+  await onboard(page)
+
+  await go(page, "/dashboard")
+  await ready(page)
+  t.check(
+    "the dashboard offers a route to the account page",
+    (await page.locator('[data-testid="account-link"]').count()) > 0,
+  )
+
+  await go(page, "/account")
+  await ready(page)
+  t.require(
+    "the account page has a withdraw control",
+    (await page.locator('[data-testid="withdraw-start"]').count()) > 0,
+    page.url(),
+  )
+
+  await page.locator('[data-testid="withdraw-start"]').click()
+  await page.waitForTimeout(400)
+  t.check(
+    "withdrawing asks for confirmation rather than firing on one click",
+    (await page.locator('[data-testid="withdraw-confirm"]').count()) > 0,
+  )
+
+  await page.locator('[data-testid="withdraw-confirm"]').click()
+  await page.waitForTimeout(2000)
+
+  const me = await apiFromPage(page, "/api/auth/me")
+  t.check("the server session is gone", me.status === 401, me)
+
+  const back = await apiFromPage(page, "/api/auth/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sid }),
+  })
+  t.check("a withdrawn SID cannot sign back in", back.status === 403, back)
+
+  await go(page, "/dashboard")
+  await page.waitForTimeout(1500)
+  t.check("and gated pages are closed to them", page.url().includes("/login"), page.url())
+})
+
+test("the consent form describes what its own buttons do", async (page, t) => {
+  // It used to promise study-free use of COMPGame, then sign a declining student
+  // out to the landing page; signing in again returned them straight to consent.
+  const sid = freshSid()
+  await signIn(page, sid)
+  await ready(page)
+  const html = await page.evaluate(() => document.body.innerText)
+
+  t.check(
+    "it no longer offers a study-free mode that does not exist",
+    !/still use COMPGame to learn without taking part/i.test(html),
+  )
+  t.check(
+    "it says plainly what declining means",
+    /no separate version without it/i.test(html),
+    html.slice(0, 200),
+  )
+
+  const notice = await page.locator("text=there is no separate version").boundingBox()
+  const decline = await page.getByRole("button", { name: /no thanks/i }).boundingBox()
+  t.check(
+    "and says it above the decline button, not after it",
+    notice && decline && notice.y < decline.y,
+    { notice: notice?.y, decline: decline?.y },
+  )
+})

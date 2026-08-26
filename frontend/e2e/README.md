@@ -1,6 +1,6 @@
 # Browser tests
 
-`node e2e/run.mjs` — 104 assertions across 14 tests, in a real Chromium.
+`node e2e/run.mjs` — 124 assertions across 16 tests, in a real Chromium.
 
 ## Why these exist when 250 backend assertions already pass
 

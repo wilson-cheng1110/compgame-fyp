@@ -146,7 +146,7 @@ and every API call fails CORS.
 ```powershell
 python backend/tests/run_all.py         # 253 assertions, server logic
 cd frontend; npx tsc --noEmit           # the real type check (see above)
-node e2e/run.mjs                        # 113 assertions, a real browser
+node e2e/run.mjs                        # 124 assertions, a real browser
 ```
 
 The browser suite is the one that catches deployment-shaped breakage — a served build
@@ -165,7 +165,7 @@ internet, so there is no reason to be exposed while any of it is still red.
 | Server logic | `python backend/tests/run_all.py` | 253 assertions, 0 failures |
 | Types | `cd frontend; npx tsc --noEmit` | no output (`next build` is NOT a type check) |
 | Build is whole | `node frontend/verify-build.mjs` | build is complete |
-| Real browser | `node frontend/e2e/run.mjs` | 113 assertions, 0 failures |
+| Real browser | `node frontend/e2e/run.mjs` | 124 assertions, 0 failures |
 | Bound to loopback | start the API | **no** public-bind banner |
 | Fails closed | `curl /api/research/export?format=csv`, and POST /api/grade **with a valid body** | 503 both. A bodiless POST returns 422 from validation and never reaches the token check — it tests nothing |
 | Cookies | `COOKIE_SECURE=1` in the environment | — |

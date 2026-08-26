@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { topics, type CheckItem, type CheckResult } from "@/lib/api"
 import { ItemTracker, watchVisibility } from "@/lib/telemetry"
+import { inlineMarkdown } from "@/lib/inline-markdown"
 
 // The pre-check and the post-check are the SAME component with one flag, because
 // the difference between them is exactly one thing: whether answers come back.
@@ -158,7 +159,7 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
             {/* Serif, measure-limited. This is the sentence the whole study turns
                 on; it gets the typography of something meant to be read once and
                 carefully, rather than scanned. */}
-            <p className="u-stem mb-5">{item.stem}</p>
+            <p className="u-stem mb-5">{inlineMarkdown(item.stem)}</p>
 
             <div className="space-y-2">
               {item.options.map((opt) => {

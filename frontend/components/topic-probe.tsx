@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { topics } from "@/lib/api"
 import { ItemTracker, watchVisibility } from "@/lib/telemetry"
+import { inlineMarkdown } from "@/lib/inline-markdown"
+import ProbeFigure from "@/components/probe-figure"
 
 // The short-answer probe. docs/revamp.md Part 8.1.
 //
@@ -141,7 +143,8 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
         <p className="u-eyebrow mb-2">
           In your own words
         </p>
-        <p className="u-stem">{probe}</p>
+        <p className="u-stem">{inlineMarkdown(probe)}</p>
+        <ProbeFigure topicId={topicId} />
       </div>
 
       <textarea

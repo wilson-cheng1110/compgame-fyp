@@ -395,9 +395,11 @@ export default function DashboardPage() {
                 </Link>
               </div>
 
-              <button onClick={handleExportData} className="u-btn u-btn-block">
-                Export my data
-              </button>
+              {/* One home for data and consent actions -- the consent form points at
+                  "your account page", so it has to be a place, not a scattered button. */}
+              <Link href="/account" className="u-btn u-btn-block" data-testid="account-link">
+                Account &amp; my data
+              </Link>
 
               <p className="u-faint">
                 Stuck on anything? The tutor is the chat button, bottom right.
