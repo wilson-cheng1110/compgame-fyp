@@ -82,5 +82,44 @@ s = c.get("/api/research/summary")
 check("summary 200", s.status_code == 200)
 check("summary has no identifiers", "24000001A" not in json.dumps(s.json()), s.json())
 
+print("\n-- consent withdrawal can actually be honoured --")
+# The information sheet promises a participant may have their responses discarded,
+# and /api/auth/withdraw replies "Ask the researcher to erase your recorded data".
+# Until forget_participant existed there were ZERO delete statements in
+# research_store, so that promise had no implementation behind it at all.
+research_store.record_event({"participant_id": "24000002B", "event_type": "topic_pretest",
+                             "topic_id": "gestalt", "score": 3})
+research_store.record_event({"participant_id": "24000002B", "event_type": "topic_posttest",
+                             "topic_id": "gestalt", "score": 5})
+before_target = research_store.count_for("24000002B")
+before_other = research_store.count_for("24000001A")
+check("the participant has rows to erase", before_target >= 2, before_target)
+
+removed = research_store.forget_participant("24000002b")   # lower case on purpose
+check("forget removes their rows", removed == before_target,
+      {"removed": removed, "had": before_target})
+check("and they are gone", research_store.count_for("24000002B") == 0)
+check("while everyone else is untouched",
+      research_store.count_for("24000001A") == before_other, before_other)
+check("forgetting twice is harmless", research_store.forget_participant("24000002B") == 0)
+
+try:
+    research_store.forget_participant("   ")
+    check("an empty id is refused", False, "no exception raised")
+except ValueError:
+    check("an empty id is refused", True)
+
+# The tombstone must outlive the erasure, or a withdrawn SID could sign up again
+# and reappear in the data. Note withdraw() tombstones the users row, so the
+# account has to exist first -- on an unknown SID it reports False and does
+# nothing, which is correct but easy to write a vacuous test against.
+check("withdrawing an account that does not exist reports so",
+      auth_store.withdraw("24000009Z") is False)
+auth_store.start_session("24000002B")
+check("withdraw tombstones a real account", auth_store.withdraw("24000002B") is True)
+research_store.forget_participant("24000002B")
+check("the withdrawn SID still cannot start a session",
+      auth_store.start_session("24000002B") is None)
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

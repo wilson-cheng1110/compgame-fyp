@@ -144,7 +144,7 @@ and every API call fails CORS.
 ## 2b. Before you call a deploy done
 
 ```powershell
-python backend/tests/run_all.py         # 253 assertions, server logic
+python backend/tests/run_all.py         # 262 assertions, server logic
 cd frontend; npx tsc --noEmit           # the real type check (see above)
 node e2e/run.mjs                        # 124 assertions, a real browser
 ```
@@ -162,7 +162,7 @@ internet, so there is no reason to be exposed while any of it is still red.
 
 | Gate | Command | Must show |
 |---|---|---|
-| Server logic | `python backend/tests/run_all.py` | 253 assertions, 0 failures |
+| Server logic | `python backend/tests/run_all.py` | 262 assertions, 0 failures |
 | Types | `cd frontend; npx tsc --noEmit` | no output (`next build` is NOT a type check) |
 | Build is whole | `node frontend/verify-build.mjs` | build is complete |
 | Real browser | `node frontend/e2e/run.mjs` | 124 assertions, 0 failures |
@@ -218,6 +218,29 @@ you finally need it. Keeps 48 snapshots (2 days hourly).
 
 The **HMAC secret is deliberately not included**. Back it up by hand, somewhere else —
 stored next to the data it pseudonymises, it protects nothing.
+
+### When a student asks to be erased
+
+Withdrawal and erasure are two different things and the split is deliberate.
+`/account` closes the account itself: it tombstones the SID so they cannot sign back
+in, and kills every session. It does **not** touch the research sink, because a
+destructive sweep of an append-only table is not something a web request should be
+able to trigger.
+
+The information sheet promises they can ask for their responses to be discarded, so
+that is an operator command, run by you:
+
+```powershell
+python backend/research_store.py --forget 24E00123A          # reports, changes nothing
+python backend/research_store.py --forget 24E00123A --yes    # actually erases
+```
+
+It is dry-run by default and prints the row count first. The account tombstone is left
+alone on purpose — it is what stops the SID reappearing in the data, and it is the only
+remaining record that the withdrawal happened once the events are gone.
+
+**Back up before erasing.** `backup_sink.py` snapshots are hourly, so an erasure that
+should not have happened is recoverable only from the last snapshot.
 
 ---
 

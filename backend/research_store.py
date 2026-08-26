@@ -225,3 +225,88 @@ def summary() -> dict:
             return {"total_events": total, "participants": participants}
         finally:
             conn.close()
+
+def count_for(participant_id: str) -> int:
+    """How many rows this participant has. Lets an operator see what a forget
+    would remove BEFORE it removes it."""
+    sid = participant_id.strip().upper()
+    with _lock:
+        conn = _connect()
+        try:
+            return conn.execute(
+                "SELECT COUNT(*) AS c FROM events WHERE UPPER(participant_id) = ?", (sid,)
+            ).fetchone()["c"]
+        finally:
+            conn.close()
+
+
+def forget_participant(participant_id: str) -> int:
+    """Erase every event belonging to one participant. Returns rows removed.
+
+    WHY A FUNCTION AND NOT AN ENDPOINT. auth_api.withdraw is deliberate that "a
+    destructive sweep of the append-only sink is not something a web request should
+    be able to trigger", and that is right -- it stays an operator action. But the
+    promise on the other end of it was never implemented: the information sheet
+    (docs/study-pack/01_information-sheet-and-consent.md) tells a participant they
+    may ask for their responses to be discarded, withdraw() replies "Ask the
+    researcher to erase your recorded data", and nothing in this module erased
+    anything. There were zero DELETE statements here. This is that code.
+
+    The account tombstone in auth_store is NOT touched, and must not be: it is what
+    stops a withdrawn SID signing up again and reappearing in the data, and it is
+    the record that the withdrawal happened -- which erasing the events destroys.
+    """
+    sid = participant_id.strip().upper()
+    if not sid:
+        raise ValueError("refusing to forget an empty participant id")
+    with _lock:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                "DELETE FROM events WHERE UPPER(participant_id) = ?", (sid,))
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
+
+
+def _main(argv=None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="Research sink operator tools. Erasure is deliberately offline: "
+                    "no web request can trigger it.")
+    ap.add_argument("--forget", metavar="SID",
+                    help="erase every event for one participant (consent withdrawal)")
+    ap.add_argument("--yes", action="store_true",
+                    help="actually do it; without this the command only reports")
+    ap.add_argument("--summary", action="store_true", help="row and participant counts")
+    args = ap.parse_args(argv)
+
+    if args.summary:
+        s = summary()
+        print("[sink] %d events from %d participant(s)" % (s["total_events"], s["participants"]))
+        return 0
+
+    if args.forget:
+        sid = args.forget.strip().upper()
+        n = count_for(sid)
+        if not n:
+            print("[sink] %s: nothing recorded -- nothing to erase" % sid)
+            return 0
+        if not args.yes:
+            print("[sink] %s: %d event(s) would be erased. This cannot be undone." % (sid, n))
+            print("[sink] re-run with --yes to do it.")
+            return 0
+        removed = forget_participant(sid)
+        print("[sink] %s: erased %d event(s)." % (sid, removed))
+        print("[sink] the account tombstone in auth_store is untouched, so the SID "
+              "still cannot sign back in.")
+        return 0
+
+    ap.print_help()
+    return 1
+
+
+if __name__ == "__main__":
+    import sys as _sys
+    _sys.exit(_main())
