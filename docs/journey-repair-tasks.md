@@ -124,10 +124,25 @@ Rules that hold across every stage:
 
 ## Parallel — blocked on Wilson, gates launch regardless
 
-- [ ] **week 1 calendar date.** The timetable settles everything else: Tue/Wed/Thu,
-      13 weeks, ~301 students, groups 181+1011 → Tue, 1012 → Wed, 171+1013 → Thu.
-      `topic_schedule.json` needs the one date, and checking against the holiday
-      calendar — on placeholder dates 1 Oct lands on session 5's Thursday.
+- [x] **week 1 calendar date — resolved.** From the published academic calendar
+      (AC.pdf, updated 2026-07-29): Semester One teaching commences **Mon 31 Aug 2026**,
+      13 teaching weeks, ends **Sat 28 Nov 2026**. Week 1's Tue/Wed/Thu are 1/2/3 Sep,
+      which is exactly what `topic_schedule.json` already held — the dates were never
+      wrong, only unverified. Recorded in the file with its provenance.
+- [ ] **ONE DECISION: Thursday 1 Oct 2026 is National Day**, and it is section C's
+      session 5 — visual-perception, Weber's Law, Gestalt. `--validate` now fails on it
+      rather than calling the config sane. Make it up, re-anchor the window, or shift
+      section C's later sessions. *(Wilson / the department)*
+- [x] **release order follows the lecture decks — verified against the slide text.**
+      Topics are ordered by session and sessions map to decks two at a time (deck 01 =
+      sessions 1–2, and so on). Searching each topic's lecture terms across the six
+      decks puts **10 of 13** strongest in the deck its session implies. Three do not:
+      `norman` scores **zero in every deck** (which is why the corpus gate reports zero
+      coverage for it), `stroop` is strongest in deck 01 while assigned to deck 02, and
+      `memory` is 4-vs-3 between decks 01 and 02, which is noise. The config already
+      flags `stroop` as `session_provisional`; `norman` is not flagged and should be.
+      *Caveat: these are the 2023 decks. The 2026/27 ones are still pending, and the
+      mapping needs re-running against them.* *(Wilson)*
 - [ ] **corpus coverage** — zero on `norman` and `hicks-law`; `webers-law` thin at 3 hits
 - [ ] **the real class list** for `backend/enrolled_sids.txt`
 - [ ] a backup of `backend/.participant_secret` held off this machine

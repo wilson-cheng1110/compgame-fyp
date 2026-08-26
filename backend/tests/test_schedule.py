@@ -90,5 +90,40 @@ probs = S.validate()
 check("missing session date detected", any("no date entry" in p for p in probs), probs[:2])
 shutil.rmtree(tmp, ignore_errors=True)
 
+print("\n-- a lecture date on a public holiday is a config problem, not a detail --")
+# validate() reported the real config "sane" while section C's session 5 sat on
+# Thursday 1 Oct 2026, National Day. The comment about "holiday displacement" was
+# already in validate(); nothing checked for it.
+import copy
+# the previous block left CONFIG_PATH on a temp file it then deleted
+S.CONFIG_PATH = os.path.join(BE, "topic_schedule.json")
+tmp2 = tempfile.mkdtemp()
+cfg2 = copy.deepcopy(S._load())
+first = sorted(cfg2["sessions"], key=int)[0]
+victim_section = sorted(cfg2["sessions"][first])[0]
+victim_date = cfg2["sessions"][first][victim_section]
+cfg2["no_class_dates"] = {victim_date: "General holiday (test)"}
+path2 = os.path.join(tmp2, "sched.json")
+with open(path2, "w", encoding="utf-8") as fh:
+    json.dump(cfg2, fh)
+os.environ["TOPIC_SCHEDULE_PATH"] = path2
+S.CONFIG_PATH = path2
+S._load.cache_clear() if hasattr(S._load, "cache_clear") else None
+probs2 = S.validate()
+check("a session on a no-class date is reported",
+      any("not a teaching day" in p for p in probs2), probs2[:3])
+check("and it names the section and the date",
+      any(victim_date in p and victim_section in p for p in probs2), probs2[:3])
+
+# and the negative control: with no holidays declared, that check stays silent
+cfg2.pop("no_class_dates")
+with open(path2, "w", encoding="utf-8") as fh:
+    json.dump(cfg2, fh)
+S._load.cache_clear() if hasattr(S._load, "cache_clear") else None
+probs3 = S.validate()
+check("no false positive when nothing is declared",
+      not any("not a teaching day" in p for p in probs3), probs3[:3])
+shutil.rmtree(tmp2, ignore_errors=True)
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

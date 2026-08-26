@@ -1,58 +1,189 @@
 {
   "_comment": [
     "Release windows + topic order for the COMP3423 rollout. See docs/revamp.md Part 10.",
-    "DATES BELOW ARE PLACEHOLDERS -- the real 2026/27 timetable is not yet available.",
+    "DATES VERIFIED 2026-08-27 against the university academic calendar (the published",
+    "AC.pdf, itself updated 2026-07-29): Semester One teaching commences Mon 31 Aug 2026,",
+    "13 teaching weeks, teaching ends Sat 28 Nov 2026. Week 1's Tue/Wed/Thu are therefore",
+    "1/2/3 Sep 2026, which is what session 1 below already said -- the dates were right,",
+    "they had simply never been checked against the source.",
+    "Section day comes from the subject-group timetable: groups 181+1011 are Tuesday,",
+    "1012 is Wednesday, 171+1013 are Thursday.",
     "Holiday displacements are edited HERE and nowhere else: every window is derived",
     "from a section's own session date, so moving one date moves that section's window",
     "and nothing else. Run `python schedule.py --validate` after any edit."
   ],
-
   "cohort": "COMP3423-2627S1",
   "timezone_offset": "+08:00",
   "session_hour": 9,
-
   "sections": {
-    "A": { "day": "Tue", "size": 100 },
-    "B": { "day": "Wed", "size": 100 },
-    "C": { "day": "Thu", "size": 100 }
+    "A": {
+      "day": "Tue",
+      "size": 100
+    },
+    "B": {
+      "day": "Wed",
+      "size": 100
+    },
+    "C": {
+      "day": "Thu",
+      "size": 100
+    }
   },
-
   "window": {
     "opens_days_before": 7,
     "closes_hours_before": 48
   },
-
   "topics": [
-    { "id": "norman",            "session": 2,  "mc_bank": false },
-    { "id": "memory",            "session": 3,  "mc_bank": true  },
-    { "id": "problem-solving",   "session": 3,  "mc_bank": true  },
-    { "id": "stroop",            "session": 3,  "mc_bank": false, "session_provisional": true },
-    { "id": "hicks-law",         "session": 4,  "mc_bank": false, "session_provisional": true },
-    { "id": "fitts-law",         "session": 4,  "mc_bank": false },
-    { "id": "visual-perception", "session": 5,  "mc_bank": false },
-    { "id": "webers-law",        "session": 5,  "mc_bank": true,
-      "lecture_terms": ["just noticeable difference", "JND", "brightness"] },
-    { "id": "gestalt",           "session": 5,  "mc_bank": true,
-      "lecture_terms": ["pattern recognition", "similarity", "proximity", "surroundedness"] },
-    { "id": "mental-model",      "session": 6,  "mc_bank": false },
-    { "id": "language",          "session": 8,  "mc_bank": false },
-    { "id": "ergonomics",        "session": 9,  "mc_bank": false },
-    { "id": "experiment-design", "session": 11, "mc_bank": false }
+    {
+      "id": "norman",
+      "session": 2,
+      "mc_bank": false
+    },
+    {
+      "id": "memory",
+      "session": 3,
+      "mc_bank": true
+    },
+    {
+      "id": "problem-solving",
+      "session": 3,
+      "mc_bank": true
+    },
+    {
+      "id": "stroop",
+      "session": 3,
+      "mc_bank": false,
+      "session_provisional": true
+    },
+    {
+      "id": "hicks-law",
+      "session": 4,
+      "mc_bank": false,
+      "session_provisional": true
+    },
+    {
+      "id": "fitts-law",
+      "session": 4,
+      "mc_bank": false
+    },
+    {
+      "id": "visual-perception",
+      "session": 5,
+      "mc_bank": false
+    },
+    {
+      "id": "webers-law",
+      "session": 5,
+      "mc_bank": true,
+      "lecture_terms": [
+        "just noticeable difference",
+        "JND",
+        "brightness"
+      ]
+    },
+    {
+      "id": "gestalt",
+      "session": 5,
+      "mc_bank": true,
+      "lecture_terms": [
+        "pattern recognition",
+        "similarity",
+        "proximity",
+        "surroundedness"
+      ]
+    },
+    {
+      "id": "mental-model",
+      "session": 6,
+      "mc_bank": false
+    },
+    {
+      "id": "language",
+      "session": 8,
+      "mc_bank": false
+    },
+    {
+      "id": "ergonomics",
+      "session": 9,
+      "mc_bank": false
+    },
+    {
+      "id": "experiment-design",
+      "session": 11,
+      "mc_bank": false
+    }
   ],
-
+  "no_class_dates": {
+    "2026-09-26": "General holiday (day following Mid-Autumn Festival) -- Saturday",
+    "2026-10-01": "General holiday (National Day) -- THURSDAY, collides with section C",
+    "2026-10-10": "Undergraduate Info Day, all classes suspended -- Saturday",
+    "2026-10-19": "General holiday (day following Chung Yeung Festival) -- Monday"
+  },
   "sessions": {
-    "1":  { "A": "2026-09-01", "B": "2026-09-02", "C": "2026-09-03" },
-    "2":  { "A": "2026-09-08", "B": "2026-09-09", "C": "2026-09-10" },
-    "3":  { "A": "2026-09-15", "B": "2026-09-16", "C": "2026-09-17" },
-    "4":  { "A": "2026-09-22", "B": "2026-09-23", "C": "2026-09-24" },
-    "5":  { "A": "2026-09-29", "B": "2026-09-30", "C": "2026-10-01" },
-    "6":  { "A": "2026-10-06", "B": "2026-10-07", "C": "2026-10-08" },
-    "7":  { "A": "2026-10-13", "B": "2026-10-14", "C": "2026-10-15" },
-    "8":  { "A": "2026-10-20", "B": "2026-10-21", "C": "2026-10-22" },
-    "9":  { "A": "2026-10-27", "B": "2026-10-28", "C": "2026-10-29" },
-    "10": { "A": "2026-11-03", "B": "2026-11-04", "C": "2026-11-05" },
-    "11": { "A": "2026-11-10", "B": "2026-11-11", "C": "2026-11-12" },
-    "12": { "A": "2026-11-17", "B": "2026-11-18", "C": "2026-11-19" },
-    "13": { "A": "2026-11-24", "B": "2026-11-25", "C": "2026-11-26" }
+    "1": {
+      "A": "2026-09-01",
+      "B": "2026-09-02",
+      "C": "2026-09-03"
+    },
+    "2": {
+      "A": "2026-09-08",
+      "B": "2026-09-09",
+      "C": "2026-09-10"
+    },
+    "3": {
+      "A": "2026-09-15",
+      "B": "2026-09-16",
+      "C": "2026-09-17"
+    },
+    "4": {
+      "A": "2026-09-22",
+      "B": "2026-09-23",
+      "C": "2026-09-24"
+    },
+    "5": {
+      "A": "2026-09-29",
+      "B": "2026-09-30",
+      "C": "2026-10-01"
+    },
+    "6": {
+      "A": "2026-10-06",
+      "B": "2026-10-07",
+      "C": "2026-10-08"
+    },
+    "7": {
+      "A": "2026-10-13",
+      "B": "2026-10-14",
+      "C": "2026-10-15"
+    },
+    "8": {
+      "A": "2026-10-20",
+      "B": "2026-10-21",
+      "C": "2026-10-22"
+    },
+    "9": {
+      "A": "2026-10-27",
+      "B": "2026-10-28",
+      "C": "2026-10-29"
+    },
+    "10": {
+      "A": "2026-11-03",
+      "B": "2026-11-04",
+      "C": "2026-11-05"
+    },
+    "11": {
+      "A": "2026-11-10",
+      "B": "2026-11-11",
+      "C": "2026-11-12"
+    },
+    "12": {
+      "A": "2026-11-17",
+      "B": "2026-11-18",
+      "C": "2026-11-19"
+    },
+    "13": {
+      "A": "2026-11-24",
+      "B": "2026-11-25",
+      "C": "2026-11-26"
+    }
   }
 }

@@ -32,7 +32,10 @@ Required files, none of them in git:
 - `backend/enrolled_sids.txt` — `SID,section` per line. **Nobody can log in without it.**
 - `backend/.participant_secret` — HMAC key. Back it up off the machine; lose it and no
   future export joins to any past one.
-- `backend/topic_schedule.json` — real 2026/27 dates. `python schedule.py --validate` before every term.
+- `backend/topic_schedule.json` — real 2026/27 dates, verified 2026-08-27 against the
+  published academic calendar: Semester One teaching commences **Mon 31 Aug 2026**, 13
+  teaching weeks, ending **Sat 28 Nov 2026**. Week 1's Tue/Wed/Thu are 1/2/3 Sep, which
+  is what the file already said. `python backend/schedule.py --validate` before every term.
 
 ---
 
@@ -172,10 +175,24 @@ internet, so there is no reason to be exposed while any of it is still red.
 | Class list | `/api/health` | `enrolment.enrolled` = your real cohort size |
 | Corpus | `python backend\check_corpus_coverage.py` | exit 0 — **currently exits 1** on `norman` and `hicks-law` |
 | Backups | `python backend/backup_sink.py --verify` | integrity_check ok |
-| Schedule | `python backend\schedule.py --validate` | no problems, real 2026/27 dates |
+| Schedule | `python backend/schedule.py --validate` | no problems. Dates are verified; **one open decision** — see below |
+
+**The one open schedule decision.** `--validate` currently exits 1 on this, deliberately:
+
+```
+session 5/C is scheduled on 2026-10-01, which is not a teaching day:
+General holiday (National Day) -- THURSDAY, collides with section C
+```
+
+Thursday 1 October 2026 is National Day, and it is the Thursday section's session 5 —
+which carries visual-perception, Weber's Law and Gestalt. That lecture does not happen.
+Someone has to decide whether the section makes it up, whether the release window still
+anchors to the cancelled date, or whether section C's later sessions shift. Edit the date
+in `topic_schedule.json` and nowhere else: every window derives from a section's own
+session date. `no_class_dates` in the same file is what makes the validator notice.
 
 The last three are the ones still open. Do not open the tunnel to 300 students with a
-corpus that cannot answer two of the thirteen topics, a placeholder timetable, or no
+corpus that cannot answer two of the thirteen topics, an unresolved lecture date, or no
 backup running — none of those are recoverable after the fact, because each student
 sits each topic once.
 

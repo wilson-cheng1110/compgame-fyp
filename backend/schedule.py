@@ -189,6 +189,19 @@ def validate() -> list[str]:
                     f"{topic['id']}: sections {'+'.join(secs)} share a close time ({when}) "
                     f"-- sections no longer stagger, peak load multiplies")
 
+    # A lecture date that lands on a public holiday. The comment above already
+    # anticipates 'holiday displacement' -- this is what notices one. Without it
+    # --validate reported the config 'sane' while section C's session 5 sat on
+    # Thursday 1 Oct 2026, National Day: a lecture that does not happen, and a
+    # release window derived from it.
+    closed = cfg.get("no_class_dates", {})
+    for sess_no, by_section in cfg["sessions"].items():
+        for sec, day in by_section.items():
+            if day in closed:
+                problems.append(
+                    f"session {sess_no}/{sec} is scheduled on {day}, which is not a "
+                    f"teaching day: {closed[day]}")
+
     # A window that opens after it closes is a date-entry error, not a design choice.
     for topic in cfg["topics"]:
         for sec in sections:

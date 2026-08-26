@@ -44,7 +44,9 @@ FYP_Submission/
     ops.py               # Concurrency gate (off the event loop), rate limit, health
     backup_sink.py       # Hourly sqlite online-backup of the sink + accounts
     check_corpus_coverage.py # Is the vector store still current? exits 1 if not
-    topic_schedule.json  # Release config — dates are PLACEHOLDERS until the timetable lands
+    topic_schedule.json  # Release config. Dates VERIFIED 2026-08-27 vs the academic
+                         #   calendar (teaching Mon 31 Aug - Sat 28 Nov 2026, 13 weeks).
+                         #   --validate flags lecture dates on public holidays.
     enrolled_sids.txt    # Class list (SID,section). GITIGNORED — real personal data
     tests/               # 262 assertions: python backend/tests/run_all.py
     make_e2e_schedule.py # today-relative schedule so the browser tests have an open topic
