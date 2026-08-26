@@ -133,19 +133,39 @@ Rules that hold across every stage:
       session 5 — visual-perception, Weber's Law, Gestalt. `--validate` now fails on it
       rather than calling the config sane. Make it up, re-anchor the window, or shift
       section C's later sessions. *(Wilson / the department)*
-- [x] **release order follows the lecture decks — verified against the slide text.**
-      Topics are ordered by session and sessions map to decks two at a time (deck 01 =
-      sessions 1–2, and so on). Searching each topic's lecture terms across the six
-      decks puts **10 of 13** strongest in the deck its session implies. Three do not:
-      `norman` scores **zero in every deck** (which is why the corpus gate reports zero
-      coverage for it), `stroop` is strongest in deck 01 while assigned to deck 02, and
-      `memory` is 4-vs-3 between decks 01 and 02, which is noise. The config already
-      flags `stroop` as `session_provisional`; `norman` is not flagged and should be.
-      *Caveat: these are the 2023 decks. The 2026/27 ones are still pending, and the
-      mapping needs re-running against them.* *(Wilson)*
-- [ ] **corpus coverage** — zero on `norman` and `hicks-law`; `webers-law` thin at 3 hits
-- [ ] **the real class list** for `backend/enrolled_sids.txt`
-- [ ] a backup of `backend/.participant_secret` held off this machine
+- [x] **release order follows the lecture decks — checked by READING the slides.**
+      A first pass counted keyword hits per deck and was wrong: `consistency` and
+      `automatic` are ordinary English, so `stroop` scored 6 in the intro deck; and it
+      dismissed a real problem in `memory` as noise. Redone by extracting slide titles
+      and then probing for phrases that can only mean one thing.
+
+      **Correct as configured (10 of 13)** — problem-solving (problem space, means-end,
+      ill-defined, deck 02), fitts-law (`index of difficulty` x10, deck 02),
+      hicks-law (`Hick` x10, deck 02 — so its `session_provisional` flag is unnecessary),
+      visual-perception and gestalt (deck 03: grouping, `proximity` x13, surroundedness,
+      closure via the TIE/data-imputation slides), webers-law (deck 03, thin — `just
+      noticeable difference` once, `Weber` never named), mental-model (`mental model` x5,
+      deck 03 part 2, the icon-meaning material), language (deck 04: speech acts, Grice's
+      maxims), ergonomics (deck 05), experiment-design (deck 06).
+
+      **Three genuinely wrong:**
+      - `norman` — **not in the decks at all.** No `Norman`, no `gulf of execution`, no
+        `seven stages`, no `action cycle`, in any of the six. It is assigned session 2.
+      - `stroop` — **not in the decks at all.** No `Stroop`, no `stimulus-response
+        compatibility`. Assigned session 3. Already flagged `session_provisional`.
+      - `memory` — **wrong deck, and Miller's content is absent.** `short-term memory`
+        appears only in deck 01; `magic number`, `7±2` and `chunking` appear nowhere.
+        Assigned session 3 (deck 02).
+
+      Two topics are taught WITHOUT their textbook labels — gestalt and webers-law —
+      which is why a label search misses them and why a reader does not.
+
+      *Caveat: 2023 decks. The 2026/27 ones are pending and this needs redoing.* *(Wilson)*
+- [ ] **The vector store is missing content that IS in the committed PDFs.** The decks
+      contain `Hick` 10 times, yet `check_corpus_coverage.py` reports ZERO coverage for
+      `hicks-law`. So that gate may be partly closable by rebuilding from the PDFs
+      already in the repo (`python rebuild_db.py`) rather than waiting for new decks.
+      NOT tested — Ollama is down on this box right now, so the rebuild could not run.
 
 ## Red hat on stages 1-2 — run, not just named
 
