@@ -139,33 +139,46 @@ Rules that hold across every stage:
       dismissed a real problem in `memory` as noise. Redone by extracting slide titles
       and then probing for phrases that can only mean one thing.
 
-      **Correct as configured (10 of 13)** — problem-solving (problem space, means-end,
+      **Correct as configured (9 of 13)** — problem-solving (problem space, means-end,
       ill-defined, deck 02), fitts-law (`index of difficulty` x10, deck 02),
-      hicks-law (`Hick` x10, deck 02 — so its `session_provisional` flag is unnecessary),
+
       visual-perception and gestalt (deck 03: grouping, `proximity` x13, surroundedness,
       closure via the TIE/data-imputation slides), webers-law (deck 03, thin — `just
       noticeable difference` once, `Weber` never named), mental-model (`mental model` x5,
       deck 03 part 2, the icon-meaning material), language (deck 04: speech acts, Grice's
       maxims), ergonomics (deck 05), experiment-design (deck 06).
 
-      **Three genuinely wrong:**
+      **Four genuinely wrong:**
       - `norman` — **not in the decks at all.** No `Norman`, no `gulf of execution`, no
         `seven stages`, no `action cycle`, in any of the six. It is assigned session 2.
       - `stroop` — **not in the decks at all.** No `Stroop`, no `stimulus-response
         compatibility`. Assigned session 3. Already flagged `session_provisional`.
-      - `memory` — **wrong deck, and Miller's content is absent.** `short-term memory`
-        appears only in deck 01; `magic number`, `7±2` and `chunking` appear nowhere.
-        Assigned session 3 (deck 02).
+      - `hicks-law` — **not in the decks.** `Hick` is 0 across all six; the corpus
+        checker independently reports 0 coverage. Assigned session 4.
+      - `memory` — **thin, and probably the wrong deck.** `short-term memory`
+        appears only in deck 01, and `magic number` / `7±2` / `chunking` appear nowhere,
+        though the corpus does find `Miller` once and `chunk` once. Assigned session 3
+        (deck 02); the only STM material is in deck 01.
 
       Two topics are taught WITHOUT their textbook labels — gestalt and webers-law —
       which is why a label search misses them and why a reader does not.
 
       *Caveat: 2023 decks. The 2026/27 ones are pending and this needs redoing.* *(Wilson)*
-- [ ] **The vector store is missing content that IS in the committed PDFs.** The decks
-      contain `Hick` 10 times, yet `check_corpus_coverage.py` reports ZERO coverage for
-      `hicks-law`. So that gate may be partly closable by rebuilding from the PDFs
-      already in the repo (`python rebuild_db.py`) rather than waiting for new decks.
-      NOT tested — Ollama is down on this box right now, so the rebuild could not run.
+- [x] ~~The vector store is missing content that is in the PDFs~~ — **RETRACTED, false.**
+      I claimed the decks contain `Hick` ten times while the corpus reports zero, and
+      concluded a rebuild might close that gate. Grounded it against the source of truth
+      (`python check_corpus_coverage.py`, 1,407 chunks, run 2026-08-27): `hicks-law
+      0 hit(s) -- nothing matched --`. The checker also finds `index of difficulty=10`,
+      the exact count deck 02's PDF has, so deck 02 IS indexed and the corpus is fine.
+      All ten of my `Hick` matches were the photo credit **"Anthony Schick"** —
+      `Hick` is 0. A rebuild would fix nothing. `hicks-law` is genuinely not taught,
+      its `session_provisional` flag IS warranted, and it joins the list below.
+- [ ] **`check_corpus_coverage.py` gives `stroop` a false green.** It reports 8 hits and
+      calls it `ok`, but the hits are `consistency=6, automatic=2` — the same two
+      ordinary English words that fooled my first pass. Stroop is not in the decks. The
+      term list needs a phrase that can only mean the concept (`Stroop`,
+      `stimulus-response compatibility`), or that gate keeps passing a topic with no
+      lecture behind it. *(Wilson)*
 
 ## Red hat on stages 1-2 — run, not just named
 
