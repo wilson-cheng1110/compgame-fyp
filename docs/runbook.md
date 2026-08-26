@@ -52,7 +52,14 @@ cd frontend
 npm run build; npm run start
 ```
 
-**Never run `npm run build` while `npm run start` is serving.** The build id changes
+**Never run `npm run build` while `npm run start` is serving.** It has bitten twice:
+once as 400s on every `/_next/static/*` asset, and once — worse — as a **partially
+written `.next`** that served pages which rendered and then never hydrated. The topic
+unit sat on "Loading…" forever with no error anywhere, because its first meaningful
+render happens after hydration. **If a build is ever suspect, delete `.next` and
+rebuild**; a partial build does not announce itself.
+
+ The build id changes
 underneath the running process and every `/_next/static/*` asset starts returning
 **400** — pages still render 200, so a smoke test passes, while the app has no CSS, no
 JS and no hydration. Stop the server, build, start again.
@@ -225,6 +232,8 @@ read the sqlite file **on the box** — identified data never travels.
 | Everything locked, nobody can start | schedule dates wrong | `python schedule.py --validate` then `--preview` |
 | Server exits at boot with FileNotFoundError | `TOPIC_SCHEDULE_PATH` points at nothing | the schedule is loaded before the try/except that protects the sink, so a bad path takes the WHOLE server down, not just the tutor. Fix the path |
 | Pages load but are unstyled and nothing is clickable | assets 400 — rebuilt under a live server, or `output: standalone` came back | stop, rebuild, restart (§2) |
+| A page sits on "Loading…" forever, no errors anywhere | partial `.next` — the client chunk never arrives, so the page renders server-side and never hydrates | stop the server, **delete `.next`**, rebuild, start |
+| `next start` logs `Cannot find module './vendor-chunks/...'` | same partial build | as above — this is the loud version of the row before it |
 | Export returns 503 | `EXPORT_TOKEN` unset | set it. The 503 is deliberate — it fails closed |
 | Grading batch reports everything ungradeable | `num_predict` too low → model returns an empty string | raise `GRADE_NUM_PREDICT`; 1536 is the tested floor-with-margin |
 | Report says "n = 20 of 2" | it won't — the generator suppresses the ratio and flags a class-list mismatch instead | fix `enrolled_sids.txt`, then regenerate |

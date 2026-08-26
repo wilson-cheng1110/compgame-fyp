@@ -136,34 +136,42 @@ bogus "Assertion failed" banner and masked the exit code.
 
 Flakiness: two consecutive full runs produced byte-identical results.
 
-## KNOWN OPEN DEFECT: the topic page can mount without its effect running
+## The "Loading…" hang — found, 2026-08-27
 
-**This is not flaky any more — it reproduces in every suite run**, in the same two
-tests (`a full topic unit`, `a locked topic cannot be entered early`).
+**Cause: a corrupt `.next` build.** Not app code.
 
-```
-FAIL  the unit opens (step counter rendered)
-      {"journeyRequests":0,"journeyResponses":0,"url":".../topics/webers-law"}
-```
+It reproduced in three consecutive suite runs, always the same two tests — the only two
+that load a topic page — with the page stuck on its own `Loading…` branch and
+**`journeyRequests: 0`**, meaning the effect never fired.
 
-What is known, measured rather than assumed:
+The evidence that settled it:
 
-- The page **mounts** — the body is its own `Loading…` branch, not a redirect or an
-  error card — and it **hydrates**, with no JS errors and no failed assets.
-- Its `useEffect` **never fires**: zero requests for `/api/topics`. That is the
-  `journeyRequests` counter, left in the happy path on purpose, because that one number
-  separates "the effect never ran" from "the API stalled" and it took three rounds of
-  guessing before anyone measured it.
-- **It is not the API.** Health is ok, warm requests are 19 ms, and twelve other tests
-  make successful API calls in the same run.
-- It does **not** reproduce in a standalone loop of 12 full sign-in-and-navigate
-  cycles — only inside the suite.
+1. On restarting the frontend, `next start` logged
+   `Cannot find module './vendor-chunks/lucide-react.js'` and served **500s**. The build
+   on disk was genuinely incomplete.
+2. `rm -rf .next && npx next build` → the two tests pass, suite **107/107**, twice.
+3. Deliberately deleting the topic route's client chunk reproduces
+   `journeyRequests: 0` exactly — the page server-renders, React never gets the
+   component, the effect never runs.
 
-Where to look next: `app/topics/[topicId]/page.tsx`, the `if (!topicId) return` guard
-and `useParams()`. Under single-context instrumentation `topicId` resolved and the
-effect ran, so the difference is something about running as the 4th and 7th context in
-a shared browser. Do not assume the suite is broken: it is reporting a real hang, and
-the two tests it hangs in are the only two that load a topic page.
+**Why the topic page and nothing else.** Its first meaningful render *is* the effect:
+server-side `state` is null, so the SSR output is the `Loading…` branch, and everything
+real happens after hydration. A page whose client code never arrives therefore looks
+like it is loading forever rather than looking broken. Pages that render their content
+server-side degrade visibly; this one degrades silently.
+
+**How the build got corrupt: rebuilding under a running server.** `next build` was run
+several times while `next start` was serving — the same hazard that produces 400s on
+`/_next/static/*`, one step worse: instead of visible 400s you get a page that renders
+and never wakes up.
+
+**The rule, therefore:** stop the server, build, start. If a build is ever suspect,
+**delete `.next` and rebuild** — a partial `.next` does not announce itself.
+
+*Honest limit:* deleting a chunk reproduces the zero-requests symptom but also throws a
+visible "Application error", whereas the original was silent with no JS errors at all.
+The exact sub-mechanism is unrecoverable because the corrupt build was deleted to fix
+it. What is established: the build was corrupt, and a clean rebuild fixed it.
 
 ## Conventions
 

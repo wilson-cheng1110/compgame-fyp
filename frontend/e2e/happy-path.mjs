@@ -109,9 +109,22 @@ test("a full topic unit, in the arm the server assigned", async (page, t) => {
   // timeout here is how this test failed twice while the app was fine.
   const counter = page.locator('[data-testid="step-counter"]')
   await counter.waitFor({ state: "visible", timeout: 20000 }).catch(() => {})
+  const diag = await page.evaluate(() => {
+    const main = document.querySelector("main") || document.body
+    const reactKeys = Object.keys(main).filter((k) => k.startsWith("__react"))
+    return {
+      readyState: document.readyState,
+      hydrated: reactKeys.length > 0,
+      nextFlight: typeof self.__next_f !== "undefined" ? self.__next_f.length : -1,
+      scripts: document.querySelectorAll("script").length,
+      bodyStart: (document.body.innerText || "").slice(0, 40),
+    }
+  }).catch((e) => ({ evalFailed: String(e).slice(0, 80) }))
+
   t.require("the unit opens (step counter rendered)", await counter.count() > 0, {
     journeyRequests: journeyReqs,
     journeyResponses: journeyRes,
+    diag,
     url: page.url(),
     snippet: (await page.content()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 200),
   })
