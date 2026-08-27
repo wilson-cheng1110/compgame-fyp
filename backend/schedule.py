@@ -197,10 +197,12 @@ def validate() -> list[str]:
     closed = cfg.get("no_class_dates", {})
     for sess_no, by_section in cfg["sessions"].items():
         for sec, day in by_section.items():
-            if day in closed:
+            entry = closed.get(day)
+            if entry and not (isinstance(entry, dict) and entry.get("acknowledged")):
+                why = entry.get("why") if isinstance(entry, dict) else entry
                 problems.append(
                     f"session {sess_no}/{sec} is scheduled on {day}, which is not a "
-                    f"teaching day: {closed[day]}")
+                    f"teaching day: {why}")
 
     # A window that opens after it closes is a date-entry error, not a design choice.
     for topic in cfg["topics"]:

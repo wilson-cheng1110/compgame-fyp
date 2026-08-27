@@ -94,11 +94,12 @@ Rules that hold across every stage:
 - [ ] the e2e arm-order assertion learns the new sequence
 - [ ] the yellow in-game "Take the Assessment" CTA becomes "Back to the unit" when the
       game was launched from one
-- [ ] `app/games/layout.tsx` Exit returns to the unit it came from, not always
+- [x] `app/games/layout.tsx` Exit returns to the unit it came from, not always
       `/dashboard`
-- [ ] `journey()` gains `game_done` from the existing `understanding_complete` event —
+- [x] `journey()` gains `game_done` from the existing `understanding_complete` event —
       same loop, no extra query — and the unit records observed *and* claimed
-- [ ] badge level from the assessment score
+- [x] badge level from what they did — 1 both checks, +1 activity observed, +1 assessment
+      played, +1 at 60%, +1 at 80%. Badge itself still earned at the post-check (Wilson).
 
 ## Stage 4 — the tutor keeps the landing page's promise
 
@@ -139,7 +140,7 @@ Rules that hold across every stage:
       dismissed a real problem in `memory` as noise. Redone by extracting slide titles
       and then probing for phrases that can only mean one thing.
 
-      **Correct as configured (9 of 13)** — problem-solving (problem space, means-end,
+      **Correct as configured (11 of 13; the other 2 unresolved, not disproved)** — problem-solving (problem space, means-end,
       ill-defined, deck 02), fitts-law (`index of difficulty` x10, deck 02),
 
       visual-perception and gestalt (deck 03: grouping, `proximity` x13, surroundedness,
@@ -148,21 +149,27 @@ Rules that hold across every stage:
       deck 03 part 2, the icon-meaning material), language (deck 04: speech acts, Grice's
       maxims), ergonomics (deck 05), experiment-design (deck 06).
 
-      **Four genuinely wrong:**
-      - `norman` — **not in the decks at all.** No `Norman`, no `gulf of execution`, no
-        `seven stages`, no `action cycle`, in any of the six. It is assigned session 2.
-      - `stroop` — **not in the decks at all.** No `Stroop`, no `stimulus-response
-        compatibility`. Assigned session 3. Already flagged `session_provisional`.
-      - `hicks-law` — **not in the decks.** `Hick` is 0 across all six; the corpus
-        checker independently reports 0 coverage. Assigned session 4.
-      - `memory` — **thin, and probably the wrong deck.** `short-term memory`
-        appears only in deck 01, and `magic number` / `7±2` / `chunking` appear nowhere,
-        though the corpus does find `Miller` once and `chunk` once. Assigned session 3
-        (deck 02); the only STM material is in deck 01.
+      **Retracted 2026-08-27 — my absence claims were too strong.** The method can
+      show a concept IS present (quote the slide); it cannot show one is absent, because
+      these decks teach concepts without their labels — `Gestalt` and `Weber` never
+      appear as words, and the content plainly does. I allowed that for two topics and
+      refused it for a third.
 
-      Two topics are taught WITHOUT their textbook labels — gestalt and webers-law —
-      which is why a label search misses them and why a reader does not.
-
+      - `stroop` / Principle of Consistency — **IS taught, in three decks.** Deck 01:
+        Mac "interface guidelines encouraged consistency between applications". Deck 03
+        part 2: a design-principles slide, "Consistency • Location • Format • Element
+        Repetition", beside Proximity and Alignment. Deck 06: Nielsen-Molich heuristic 4,
+        "Be consistent so users aren't confused". Deck 02 carries the reaction-time half
+        ("Reaction time is dependent on stimulus type: Visual ~200ms") and deck 05 an
+        auditory "Compatibility" principle. The corpus gate's green is CORRECT; the
+        "false green" claim is withdrawn. `consistency` is a named HCI principle here,
+        not ordinary English — which is what I mistook it for twice.
+      - `memory` — **session 3 is correct** (Wilson, 2026-08-27). Withdrawn from this list.
+      - `norman`, `hicks-law` — I found no matching slide content, and the corpus gate
+        reports 0 for both. Stated as *no evidence found*, not *absent*: given the
+        unlabelled-teaching pattern above, and given the topic set was derived by a
+        fan-out session that READ these decks, the prior is that backing exists and I
+        have not located it. Worth a human eye before anything is concluded. *(Wilson)*
       *Caveat: 2023 decks. The 2026/27 ones are pending and this needs redoing.* *(Wilson)*
 - [x] ~~The vector store is missing content that is in the PDFs~~ — **RETRACTED, false.**
       I claimed the decks contain `Hick` ten times while the corpus reports zero, and

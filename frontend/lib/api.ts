@@ -133,6 +133,11 @@ export interface JourneyTopic {
   pre_total?: number | null
   post_correct?: number | null
   post_total?: number | null
+  /** Observed, not claimed: these come from the sink's own game events, so a badge
+   *  level reflects what happened rather than what the student ticked. */
+  game_done?: boolean
+  assess_done?: boolean
+  assess_score?: number | null
 }
 
 export interface Journey {

@@ -114,10 +114,23 @@
     }
   ],
   "no_class_dates": {
-    "2026-09-26": "General holiday (day following Mid-Autumn Festival) -- Saturday",
-    "2026-10-01": "General holiday (National Day) -- THURSDAY, collides with section C",
-    "2026-10-10": "Undergraduate Info Day, all classes suspended -- Saturday",
-    "2026-10-19": "General holiday (day following Chung Yeung Festival) -- Monday"
+    "2026-09-26": {
+      "why": "General holiday (day following Mid-Autumn) -- Saturday",
+      "acknowledged": true
+    },
+    "2026-10-01": {
+      "why": "General holiday (National Day) -- THURSDAY, section C session 5",
+      "acknowledged": true,
+      "decision": "Accepted 2026-08-27 (Wilson): does not harm. The release window opens 7 days before and closes 48h before, so the unit still runs that week; only the lecture is missing. No date is moved."
+    },
+    "2026-10-10": {
+      "why": "Undergraduate Info Day, all classes suspended -- Saturday",
+      "acknowledged": true
+    },
+    "2026-10-19": {
+      "why": "General holiday (day following Chung Yeung) -- Monday",
+      "acknowledged": true
+    }
   },
   "sessions": {
     "1": {

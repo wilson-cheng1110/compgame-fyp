@@ -214,14 +214,22 @@ export default function TopicUnitClient({
               This part is a game. Come back here when you&apos;ve finished it — the rest of the
               unit is waiting.
             </p>
-            <Link href={`/games/${meta.understandingGameId}`}>
+            <Link href={`/games/${meta.understandingGameId}?unit=${state.topic_id}`}>
               <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
                 Open the activity →
               </button>
             </Link>
             <button onClick={advance} className="u-btn u-btn-block mt-3">
-              I&apos;ve finished it — continue
+              {state.game_done ? "Continue" : "I've finished it — continue"}
             </button>
+            {/* Observed, never a gate. The sink knows whether the activity was played;
+                saying so beats silently trusting a tick, and a student whose game failed
+                to record still walks on. */}
+            <p className="u-faint mt-3" data-testid="game-observed">
+              {state.game_done
+                ? "✓ We have your activity recorded."
+                : "We have not seen the activity finish yet — you can carry on either way."}
+            </p>
           </div>
         )}
 

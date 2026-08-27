@@ -85,6 +85,12 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
         # post-check, so the game completion is what closes it.
         st["complete"] = st["post_done"] or (
             not st["has_bank"] and (st["topic_id"], "assessment_complete") in done)
+        # What they actually DID, so the badge level can reflect it rather than the
+        # badge itself gating on it. Same single pass -- no extra query. The unit
+        # step is self-reported ("I have finished it"); this is the observed twin.
+        st["game_done"] = (st["topic_id"], "understanding_complete") in done
+        st["assess_done"] = (st["topic_id"], "assessment_complete") in done
+        st["assess_score"] = scores.get((st["topic_id"], "assessment_complete"))
         # The pre->post change, as counts rather than the percentage the sink
         # stores. "2 of 6" is a thing a student recognises; "33.3" is not. The
         # pre score is safe to send only because the topic is finished -- the
