@@ -5,6 +5,8 @@ import { Sparkles, Send, Loader2, X } from "lucide-react"
 import { TOPICS, type TopicId } from "@/lib/topic-definitions"
 import { useProgress } from "@/lib/progress-context"
 import { logResearchEvent } from "@/lib/research-log"
+import { API_BASE } from "@/lib/api"
+import { inlineMarkdown } from "@/lib/inline-markdown"
 
 // Minimum substantive student turns before "Finish" unlocks. The AI can also
 // unlock early by detecting genuine insight (understood===true). It NEVER traps
@@ -12,12 +14,18 @@ import { logResearchEvent } from "@/lib/research-log"
 // backend is down).
 const REFLECTION_FLOOR = 3
 
-const SOCRATIC_API = "http://localhost:8080/api/socratic"
+const SOCRATIC_API = `${API_BASE}/api/socratic`
+// The way out of a Socratic loop. See `tellMe` below for why it exists.
+const ASK_API = `${API_BASE}/api/ask`
 
 // Backend history format: {role: "human"|"assistant", content}.
 interface Turn {
   role: "human" | "assistant"
   content: string
+  /** This turn is part of a "just tell me" exchange, not reflection. Extra keys are
+   *  ignored by both endpoints (each reads role/content with .get), so it rides
+   *  along in the history harmlessly and survives a sessionStorage round-trip. */
+  direct?: boolean
 }
 
 // In-session resume: keep the live reflection in sessionStorage (per tab,
@@ -30,6 +38,7 @@ interface SavedReflection {
   countedTurns: number
   insight: boolean
   turnQuality: { counts: boolean | null; understood: boolean | null }[]
+  directAnswers?: number
 }
 const reflKey = (topicId: string) => `reflect-session:${topicId}`
 function loadReflection(topicId: string): SavedReflection | null {
@@ -73,6 +82,9 @@ export function ReflectionDialog() {
   const [countedTurns, setCountedTurns] = useState(0)
   const [turnQuality, setTurnQuality] = useState<{ counts: boolean | null; understood: boolean | null }[]>([])
   const [lastDidntCount, setLastDidntCount] = useState(false)
+  // How many times the student asked to just be told. Not a failure state -- see
+  // `tellMe`. Logged so the paper can report it instead of guessing.
+  const [directAnswers, setDirectAnswers] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -103,11 +115,13 @@ export function ReflectionDialog() {
         setCountedTurns(saved.countedTurns ?? 0)
         setInsight(!!saved.insight)
         setTurnQuality(saved.turnQuality ?? [])
+        setDirectAnswers(saved.directAnswers ?? 0)
       } else {
         setHistory([{ role: "assistant", content: topic.reflectionQuestion }])
         setCountedTurns(0)
         setInsight(false)
         setTurnQuality([])
+        setDirectAnswers(0)
       }
       setErrorMsg(null)
       setLastDidntCount(false)
@@ -127,9 +141,9 @@ export function ReflectionDialog() {
   // finish). Only after at least one real turn (history > the seeded opener).
   useEffect(() => {
     if (isOpen && topicId && history.length > 1) {
-      saveReflection(topicId, { history, countedTurns, insight, turnQuality })
+      saveReflection(topicId, { history, countedTurns, insight, turnQuality, directAnswers })
     }
-  }, [isOpen, topicId, history, countedTurns, insight, turnQuality])
+  }, [isOpen, topicId, history, countedTurns, insight, turnQuality, directAnswers])
 
   // A11y: this is a modal, so trap focus inside it, move focus to the input on
   // open, and let Esc dismiss it (same as "Leave for now"). Without this,
@@ -212,6 +226,57 @@ export function ReflectionDialog() {
     [history, isLoading, topicTitle],
   )
 
+  // THE WAY OUT OF THE LOOP.
+  //
+  // The Socratic tutor answers questions with questions -- that is the whole point,
+  // and it is also what strands a student who genuinely does not know. A stranded
+  // student's next move is to close the dialog, which costs the study the reflection
+  // AND teaches them the tutor is useless. The unit tells them this control exists
+  // before they need it, so being stuck is a step rather than a dead end.
+  //
+  // It does NOT advance the reflection floor: being told is not reflecting. It does
+  // not penalise them either -- the floor simply does not move, and `countedTurns`
+  // stays the clean signal it already was. `turnQuality` is not appended to either,
+  // so that array stays parallel to reflection turns only.
+  //
+  // Every press is counted and logged. "How many students had to be told" is a
+  // finding for the paper, not an embarrassment to hide.
+  const tellMe = useCallback(async () => {
+    if (isLoading || !topicId) return
+    const asked =
+      input.trim() ||
+      `I am stuck. Explain ${topicTitle} in plain language, with one everyday example.`
+    const nextHistory: Turn[] = [...history, { role: "human", content: asked, direct: true }]
+    setHistory(nextHistory)
+    setInput("")
+    setErrorMsg(null)
+    setLastDidntCount(false)
+    setIsLoading(true)
+    setDirectAnswers((n) => n + 1)
+    try {
+      const res = await fetch(ASK_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: `[Context: student is studying ${topicTitle} in COMP3423 and has asked to be told directly] ${asked}`,
+          // Strip our own marker key before it leaves the browser: the endpoint
+          // ignores extras, but sending fields a contract does not declare is how
+          // contracts rot.
+          history: history.map((t) => ({ role: t.role, content: t.content })),
+        }),
+      })
+      if (!res.ok) throw new Error("backend error")
+      const data = await res.json()
+      setHistory((prev) => [...prev, { role: "assistant", content: data.answer, direct: true }])
+    } catch {
+      setErrorMsg(
+        "⚠️ The AI tutor is offline right now, so it couldn't answer that. Your question was saved — try again in a moment, or carry on and come back from your dashboard later.",
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }, [history, input, isLoading, topicId, topicTitle])
+
   const close = () => {
     setIsOpen(false)
     setTopicId(null)
@@ -219,6 +284,7 @@ export function ReflectionDialog() {
     setCountedTurns(0)
     setTurnQuality([])
     setLastDidntCount(false)
+    setDirectAnswers(0)
   }
 
   const finish = () => {
@@ -233,7 +299,7 @@ export function ReflectionDialog() {
       // lightweight summary lands in localStorage via recordReflection.
       // `countedTurns` + `turnQuality` are the cleaned reflection-depth signal
       // (substantive on-topic turns), distinct from raw `turns`.
-      meta: { turns: humanTurns, countedTurns, insight, endReason, transcript: history, turnQuality },
+      meta: { turns: humanTurns, countedTurns, insight, endReason, transcript: history, turnQuality, directAnswers },
     })
     close()
   }
@@ -243,7 +309,7 @@ export function ReflectionDialog() {
       logResearchEvent({
         event_type: "reflection_skipped",
         topic_id: topicId,
-        meta: { turns: humanTurns },
+        meta: { turns: humanTurns, directAnswers },
       })
     }
     close()
@@ -301,7 +367,15 @@ export function ReflectionDialog() {
                   ? "u-bubble-me"
                   : "u-card-quiet"
               }`}>
-                {t.content}
+                {/* A told answer is LABELLED. The student should be able to see which
+                    turns they worked out and which they were handed -- and so should
+                    anyone reading the transcript out of the sink later. */}
+                {t.direct && t.role === "assistant" && (
+                  <span className="u-eyebrow block mb-1" style={{ color: "var(--state-late)" }}>
+                    Straight answer
+                  </span>
+                )}
+                {inlineMarkdown(t.content)}
               </div>
             </div>
           ))}
@@ -325,8 +399,8 @@ export function ReflectionDialog() {
           )}
         </div>
 
-        {/* Progress hint */}
-        <div className="px-3 pt-2 text-center">
+        {/* Progress hint, and the way out of the loop beside it */}
+        <div className="px-3 pt-2 flex items-baseline justify-between gap-3 flex-wrap">
           <span className="u-faint">
             {canFinish
               ? "You've reflected enough — finish, or keep going."
@@ -334,6 +408,17 @@ export function ReflectionDialog() {
                 ? `That one drifted off-topic — reflecting on ${topicTitle} is what moves you forward (${countedTurns}/${REFLECTION_FLOOR}).`
                 : `Reflect a little more to finish (${countedTurns}/${REFLECTION_FLOOR} responses).`}
           </span>
+          <button
+            type="button"
+            onClick={tellMe}
+            disabled={isLoading}
+            data-testid="tell-me"
+            className="u-faint hover:underline disabled:opacity-50 flex-shrink-0"
+            style={{ color: "var(--accent)", fontWeight: 600 }}
+            title="Get a straight answer instead of another question"
+          >
+            Stuck? Just tell me
+          </button>
         </div>
 
         {/* Input */}

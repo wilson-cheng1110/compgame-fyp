@@ -113,13 +113,56 @@ Rules that hold across every stage:
 - [x] badge level from what they did — 1 both checks, +1 activity observed, +1 assessment
       played, +1 at 60%, +1 at 80%. Badge itself still earned at the post-check (Wilson).
 
-## Stage 4 — the tutor keeps the landing page's promise
+## Stage 4 — the tutor keeps the landing page's promise · **DONE**
 
-- [ ] tutor step calls `/api/socratic`, not the explain path
-- [ ] a visible "just tell me" control that switches to `/api/ask` for that turn
-- [ ] `detectTopicFromPath` learns `/topics/…` routes
-- [ ] chat renders markdown (`lib/inline-markdown.tsx` already exists from stage 1)
-- [ ] panel stops clipping at 1440px; FAB stops overlapping its own panel
+Every claim below was MEASURED before it was acted on (`frontend/ux-stage4-probe.mjs`),
+because four of the five were inherited from an earlier audit pass and one of them
+turned out to be wrong.
+
+- [x] the tutor step reaches `/api/socratic`, not the explain path — **by opening the
+      component that already owns that surface**, not by teaching the widget a second
+      mode. `ReflectionDialog` is mounted globally in `app/layout.tsx`, seeds itself
+      with this step's own `reflectionQuestion`, holds the turn floor, detects insight
+      and logs the transcript to the sink; the dashboard already opens it the same way.
+      Two tutors on two endpoints would have meant **two differently-shaped reflection
+      rows for one construct**, which the paper cannot use. The step used to say "open
+      the tutor (bottom-right)" — that is the floating widget, which POSTs `/api/ask`:
+      the opposite of what the same card promised one line above.
+- [x] a visible "Stuck? Just tell me" control → one turn via `/api/ask`, labelled
+      **Straight answer** in the transcript, and it deliberately does **not** advance
+      the reflection floor (being told is not reflecting) — nor penalise it. Every
+      press is counted into `directAnswers` and logged on both `reflection_complete`
+      and `reflection_skipped`: how many students needed telling is a finding.
+- [x] `detectTopicFromPath` learns `/topics/…`. Measured before: on `/topics/memory`
+      the tutor showed no topic badge, header "AI Teaching Assistant", placeholder
+      "Ask anything…" — the one part of the unit that did not know which unit it was
+      in. Matched on the exact path segment, not `includes`, so `memory` can never
+      pick up `mental-model`.
+- [x] both surfaces render markdown via `lib/inline-markdown.tsx`. This defect was
+      MASKED by the one above: with no topic detected the greeting took the plain
+      branch. Fixing detection alone would have put `**Miller's Law**` on screen
+      verbatim — seen for real under mutant B.
+- [x] **also, unasked:** the widget and the dialog both hardcoded
+      `http://localhost:8080`, which `lib/api.ts`'s own header calls out as the reason
+      "nothing works off the server machine". Both now use `API_BASE`. These were the
+      last two offenders.
+- [x] ~~panel clipping at 1440px; FAB overlapping its own panel~~ — **RETRACTED, the
+      claim was wrong.** Measured at 1920×1080, 1440×900, 1440×810, 1366×768,
+      1280×720, 1180×640: never clipped, never overlapping. 1440 is a *width* and
+      width is irrelevant here. The FAB overlap does not exist at **any** height —
+      the panel's bottom sits at 80px and the FAB's top at 72px throughout.
+      The real (much smaller) defect, found by measuring: a fixed `height: 520px`
+      runs off the **top** below 600px of viewport height (0px at 600, −20px at 580).
+      Fixed with one property, `maxHeight: calc(100vh - 6rem)`.
+
+*Not covered by the committed suite:* the tutor test stubs both endpoints, so it
+asserts WHICH endpoint each control calls, not what the model says — deliberately, so
+it stays fast and still runs when Ollama is down (it was down when this stage started).
+The live-model check is `frontend/ux-stage4-verify.mjs`, run by hand: 15/15 against a
+real `gemma4:e4b`. One assertion, "the reflection floor advanced", has no killing
+mutant — it is a vacuity guard for the assertion after it, and mutant A demonstrated
+the counter moving (to 2/3), so the mechanism is exercised even though the assertion
+itself was not independently killed.
 
 ## Stage 5 — the polish sweep
 

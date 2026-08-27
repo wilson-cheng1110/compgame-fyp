@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react"
 import { MessageCircle, X, Send, Loader2, ChevronDown, ChevronRight } from "lucide-react"
 import { TOPICS } from "@/lib/topic-definitions"
+import { API_BASE } from "@/lib/api"
+import { inlineMarkdown } from "@/lib/inline-markdown"
 
 interface Message {
   id: string
@@ -12,8 +14,21 @@ interface Message {
   isSourcesOpen?: boolean
 }
 
-// Detect topic from current URL path
+// Detect topic from current URL path.
+//
+// This only ever looked for GAME ids, so on /topics/<id> -- the topic unit, where a
+// student now spends most of the session -- it returned null. Measured on
+// /topics/memory: no topic badge, header "AI Teaching Assistant", placeholder
+// "Ask anything...". The tutor was the one part of the unit that did not know which
+// unit it was in, so every question had to re-establish its own context.
+//
+// The unit segment is matched EXACTLY rather than by substring: `includes` on an id
+// would also match any path that merely contains it, and the ids are close enough
+// (memory / mental-model, fitts-law / hicks-law) that a near-miss would silently
+// label the tutor with the wrong topic -- worse than no label.
 function detectTopicFromPath(pathname: string): (typeof TOPICS)[number] | null {
+  const unit = /^\/topics\/([^/?#]+)/.exec(pathname)
+  if (unit) return TOPICS.find((t) => t.id === unit[1]) ?? null
   for (const topic of TOPICS) {
     if (pathname.includes(topic.understandingGameId) || pathname.includes(topic.assessmentGameId)) {
       return topic
@@ -119,7 +134,7 @@ export function AiChatWidget() {
       .map((m) => ({ role: m.role === "user" ? "human" : "assistant", content: m.content }))
 
     try {
-      const response = await fetch("http://localhost:8080/api/ask", {
+      const response = await fetch(`${API_BASE}/api/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: augmentedQuestion, history: priorHistory }),
@@ -223,8 +238,14 @@ export function AiChatWidget() {
     <>
       {/* Chat panel */}
       {isOpen && (
+        // 520px fixed meant the panel ran off the TOP of the window once the viewport
+        // was shorter than 600px (top = height - 600; measured: 0 at 600, -20 at 580).
+        // maxHeight caps it against the viewport instead -- bottom-20 is 5rem, plus
+        // 1rem of air. Nothing changes at normal heights; the messages pane is already
+        // the flex-1 scroller that absorbs it. The FAB overlap filed alongside this
+        // does NOT exist at any height: panel bottom sits at 80px, FAB top at 72px.
         <div className="shell u-card fixed bottom-20 right-4 z-50 w-[360px] max-w-[95vw] flex flex-col overflow-hidden"
-          style={{ height: "520px" }}>
+          style={{ height: "520px", maxHeight: "calc(100vh - 6rem)" }}>
           {/* Header */}
           <div
             className="flex items-center justify-between px-4 py-3"
@@ -263,7 +284,7 @@ export function AiChatWidget() {
                     ? "u-bubble-me"
                     : "u-card-quiet"
                 }`}>
-                  <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                  <div className="whitespace-pre-wrap leading-relaxed">{inlineMarkdown(msg.content)}</div>
                   {msg.sources && msg.sources.length > 0 && (
                     <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--rule)" }}>
                       <button

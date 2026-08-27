@@ -280,8 +280,9 @@ export default function TopicUnitClient({
             <p className="u-eyebrow">Talk it through</p>
             <h2 className="u-h2 mt-2">Explain {meta.title} in your own words</h2>
             <p className="u-stem u-muted mt-4">
-              Open the tutor (bottom-right) and try to explain it. It will push back with
-              questions rather than hand you answers — that&apos;s the point.
+              The tutor will push back with questions rather than hand you answers —
+              that&apos;s the point. If you get stuck it can just tell you; that button is
+              in there too.
             </p>
             <blockquote
               className="u-stem mt-5 pl-4"
@@ -289,7 +290,28 @@ export default function TopicUnitClient({
             >
               {meta.reflectionQuestion}
             </blockquote>
-            <button onClick={advance} className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
+            {/* This step used to say "open the tutor (bottom-right)" and stop there.
+                The thing bottom-right is the FLOATING tutor, which answers questions
+                (POST /api/ask) — the opposite of what this step promises one line
+                above. The Socratic surface is ReflectionDialog: it posts to
+                /api/socratic, seeds itself with this very reflectionQuestion, holds a
+                turn floor, detects genuine insight, and logs the transcript to the
+                sink. It is mounted globally in app/layout.tsx and opens on this event
+                — the dashboard already opens it the same way.
+                Two tutors calling two endpoints would also mean two differently-shaped
+                reflection rows for one construct, which the paper cannot use. */}
+            <button
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent("start-reflection", { detail: { topicId: state.topic_id } }),
+                )
+              }
+              data-testid="open-reflection"
+              className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7"
+            >
+              Talk it through with the tutor →
+            </button>
+            <button onClick={advance} className="u-btn u-btn-block mt-3">
               Done reflecting
             </button>
           </div>

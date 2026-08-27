@@ -425,3 +425,118 @@ test("the shared debrief withdraws the assessment jump inside a unit", async (pa
     .trim()
   t.check("and the last button is still the dashboard", /Dashboard/i.test(freeBack), freeBack)
 })
+
+
+// ── the tutor keeps the step's promise ────────────────────────────────────────
+// The tutor step tells a student the tutor "will push back with questions rather
+// than hand you answers". It then pointed them at the floating widget, which POSTs
+// /api/ask -- the endpoint that hands answers. The Socratic surface is
+// ReflectionDialog (/api/socratic, turn floor, insight detection, transcript to the
+// sink), mounted globally and opened by a `start-reflection` event.
+//
+// BOTH endpoints are STUBBED here. The invariant under test is WHICH endpoint each
+// control calls, not what the model says -- and stubbing means this test is fast and
+// still runs when Ollama is down, which it was for most of this suite's life.
+test("the tutor step opens the Socratic surface, not the explain path", async (page, t) => {
+  const socratic = []
+  const ask = []
+  await page.route("**/api/socratic", async (route) => {
+    socratic.push(route.request().url())
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ response: "What would happen if you moved them apart?", sources: [], understood: false, counts: true }),
+    })
+  })
+  await page.route("**/api/ask", async (route) => {
+    ask.push(route.request().url())
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ answer: "The key idea is **chunking**.", sources: [] }),
+    })
+  })
+
+  await signIn(page, freshSid())
+  await giveConsent(page)
+  await onboard(page)
+  const journey = await apiFromPage(page, "/api/topics")
+  const topic = journey.body?.topics?.find((x) => (x.state === "open" || x.state === "late") && x.has_bank)
+  t.require("an open topic with an item bank exists", !!topic)
+
+  await go(page, `/topics/${topic.topic_id}`)
+  await ready(page, 1600)
+
+  // The floating tutor must know which unit it is in. It only ever matched GAME ids,
+  // so on /topics/<id> it showed "AI Teaching Assistant" and "Ask anything...".
+  await page.locator('button[aria-label="Open AI tutor"]').click()
+  await page.waitForTimeout(800)
+  t.check("the floating tutor names the unit it is in",
+    (await page.locator("text=/Studying:/").count()) > 0,
+    await page.locator("div.fixed.bottom-20 span").first().innerText().catch(() => "?"))
+  const greeting = await page.locator("div.fixed.bottom-20 div.whitespace-pre-wrap").first().innerText().catch(() => "")
+  t.check("its greeting renders **bold** rather than printing the asterisks",
+    (await page.locator("div.fixed.bottom-20 strong").count()) > 0 && !/\*\*/.test(greeting),
+    greeting.slice(0, 120))
+  await page.locator('button[aria-label="Open AI tutor"]').click()
+  await page.waitForTimeout(300)
+
+  // Walk to the tutor step.
+  const submitted = new Set()
+  for (let i = 0; i < 16; i++) {
+    if (await page.locator('[data-testid="open-reflection"]').count()) break
+    const counter = (await page.locator('[data-testid="step-counter"]').first().innerText().catch(() => "")).replace(/\s+/g, " ")
+    const probe = page.locator('[data-testid="probe-answer"]')
+    if (await probe.count()) {
+      await probe.fill("Items sitting closer together read as one group, so spacing does the grouping.")
+      await page.locator('[data-testid="probe-submit"]').first().click()
+      await page.waitForTimeout(2200)
+      const cont = page.getByRole("button", { name: /^Continue/ }).first()
+      if (await cont.count()) { await cont.click(); await page.waitForTimeout(1400) }
+      continue
+    }
+    const options = page.locator('[data-testid="mc-option"]')
+    const n = await options.count()
+    if (n && !submitted.has(counter)) {
+      for (let k = 0; k < n; k++) await options.nth(k).click().catch(() => {})
+      await page.locator('[data-testid="mc-submit"]').first().click().catch(() => {})
+      await page.waitForTimeout(2600)
+      submitted.add(counter)
+      const cont = page.getByRole("button", { name: /^Continue$/ }).first()
+      if (await cont.count()) { await cont.click(); await page.waitForTimeout(1400) }
+      continue
+    }
+    const next = page.getByRole("button", { name: /^(Start|Continue|I've finished it — continue)$/ }).first()
+    if (await next.count()) { await next.click(); await page.waitForTimeout(1600); continue }
+    break
+  }
+
+  t.require("the walk reached the tutor step", (await page.locator('[data-testid="open-reflection"]').count()) > 0, page.url())
+  const stepText = await page.evaluate(() => document.body.innerText)
+  t.check("the step no longer sends them to the corner widget", !/bottom-right/i.test(stepText))
+
+  await page.locator('[data-testid="open-reflection"]').click()
+  await page.waitForTimeout(1000)
+  t.require("it opens the reflection dialog", (await page.locator('[role="dialog"]').count()) > 0)
+
+  // A reflection turn goes to the SOCRATIC endpoint.
+  await page.locator('[role="dialog"] input').fill("Things placed close together get read as one group.")
+  await page.locator('[role="dialog"] button[aria-label="Send"]').click()
+  await page.waitForTimeout(2500)
+  t.check("a reflection turn posts to /api/socratic", socratic.length === 1, { socratic, ask })
+  t.check("and never to the explain path", ask.length === 0, { socratic, ask })
+  const afterTurn = await page.locator('[role="dialog"]').innerText()
+  t.check("the reflection floor advanced", /1\/3/.test(afterTurn), afterTurn.match(/\d\/3/)?.[0])
+
+  // The way out of the loop goes to the EXPLAIN endpoint, and does not buy progress.
+  t.require("a visible way out of the loop exists", (await page.locator('[data-testid="tell-me"]').count()) > 0)
+  await page.locator('[data-testid="tell-me"]').click()
+  await page.waitForTimeout(2500)
+  t.check("'just tell me' posts to /api/ask", ask.length === 1, { socratic, ask })
+  t.check("and not to the socratic path", socratic.length === 1, { socratic, ask })
+  const afterTell = await page.locator('[role="dialog"]').innerText()
+  t.check("the told answer is labelled as one", /Straight answer/i.test(afterTell), afterTell.slice(-200))
+  t.check("being told does NOT advance the reflection floor", /1\/3/.test(afterTell), afterTell.match(/\d\/3/)?.[0])
+  t.check("and the dialog renders **bold** too",
+    (await page.locator('[role="dialog"] strong').count()) > 0 && !/\*\*/.test(afterTell))
+})
