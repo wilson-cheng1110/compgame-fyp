@@ -204,6 +204,7 @@ test("a full topic unit, in the arm the server assigned", async (page, t) => {
 
     const next = page
       .getByRole("button", { name: /^(Start|Continue|Done reflecting|I've finished it — continue)$/ })
+      // the assessment step reuses "Continue", so no new name is needed here
       .first()
     if (await next.count()) {
       await next.click()
@@ -229,8 +230,20 @@ test("a full topic unit, in the arm the server assigned", async (page, t) => {
   // wrong thing.
   const labels = seen.map((x) => x.split("·").pop()?.trim() ?? "")
   const iActivity = labels.findIndex((l) => /Activity/i.test(l))
+  const iAssess = labels.findIndex((l) => /Test yourself/i.test(l))
   const iSecond = labels.findIndex((l) => /Second check/i.test(l))
 
+  // THE MEASUREMENT INVARIANT. The assessment is a scored task inside the unit, so it
+  // must land AFTER the post-check in BOTH arms -- otherwise it sits between the two
+  // checks and contaminates the pre->post gain, which is the primary DV. This is the
+  // assertion that stops someone tidying the step order later.
+  if (iAssess >= 0 && iSecond >= 0) {
+    t.check(
+      "the assessment comes AFTER the post-check (the measured window has closed)",
+      iAssess > iSecond,
+      { arm: topic.arm, iSecond, iAssess, labels },
+    )
+  }
   if (t.check("the walk saw both the activity and the second check", iActivity >= 0 && iSecond >= 0, labels)) {
     t.check(
       topic.plays_game_first

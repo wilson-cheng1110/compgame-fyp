@@ -30,7 +30,9 @@ import UnitHeader from "./unit-header"
 // A student with no JS now sees their topic, its state and its brief, and simply
 // cannot press Start — a visibly limited page instead of an invisible dead end.
 
-type Step = "brief" | "pre" | "preProbe" | "game" | "post" | "postProbe" | "tutor" | "close"
+type Step =
+  | "brief" | "pre" | "preProbe" | "game" | "post" | "postProbe"
+  | "assess" | "tutor" | "close"
 
 const STEP_LABEL: Record<Step, string> = {
   brief: "Brief",
@@ -39,6 +41,7 @@ const STEP_LABEL: Record<Step, string> = {
   game: "Activity",
   post: "Second check",
   postProbe: "In your words",
+  assess: "Test yourself",
   tutor: "Talk it through",
   close: "Done",
 }
@@ -72,9 +75,15 @@ export default function TopicUnitClient({
       ...(hasChecks ? (["post"] as Step[]) : []),
       ...(hasProbe ? (["postProbe"] as Step[]) : []),
     ]
+    // ASSESSMENT SITS AFTER THE POST-CHECK, IN BOTH ARMS (Wilson, 2026-08-27).
+    // FLIP     brief -> pre -> GAME -> post -> ASSESS -> tutor -> close
+    // CONTROL  brief -> pre -> post -> GAME -> ASSESS -> tutor -> close
+    // Both already ended ...tutor, close, so one insertion covers both -- and in
+    // each the pre->post window has closed before the assessment starts, which is
+    // what keeps the primary DV clean by placement rather than by exclusion.
     return state.plays_game_first
-      ? ["brief", ...pre, ...game, ...post, "tutor", "close"]
-      : ["brief", ...pre, ...post, ...game, "tutor", "close"]
+      ? ["brief", ...pre, ...game, ...post, "assess", "tutor", "close"]
+      : ["brief", ...pre, ...post, ...game, "assess", "tutor", "close"]
   }, [state])
 
   useEffect(() => {
@@ -239,6 +248,31 @@ export default function TopicUnitClient({
           <button onClick={advance} className="u-btn u-btn-block mt-5">
             Continue
           </button>
+        )}
+
+        {step === "assess" && (
+          <div className="u-card p-8">
+            <p className="u-eyebrow">Test yourself</p>
+            <h2 className="u-h2 mt-2">How much of {meta.title} stuck?</h2>
+            <p className="u-stem u-muted mt-4">
+              A scored round on what you just worked through. It does not change the
+              answers you already gave — those are recorded — and it is how your badge
+              levels up.
+            </p>
+            <Link href={`/games/${meta.assessmentGameId}?unit=${state.topic_id}`}>
+              <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
+                Open the assessment →
+              </button>
+            </Link>
+            <button onClick={advance} className="u-btn u-btn-block mt-3">
+              Continue
+            </button>
+            <p className="u-faint mt-3" data-testid="assess-observed">
+              {state.assess_done
+                ? `✓ Recorded${typeof state.assess_score === "number" ? ` — ${Math.round(state.assess_score)}%` : ""}.`
+                : "Not played yet — you can carry on either way; it only affects the badge level."}
+            </p>
+          </div>
         )}
 
         {step === "tutor" && (

@@ -88,10 +88,11 @@ Rules that hold across every stage:
       bug. It now asserts what the student sees, and was mutation-checked against the
       old ordering.
 
-## Stage 3 — reconnect the games, stop guessing whether they were played
+## Stage 3 — reconnect the games, stop guessing whether they were played · **DONE bar one**
 
-- [ ] assessment becomes a step in both arms, after the post-check
-- [ ] the e2e arm-order assertion learns the new sequence
+- [x] assessment becomes a step in both arms, after the post-check
+- [x] the e2e arm-order assertion learns the new sequence, and now asserts the
+      measurement invariant (assessment AFTER the post-check) — mutation-checked
 - [ ] the yellow in-game "Take the Assessment" CTA becomes "Back to the unit" when the
       game was launched from one
 - [x] `app/games/layout.tsx` Exit returns to the unit it came from, not always
