@@ -108,7 +108,12 @@ with open(path2, "w", encoding="utf-8") as fh:
     json.dump(cfg2, fh)
 os.environ["TOPIC_SCHEDULE_PATH"] = path2
 S.CONFIG_PATH = path2
-S._load.cache_clear() if hasattr(S._load, "cache_clear") else None
+S._config = None; S._config_mtime = None   # _load caches on MTIME, and the two
+# writes to this path can land inside one filesystem mtime tick -- in which case
+# validate() re-reads nothing and judges the PREVIOUS config. `_load` is not an
+# lru_cache, so the `cache_clear()` this line used to call never existed and the
+# hasattr guard silently swallowed it: the negative control below then failed
+# roughly one run in three. A flaky test teaches people to ignore red.
 probs2 = S.validate()
 check("a session on a no-class date is reported",
       any("not a teaching day" in p for p in probs2), probs2[:3])
@@ -119,7 +124,7 @@ check("and it names the section and the date",
 cfg2.pop("no_class_dates")
 with open(path2, "w", encoding="utf-8") as fh:
     json.dump(cfg2, fh)
-S._load.cache_clear() if hasattr(S._load, "cache_clear") else None
+S._config = None; S._config_mtime = None   # see above -- mtime cache, not lru_cache
 probs3 = S.validate()
 check("no false positive when nothing is declared",
       not any("not a teaching day" in p for p in probs3), probs3[:3])

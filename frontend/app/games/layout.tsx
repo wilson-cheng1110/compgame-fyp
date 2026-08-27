@@ -1,8 +1,8 @@
 "use client"
 
 import { Suspense, type ReactNode } from "react"
-import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { useUnitId } from "@/lib/unit-link"
 
 // Shared chrome for every game route. The bare React games render as
 // full-screen canvases with no header, so without this there is no way back
@@ -13,8 +13,7 @@ import Link from "next/link"
 // half-finished unit was to find it in the list again. When the unit launches a game
 // it appends ?unit=<topicId>; Exit honours that and returns there.
 function ExitLink() {
-  const params = useSearchParams()
-  const unit = params?.get("unit")
+  const unit = useUnitId()
   const href = unit ? `/topics/${unit}` : "/dashboard"
   return (
     <Link

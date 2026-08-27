@@ -88,13 +88,24 @@ Rules that hold across every stage:
       bug. It now asserts what the student sees, and was mutation-checked against the
       old ordering.
 
-## Stage 3 — reconnect the games, stop guessing whether they were played · **DONE bar one**
+## Stage 3 — reconnect the games, stop guessing whether they were played · **DONE**
 
 - [x] assessment becomes a step in both arms, after the post-check
 - [x] the e2e arm-order assertion learns the new sequence, and now asserts the
       measurement invariant (assessment AFTER the post-check) — mutation-checked
-- [ ] the yellow in-game "Take the Assessment" CTA becomes "Back to the unit" when the
-      game was launched from one
+- [x] the in-game jump to the assessment is withdrawn when the game was launched from
+      a unit, and replaced by the way back. This turned out to be WIDER than the one
+      yellow button: `components/game-debrief.tsx` ships the same jump on **12** of the
+      13 understanding games, so the leak was 13 routes, not 1. Both now read `?unit=`
+      through one helper, `lib/unit-link.tsx`.
+      **Why it is a measurement bug and not a nav papercut:** the unit runs
+      `activity -> post-check -> assessment`, and that placement is what keeps the
+      pre->post gain clean. The in-game jump was a door from the activity straight to a
+      scored round — i.e. a scored round BETWEEN the two checks, through a door the unit
+      never saw. Stage 3's step ordering closed the front door; this closes the back one.
+- [x] both directions asserted, both mutation-proven (9 assertions, 3 mutants):
+      withdrawn inside a unit **and still there in free play** — deleting the button
+      outright would otherwise have passed
 - [x] `app/games/layout.tsx` Exit returns to the unit it came from, not always
       `/dashboard`
 - [x] `journey()` gains `game_done` from the existing `understanding_complete` event —
@@ -121,6 +132,11 @@ Rules that hold across every stage:
       keys that do nothing
 - [ ] first check acknowledges the submission before auto-advancing
 - [ ] `0 / 6` gets a route onward
+- [ ] the 12 games' own in-game "Take Assessment →" buttons advance to the DEBRIEF, not
+      to an assessment — the label has been a small lie the whole time, and inside a
+      unit the debrief no longer offers an assessment at all, so it now reads as a
+      dead end. Each game words it differently; this is a 12-file copy pass, which is
+      why it was left out of stage 3 rather than folded into it.
 
 ---
 

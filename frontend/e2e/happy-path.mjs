@@ -308,3 +308,120 @@ test("the topic unit renders WITHOUT JavaScript", async (page, t) => {
     await noJs.close()
   }
 })
+
+
+// ── the doors out of a game ───────────────────────────────────────────────────
+// The unit runs  activity -> post-check -> assessment, and that order is what keeps
+// the pre->post gain (the primary DV) clean. Every game shipped a button straight
+// from the activity to the assessment, which let a student take a scored round
+// BETWEEN the two checks through a door the unit never saw. These two tests hold the
+// door shut inside a unit and hold it OPEN in free play -- the second half matters
+// just as much, because deleting the button outright would also pass the first.
+
+/** Pick an open topic to launch a game from. Any will do: the behaviour under test
+ *  is driven by the ?unit= parameter, not by which topic it names. */
+async function openTopicId(page, t) {
+  const journey = await apiFromPage(page, "/api/topics")
+  const topic = journey.body?.topics?.find((x) => x.state === "open" || x.state === "late")
+  t.require("an open topic exists to launch a game from", !!topic)
+  return topic.topic_id
+}
+
+test("a game opened from the unit points back at the unit, not past the post-check", async (page, t) => {
+  await signIn(page, freshSid())
+  await giveConsent(page)
+  await onboard(page)
+  const unit = await openTopicId(page, t)
+
+  await go(page, `/games/gestalt-understanding?unit=${unit}`)
+  await ready(page, 1600)
+
+  const cta = page.locator('[data-testid="gestalt-learned"]')
+  await cta.waitFor({ state: "visible", timeout: 15000 }).catch(() => {})
+  t.require("the activity's finish button rendered", (await cta.count()) > 0, page.url())
+
+  const label = (await cta.first().innerText()).replace(/\s+/g, " ").trim()
+  t.check("it offers the unit, not a jump to the assessment", /Back to the unit/i.test(label), label)
+  t.check("and the assessment shortcut is gone from it", !/Assessment/i.test(label), label)
+
+  // The corner Exit -- shipped in 302253a and never covered by this suite until now.
+  const exitHref = await page.locator('[data-testid="game-exit"]').first().getAttribute("href")
+  t.check("the corner Exit points at the unit too", exitHref === `/topics/${unit}`, exitHref)
+
+  await cta.first().click()
+  await page.waitForTimeout(3000)
+  t.check("pressing it lands back on the unit", page.url().includes(`/topics/${unit}`), page.url())
+
+  // FREE PLAY MUST BE UNCHANGED. Without this, deleting the button would pass above.
+  await go(page, "/games/gestalt-understanding")
+  await ready(page, 1600)
+  const free = (await page.locator('[data-testid="gestalt-learned"]').first().innerText())
+    .replace(/\s+/g, " ")
+    .trim()
+  t.check("in free play it still hands them on to the assessment", /Assessment/i.test(free), free)
+})
+
+/** Click language-understanding through to its debrief. Chosen because it is the
+ *  shortest of the twelve games that end in the SHARED debrief component, so this
+ *  covers all twelve. */
+async function walkToDebrief(page) {
+  const start = page.getByRole("button", { name: /Disambiguate/i }).first()
+  if (await start.count()) {
+    await start.click()
+    await page.waitForTimeout(600)
+  }
+  for (let i = 0; i < 12; i++) {
+    if (await page.locator('[data-testid="debrief-cta"]').count()) return true
+    const next = page.getByRole("button", { name: /Next sentence|Take Assessment/i }).first()
+    if (await next.count()) {
+      await next.click()
+      await page.waitForTimeout(700)
+      continue
+    }
+    const reading = page.locator(".max-w-xl.space-y-3 button").first()
+    if (await reading.count()) {
+      await reading.click()
+      await page.waitForTimeout(500)
+      continue
+    }
+    break
+  }
+  await page.waitForTimeout(1200)
+  return (await page.locator('[data-testid="debrief-cta"]').count()) > 0
+}
+
+test("the shared debrief withdraws the assessment jump inside a unit", async (page, t) => {
+  await signIn(page, freshSid())
+  await giveConsent(page)
+  await onboard(page)
+  const unit = await openTopicId(page, t)
+
+  await go(page, `/games/language-understanding?unit=${unit}`)
+  await ready(page, 1400)
+  t.require("the game reaches its debrief", await walkToDebrief(page), page.url())
+
+  t.check(
+    "no jump to the assessment is offered inside a unit",
+    (await page.locator('[data-testid="debrief-next-game"]').count()) === 0,
+  )
+  const back = page.locator('[data-testid="debrief-back"]').first()
+  const backLabel = (await back.innerText()).replace(/\s+/g, " ").trim()
+  t.check("the last button returns to the unit", /Back to the unit/i.test(backLabel), backLabel)
+
+  await back.click()
+  await page.waitForTimeout(3000)
+  t.check("and it actually lands there", page.url().includes(`/topics/${unit}`), page.url())
+
+  // FREE PLAY MUST BE UNCHANGED.
+  await go(page, "/games/language-understanding")
+  await ready(page, 1400)
+  t.require("free play reaches the debrief too", await walkToDebrief(page), page.url())
+  t.check(
+    "in free play the assessment jump is still there",
+    (await page.locator('[data-testid="debrief-next-game"]').count()) === 1,
+  )
+  const freeBack = (await page.locator('[data-testid="debrief-back"]').first().innerText())
+    .replace(/\s+/g, " ")
+    .trim()
+  t.check("and the last button is still the dashboard", /Dashboard/i.test(freeBack), freeBack)
+})

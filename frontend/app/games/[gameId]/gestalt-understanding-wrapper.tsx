@@ -6,6 +6,7 @@ import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import { Volume2, VolumeX, Home } from "lucide-react"
 import Link from "next/link"
 import { useProgress } from "@/lib/progress-context"
+import UnitAware from "@/lib/unit-link"
 
 // Load Press Start 2P font
 const pressStart2P = Press_Start_2P({
@@ -196,9 +197,12 @@ export default function GestaltUnderstandingWrapper() {
   const { markGameComplete } = useProgress()
   const [hoveredItem, setHoveredItem] = useState<number | null>(null)
 
-  const finishLearning = () => {
+  // Free play hands them on to the assessment. Inside a unit the UNIT owns that
+  // order (activity -> post-check -> assessment), so this hands them back instead of
+  // letting them take a scored round between the two checks. lib/unit-link.tsx.
+  const finishLearning = (unit: string | null) => {
     markGameComplete("gestalt-understanding")
-    router.push("/games/gestalt-assessment")
+    router.push(unit ? `/topics/${unit}` : "/games/gestalt-assessment")
   }
 
   // Initialize sounds on component mount
@@ -306,13 +310,21 @@ export default function GestaltUnderstandingWrapper() {
                 </ul>
               </div>
 
-              {/* Completion CTA — records understanding progress + unlocks the assessment */}
-              <button
-                onClick={finishLearning}
-                className="mt-6 w-full bg-[#FFE100] border-2 border-[#a16207] text-black font-mono text-lg md:text-xl py-3 px-4 hover:bg-[#fde047] transition-colors font-bold"
-              >
-                ✓ I&apos;ve learned these — Take the Assessment →
-              </button>
+              {/* Completion CTA — records understanding progress, then points at
+                  whichever place they came from. */}
+              <UnitAware fallback={<div className="mt-6 h-[60px]" />}>
+                {(unit) => (
+                  <button
+                    onClick={() => finishLearning(unit)}
+                    data-testid="gestalt-learned"
+                    className="mt-6 w-full bg-[#FFE100] border-2 border-[#a16207] text-black font-mono text-lg md:text-xl py-3 px-4 hover:bg-[#fde047] transition-colors font-bold"
+                  >
+                    {unit
+                      ? "✓ I've learned these — Back to the unit →"
+                      : "✓ I've learned these — Take the Assessment →"}
+                  </button>
+                )}
+              </UnitAware>
             </div>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useProgress } from "@/lib/progress-context"
 import { useBadges } from "@/lib/badge-context"
 import { getTopicFromGameId } from "@/lib/topic-definitions"
+import UnitAware from "@/lib/unit-link"
 
 // ── Course-accurate content for each topic ────────────────────────────────────
 
@@ -364,49 +365,66 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
         </div>
       </div>
 
-      {/* CTA row */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {content.nextGameId && !isAssessment && (
-          <button
-            onClick={() => router.push(`/games/${content.nextGameId}`)}
-            className="u-btn flex-1"
-          >
-            {content.nextGameLabel ?? "Next →"}
-          </button>
+      {/* CTA row.
+          Two shapes, because a game has two ways in (lib/unit-link.tsx):
+
+            free play  [Next game]  [Reflect]  [Ask AI Tutor]  [Dashboard]
+            in a unit              [Reflect]  [Ask AI Tutor]  [Back to the unit]
+
+          The next-game jump is withdrawn inside a unit ON PURPOSE. The unit runs
+          activity -> post-check -> assessment, and this button skipped straight from
+          the activity to the assessment -- putting a scored round BETWEEN the two
+          checks and contaminating the pre->post gain for that student. The unit is
+          walking them to the assessment as its own step anyway, so nothing is lost
+          but the shortcut past the measurement. */}
+      <UnitAware>
+        {(unit) => (
+          <div className="flex flex-col sm:flex-row gap-3" data-testid="debrief-cta">
+            {content.nextGameId && !isAssessment && !unit && (
+              <button
+                onClick={() => router.push(`/games/${content.nextGameId}`)}
+                className="u-btn flex-1"
+                data-testid="debrief-next-game"
+              >
+                {content.nextGameLabel ?? "Next →"}
+              </button>
+            )}
+            {isAssessment && (
+              <button
+                onClick={() => {
+                  const topic = getTopicFromGameId(gameId)
+                  if (topic)
+                    window.dispatchEvent(
+                      new CustomEvent("start-reflection", { detail: { topicId: topic.topicId } }),
+                    )
+                }}
+                className="u-btn flex-1"
+              >
+                ⭐ Reflect with Tutor
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (onAskAI) {
+                  onAskAI(content.aiPrompt)
+                } else {
+                  window.dispatchEvent(new CustomEvent("open-ai-chat", { detail: { prompt: content.aiPrompt } }))
+                }
+              }}
+              className="u-btn u-btn-primary flex-1"
+            >
+              Ask AI Tutor
+            </button>
+            <button
+              onClick={() => router.push(unit ? `/topics/${unit}` : "/dashboard")}
+              className="u-btn flex-1"
+              data-testid="debrief-back"
+            >
+              {unit ? "← Back to the unit" : "Dashboard"}
+            </button>
+          </div>
         )}
-        {isAssessment && (
-          <button
-            onClick={() => {
-              const topic = getTopicFromGameId(gameId)
-              if (topic)
-                window.dispatchEvent(
-                  new CustomEvent("start-reflection", { detail: { topicId: topic.topicId } }),
-                )
-            }}
-            className="u-btn flex-1"
-          >
-            ⭐ Reflect with Tutor
-          </button>
-        )}
-        <button
-          onClick={() => {
-            if (onAskAI) {
-              onAskAI(content.aiPrompt)
-            } else {
-              window.dispatchEvent(new CustomEvent("open-ai-chat", { detail: { prompt: content.aiPrompt } }))
-            }
-          }}
-          className="u-btn u-btn-primary flex-1"
-        >
-          Ask AI Tutor
-        </button>
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="u-btn flex-1"
-        >
-          Dashboard
-        </button>
-      </div>
+      </UnitAware>
     </div>
   )
 }
