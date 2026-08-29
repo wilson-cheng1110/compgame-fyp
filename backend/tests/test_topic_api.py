@@ -37,7 +37,7 @@ for path, m in [("/api/topics","get"), ("/api/topics/webers-law","get"),
     check(f"401 {path}", getattr(c,m)(path).status_code == 401)
 check("401 on submit", c.post("/api/topics/webers-law/check/A", json={"answers":{}}).status_code == 401)
 
-c.post("/api/auth/session", json={"sid":"24012345D"})
+c.post("/api/auth/signup", json={"sid":"24012345D","password":"hunter2xyz"})
 
 print("\n-- journey --")
 j = c.get("/api/topics").json()

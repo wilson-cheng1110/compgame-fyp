@@ -96,6 +96,16 @@ def _window_for(cfg: dict, topic: dict, section: str):
     return opens, closes, start
 
 
+def sections() -> dict[str, dict]:
+    """The section codes this cohort runs, with their lecture day.
+
+    Exposed because signup now asks the student which section they are in -- with
+    no class list that choice is the ONLY source of the release window, so the
+    picker and the validator have to read the same config the windows do.
+    """
+    return dict(_load()["sections"])
+
+
 def topic_states(sid: str, section: str, now: datetime | None = None) -> list[dict]:
     """Per-topic state for one student, in lecture-notes release order.
 

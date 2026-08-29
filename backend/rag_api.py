@@ -82,12 +82,16 @@ app.add_middleware(
 from auth_api import router as auth_router          # noqa: E402
 from topic_api import router as topic_router        # noqa: E402
 from research_api import router as research_router  # noqa: E402
+from admin_api import router as admin_router        # noqa: E402
 import grade                                       # noqa: E402
 import game_keys                                   # noqa: E402
 
 app.include_router(auth_router)
 app.include_router(topic_router)
 app.include_router(research_router)
+# Teacher surface. Its own router with its own allowlist file -- see admin_api.py for
+# why it could not exist before passwords did.
+app.include_router(admin_router)
 # Grading is offline by design (docs/revamp.md Part 8.2); this router exists so the
 # batch and the occasional spot check can reach the model. It fails CLOSED -- with
 # GRADE_TOKEN unset every route 503s, so mounting it does not expose anything.

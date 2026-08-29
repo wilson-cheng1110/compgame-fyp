@@ -81,17 +81,42 @@ export async function ready(page, ms = 900) {
   await page.waitForTimeout(ms)
 }
 
+export const E2E_PASSWORD = "e2e-passw0rd"
+
+/** Get a student INTO the app. Accounts have a password now, and every test draws a
+ *  fresh SID, so the normal path is signup — which returns a session exactly as
+ *  signing in does. The fallback to /login is what makes a re-used SID behave
+ *  sensibly instead of failing in a way that reads like an app bug. */
 export async function signIn(page, sid, attempt = 0) {
+  await go(page, "/signup")
+  await ready(page)
+  const sidField = page.locator('[data-testid="signup-sid"]')
+  if (await sidField.count()) {
+    await sidField.fill(sid)
+    await page.locator('[data-testid="signup-password"]').fill(E2E_PASSWORD)
+    // The picker only renders when no class list is configured; with a roster the
+    // section comes from the list and there is nothing to click.
+    const section = page.locator('[data-testid="signup-section"]')
+    if (await section.count()) await section.first().click()
+    await page.locator('[data-testid="signup-submit"]').click()
+    await page.waitForTimeout(3000)
+    if (!page.url().includes("/signup")) return page.url()
+  }
+  return logIn(page, sid, attempt)
+}
+
+export async function logIn(page, sid, attempt = 0) {
   await go(page, "/login")
   await ready(page)
   await page.locator('input[type="text"]').first().fill(sid)
+  await page.locator('[data-testid="login-password"]').fill(E2E_PASSWORD)
   await page.locator('button[type="submit"]').first().click()
   await page.waitForTimeout(3000)
 
   // A trailing "?" is the signature of the native submit above. Retry once rather
   // than reporting a login failure that is really a timing artefact.
   if (page.url().includes("/login?") && attempt < 2) {
-    return signIn(page, sid, attempt + 1)
+    return logIn(page, sid, attempt + 1)
   }
   return page.url()
 }

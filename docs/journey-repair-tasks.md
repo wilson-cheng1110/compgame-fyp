@@ -255,6 +255,37 @@ written. The list came from a screenshot audit; the code disagreed with it twice
 
 ---
 
+## After the repair — the readiness chain (settled with Wilson 2026-08-30)
+
+Ordered by what blocks what, not by size. Each link states its own done-test.
+
+- [x] **P1 · a real credential, and the panel it makes defensible.** SID + password
+      sign-up, class list optional, teacher panel at `/admin`. The order was forced:
+      both auth modules carried a standing "never hang an admin surface off this"
+      instruction that only a password could lift. *Done-test: backend 325/0 including
+      38 admin assertions; a signed-in STUDENT gets 403 on every admin route.*
+- [ ] **P2 · images off the external blob host.** 22 references, 13 distinct assets on
+      `hebbkx1anhila5yf.public.blob.vercel-storage.com`. Stage 5 moved the audio and
+      left these, because the item said "music". One host outage and 26 games render
+      empty — this is the thing most likely to break the EDC demo.
+      *Done-test: 0 `public.blob` references survive the build, and each asset 200s.*
+      ~1 hour, no decisions needed.
+- [ ] **P3 · the nine missing item banks.** 4 of 13 topics are banked
+      (gestalt, memory, problem-solving, webers-law); the other nine are 6 A + 6 B
+      each = 108 items. `hicks-law` and `norman` are authored WITHOUT lecture backing
+      by decision (see the resolved item below) — their ⟨g⟩ is not comparable to the
+      rest and they are extra topics, not H1 evidence.
+      *Done-test: `checks.bank_report()` shows 13/13 balanced; the existing
+      `test_checks.py` invariants extend to them automatically.*
+- [ ] **P4 · the resilience suite** (`e2e/resilience.mjs`, same stdlib harness).
+      Thirteen surfaces nothing tests today: refresh mid-check · two tabs · backend
+      down mid-submit · cross-device resume · Ollama actually dead · slow submit ·
+      mobile 390x844 · keyboard-only · screen-reader semantics · browser back ·
+      localStorage cleared · 100 concurrent dashboards end-to-end · **and 23 of the 26
+      game canvases, which no test has ever opened.** That last one is the biggest
+      hole in the suite and should go first.
+      *Done-test: the suite runs green, and each new test is mutation-checked.*
+
 ## Parallel — blocked on Wilson, gates launch regardless
 
 - [x] **week 1 calendar date — resolved.** From the published academic calendar
@@ -301,7 +332,17 @@ written. The list came from a screenshot audit; the code disagreed with it twice
         reports 0 for both. Stated as *no evidence found*, not *absent*: given the
         unlabelled-teaching pattern above, and given the topic set was derived by a
         fan-out session that READ these decks, the prior is that backing exists and I
-        have not located it. Worth a human eye before anything is concluded. *(Wilson)*
+        have not located it.
+
+        **RESOLVED 2026-08-30 (Wilson): keep both, no disclosure, treat them as EXTRA
+        topics; he will raise it with the professor.** Closing this so it stops being
+        re-opened. For the record, the last probe of the corpus searched by CONCEPT as
+        well as by name -- `choice reaction time`, `number of alternatives`,
+        `gulf of execution`, `seven stages`, `action cycle` -- and still returned 0 of
+        1,407 chunks, while the controls (`index of difficulty` 10, `proximity` 16)
+        landed. What makes the tutor answer them anyway is `_EXAMPLE_BANK` in
+        rag_api.py, which carries hand-written entries for `hick` and `norman`, plus
+        gemma's own pretraining. Three sources; one of them is the course.
       *Caveat: 2023 decks. The 2026/27 ones are pending and this needs redoing.* *(Wilson)*
 - [x] ~~The vector store is missing content that is in the PDFs~~ — **RETRACTED, false.**
       I claimed the decks contain `Hick` ten times while the corpus reports zero, and

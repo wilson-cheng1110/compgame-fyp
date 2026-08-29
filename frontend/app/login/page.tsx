@@ -7,24 +7,29 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Cookies from "js-cookie"
 import { auth } from "@/lib/api"
+import { storeSession, nextStep } from "@/lib/session-handoff"
 
-// SID-only sign-in (docs/revamp.md Part 0). There is no password:
+// SID + password sign-in (Wilson, 2026-08-30). The SID-only design this page was
+// built for is gone, and with it the sentence that used to sit under the heading:
+// "your student ID is all you need".
 //
-//  * The gate is the enrolled-SID allowlist the lecturer supplies. An arbitrary
-//    string won't work, but one enrolled student CAN enter as another. That is a
-//    deliberate, disclosed trade for a low-stakes formative tool — not an oversight.
-//  * The real credential is the HttpOnly `session` cookie the backend sets. This
-//    page never sees it.
-//  * The JS-readable `user` cookie keeps its exact historic shape
-//    `{sid, username, avatarId}` so all 15 `Cookies.get("user")` call sites across
-//    the app keep working untouched.
-//
-// The old "Forgot password?" button called removeUsers(), which wiped EVERY account
-// on the machine. With no password there is nothing to reset, and it's gone.
+//  * One enrolled student can no longer enter as another. That was a disclosed
+//    trade under the old model; it no longer has to be made.
+//  * ONE error message, always. The backend refuses to distinguish an unknown SID
+//    from a wrong password, so this page must not invent a more specific message
+//    from the status code -- doing so would hand back the enumeration the single
+//    message exists to prevent.
+//  * The real credential is still the HttpOnly `session` cookie. This page never
+//    sees it, and the JS-readable `user` cookie keeps its historic shape so all 15
+//    `Cookies.get("user")` call sites keep working untouched.
+//  * There is still no self-serve reset. The old "Forgot password?" button called
+//    removeUsers(), which wiped EVERY account on the machine; a reset now belongs
+//    to the teacher, in /admin.
 
 export default function LoginPage() {
   const router = useRouter()
   const [sid, setSid] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
@@ -40,38 +45,13 @@ export default function LoginPage() {
     // being signed in. If the session is gone, clear the decoration and stay put.
     auth.me().then((res) => {
       if (res.ok && res.data) {
-        Cookies.set(
-          "user",
-          JSON.stringify({
-            sid: res.data.sid,
-            username: res.data.username,
-            avatarId: res.data.avatarId,
-            // MUST be written, and it was not until 2026-08-21. The onboarding gate
-            // reads this key off the cookie; the old signup flow used to set it and
-            // retiring signup left nothing writing it. Undefined here sent a brand
-            // new student: login -> avatar page (reads !undefined -> true, bounces
-            // to dashboard) -> dashboard (no username/avatarId, DELETES the cookie)
-            // -> login. An unbreakable loop, and on day one every one of the 300
-            // accounts is in exactly that state.
-            needsOnboarding: res.data.needsOnboarding,
-          }),
-          { expires: 120 },
-        )
+        storeSession(res.data)
         router.push(nextStep(res.data.needsConsent, res.data.needsOnboarding, res.data.needsBaseline))
       } else if (res.status === 401) {
         Cookies.remove("user")
       }
     })
   }, [router])
-
-  function nextStep(needsConsent: boolean, needsOnboarding: boolean, needsBaseline?: boolean) {
-    if (needsConsent) return "/consent"
-    if (needsOnboarding) return "/onboarding/avatar"
-    // The baseline is the last onboarding step, and it is a GATE: it measures prior
-    // knowledge, so it has to be sat before the student sees any topic content.
-    if (needsBaseline) return "/onboarding/baseline"
-    return "/dashboard"
-  }
 
   const toggleDarkMode = () => {
     const newMode = !darkMode
@@ -90,30 +70,22 @@ export default function LoginPage() {
     setError("")
 
     const trimmed = sid.trim().toUpperCase()
-    if (!trimmed) {
-      setError("Enter your student ID to continue.")
+    if (!trimmed || !password) {
+      setError("Enter your student ID and password to continue.")
       return
     }
 
     setBusy(true)
-    const res = await auth.start(trimmed)
+    const res = await auth.start(trimmed, password)
     setBusy(false)
 
     if (!res.ok || !res.data) {
-      setError(res.message ?? "Couldn't sign you in.")
+      // Whatever came back, say the same thing. See the note at the top of the file.
+      setError(res.message ?? "That student ID and password don't match an account.")
       return
     }
 
-    Cookies.set(
-      "user",
-      JSON.stringify({
-        sid: res.data.sid,
-        username: res.data.username,
-        avatarId: res.data.avatarId,
-        needsOnboarding: res.data.needsOnboarding,   // see the note above
-      }),
-      { expires: 120 },
-    )
+    storeSession(res.data)
     router.push(nextStep(res.data.needsConsent, res.data.needsOnboarding, res.data.needsBaseline))
   }
 
@@ -151,7 +123,7 @@ export default function LoginPage() {
           <p className="u-eyebrow">COMP3423 · Human–Computer Interaction</p>
           <h1 className="u-h1 mt-1">Sign in</h1>
           <p className="u-stem u-muted mt-2 mb-7">
-            Your student ID is all you need. There is no password to forget.
+            Your student ID and the password you chose when you signed up.
           </p>
 
           <div className="u-card p-7">
@@ -181,9 +153,22 @@ export default function LoginPage() {
                   className="u-field u-num"
                   required
                 />
-                <p className="u-faint pt-1">
-                  Your SID needs to be on the class list for this study.
-                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="password" className="u-eyebrow block">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="u-field"
+                  data-testid="login-password"
+                  required
+                />
               </div>
 
               <button
@@ -195,7 +180,8 @@ export default function LoginPage() {
               </button>
 
               <p className="u-faint text-center">
-                Not recognised? Ask the course team to add your SID to the study list.
+                No account yet? <Link href="/signup" className="underline">Create one</Link>.
+                Forgotten your password? Ask the course team — there is no self-serve reset.
               </p>
             </form>
           </div>

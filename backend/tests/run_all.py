@@ -8,7 +8,7 @@ would make the tests the reason the suite can't run.
 import os, subprocess, sys, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SUITES = ["test_auth.py", "test_auth_api.py", "test_schedule.py",
+SUITES = ["test_auth.py", "test_auth_api.py", "test_admin_api.py", "test_schedule.py",
           "test_checks.py", "test_topic_api.py", "test_research_api.py",
           "test_module_integrity.py", "test_grade.py"]
 

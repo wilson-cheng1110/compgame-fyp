@@ -37,7 +37,7 @@ check("no session -> 401", r.status_code == 401, r.status_code)
 check("nothing recorded", len(research_store.fetch_all()) == 0)
 
 print("\n-- FIX 1b: client CANNOT spoof identity --")
-c.post("/api/auth/session", json={"sid":"24000001A"})
+c.post("/api/auth/signup", json={"sid":"24000001A","password":"hunter2xyz"})
 r = c.post("/api/research/event", json={
     "participant_id": "24000002B",              # claiming to be someone else
     "event_type": "assessment_complete", "topic_id": "gestalt", "score": 90})
@@ -115,11 +115,11 @@ except ValueError:
 # nothing, which is correct but easy to write a vacuous test against.
 check("withdrawing an account that does not exist reports so",
       auth_store.withdraw("24000009Z") is False)
-auth_store.start_session("24000002B")
+auth_store.create_account("24000002B", "hunter2xyz")
 check("withdraw tombstones a real account", auth_store.withdraw("24000002B") is True)
 research_store.forget_participant("24000002B")
 check("the withdrawn SID still cannot start a session",
-      auth_store.start_session("24000002B") is None)
+      auth_store.start_session("24000002B", "hunter2xyz") is None)
 
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

@@ -187,8 +187,24 @@ export interface ProbePayload {
 
 // ── calls ─────────────────────────────────────────────────────────────────────
 
+export interface SectionOption {
+  code: string
+  day: string | null
+}
+
 export const auth = {
-  start: (sid: string) => api.post<SessionUser>("/api/auth/session", { sid }),
+  /** Sign IN. One failure message by design -- the backend will not tell you whether
+   *  a SID exists, so do not try to render a more specific error from the response. */
+  start: (sid: string, password: string) =>
+    api.post<SessionUser>("/api/auth/session", { sid, password }),
+  /** Sign UP. This one DOES distinguish its failures (`error` is one of
+   *  not_enrolled | exists | weak_password | bad_section | withdrawn). */
+  signup: (sid: string, password: string, section?: string, username?: string) =>
+    api.post<SessionUser>("/api/auth/signup", { sid, password, section, username }),
+  /** The section picker's options. Public -- the signup form needs them before
+   *  anyone has a session. `roster` says whether a class list is gating signup, in
+   *  which case the picker is decoration and the list decides. */
+  sections: () => api.get<{ sections: SectionOption[]; roster: boolean }>("/api/auth/sections"),
   me: () => api.get<SessionUser>("/api/auth/me"),
   logout: () => api.post<{ ok: boolean }>("/api/auth/logout"),
   consent: (agreed: boolean, version?: string) =>
@@ -205,6 +221,46 @@ export const auth = {
       answers,
       duration_ms: durationMs,
     }),
+}
+
+export interface AdminParticipant {
+  sid: string
+  username: string | null
+  section: string | null
+  created_at: string
+  last_seen_at: string | null
+  withdrawn: number
+  has_password: number
+}
+
+export interface AuditEntry {
+  id: number
+  at: string
+  admin_sid: string
+  action: string
+  target_sid: string | null
+  detail: string | null
+}
+
+/** The teacher surface. Guarded twice server-side (session + allowlist file); this
+ *  client cannot and does not try to enforce anything -- it only asks. */
+export const admin = {
+  whoami: () => api.get<{ ok: true; sid: string }>("/api/admin/whoami"),
+  participants: () =>
+    api.get<{
+      participants: AdminParticipant[]
+      roster: boolean
+      counts: { total: number; withdrawn: number; claimed: number }
+    }>("/api/admin/participants"),
+  setSection: (sid: string, section: string) =>
+    api.post<{ ok: true }>("/api/admin/section", { sid, section }),
+  resetPassword: (sid: string, password: string, endSessions = false) =>
+    api.post<{ ok: true; sessions_ended: number }>("/api/admin/password", {
+      sid,
+      password,
+      end_sessions: endSessions,
+    }),
+  audit: () => api.get<{ entries: AuditEntry[] }>("/api/admin/audit"),
 }
 
 export const topics = {

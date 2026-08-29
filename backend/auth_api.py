@@ -21,8 +21,19 @@ COOKIES -- two, with different jobs (docs/revamp.md Part 0):
 We deliberately do NOT set the `user` cookie here: the frontend already owns it, and
 having two writers of one cookie with different encodings is how it starts drifting.
 
-NOT AUTHENTICATION. The credential is the SID and there is no secret; the allowlist
-is the only gate. Never hang an admin surface off this router.
+AUTHENTICATION, as of 2026-08-30 (Wilson): the credential is SID + password and the
+class list is optional. `auth_store` holds the reasoning; what matters here is the
+shape of the two doors.
+
+  POST /signup   distinguishes its failures -- not_enrolled, exists, weak_password,
+                 bad_section -- because a signup form that will not say "that account
+                 already exists" is unusable.
+  POST /session  does NOT. Unknown SID, unclaimed account, wrong password and
+                 withdrawn all return the same 401, so this endpoint cannot be walked
+                 to discover who is enrolled.
+
+The admin surface still does not belong on this router -- it gets its own, with its
+own allowlist file. What changed is only that one is now defensible at all.
 """
 
 import os
@@ -45,6 +56,15 @@ CONSENT_VERSION = os.environ.get("CONSENT_VERSION", "2026-08-info-sheet-v1")
 
 class SessionRequest(BaseModel):
     sid: str
+    password: str = ""
+    username: str | None = None
+    avatar_id: str | None = None
+
+
+class SignupRequest(BaseModel):
+    sid: str
+    password: str
+    section: str | None = None
     username: str | None = None
     avatar_id: str | None = None
 
@@ -71,19 +91,67 @@ def _set_session_cookie(response: Response, token: str) -> None:
     )
 
 
+SIGNUP_MESSAGES = {
+    "bad_sid": "Enter your student ID.",
+    "weak_password": f"Pick a password of at least {auth_store.MIN_PASSWORD} characters.",
+    "not_enrolled": "That student ID isn't on the class list for this study.",
+    "bad_section": "Choose which session you attend.",
+    "exists": "There's already an account for that student ID — sign in instead.",
+    "withdrawn": "That account was withdrawn from the study and can't be reopened.",
+}
+
+
+@router.get("/sections")
+async def list_sections():
+    """The sections a student can pick from at signup, with their lecture day.
+
+    Public: it is the same information as the course timetable, and the signup form
+    needs it before anyone has a session. Read from the schedule config so the picker
+    and the release windows can never drift apart.
+    """
+    import schedule
+    return {"sections": [{"code": c, "day": v.get("day")} for c, v in schedule.sections().items()],
+            "roster": auth_store.roster_active()}
+
+
+@router.post("/signup")
+async def signup(req: SignupRequest, response: Response):
+    """Create an account. Returns the same body as /session so the frontend stores
+    one shape either way."""
+    result, reason = auth_store.create_account(
+        req.sid, req.password, req.section, req.username, req.avatar_id)
+    if result is None:
+        response.status_code = (409 if reason in ("exists", "withdrawn")
+                                else 403 if reason == "not_enrolled" else 400)
+        return {"error": reason, "message": SIGNUP_MESSAGES.get(reason, "Couldn't create that account.")}
+
+    _set_session_cookie(response, result["token"])
+    return {
+        "sid": result["sid"],
+        "username": result["username"],
+        "avatarId": result["avatar_id"],
+        "section": result["section"],
+        "needsOnboarding": result["needs_onboarding"],
+        "needsConsent": not _has_consented(result["sid"]),
+        "needsBaseline": not research_store.has_event(result["sid"], baseline.EVENT_TYPE),
+    }
+
+
 @router.post("/session")
 async def create_session(req: SessionRequest, response: Response):
-    """Claim an identity. 403 if the SID is not on the enrolled list or has withdrawn.
+    """Sign in. 401 on any failure, with one message -- see the module docstring.
 
     The response body is what the frontend writes into its own `user` cookie.
     """
-    result = auth_store.start_session(req.sid, req.username, req.avatar_id)
+    result = auth_store.start_session(req.sid, req.password)
     if result is None:
-        # Deliberately one message for "not enrolled" and "withdrawn". A student who
-        # withdrew should not have that fact confirmed back to whoever typed their SID.
-        response.status_code = 403
-        return {"error": "not_enrolled",
-                "message": "That student ID isn't on the class list for this study."}
+        # ONE message for unknown / unclaimed / wrong-password / withdrawn. A student
+        # who withdrew must not have that fact confirmed back to whoever typed their
+        # SID, and nobody should be able to walk this endpoint to find out who is on
+        # the list.
+        response.status_code = 401
+        return {"error": "bad_credentials",
+                "message": "That student ID and password don't match an account."}
 
     _set_session_cookie(response, result["token"])
     return {

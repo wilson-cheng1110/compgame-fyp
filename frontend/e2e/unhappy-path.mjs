@@ -13,7 +13,7 @@
 // still enforces (the student then just sees a broken page instead of a leak).
 
 import {
-  test, T, go, ready, signIn, giveConsent, onboard, apiFromPage,
+  test, T, go, ready, signIn, logIn, fullSignIn, E2E_PASSWORD, giveConsent, onboard, apiFromPage,
   freshSid, UNENROLLED_SID, API, grepBuild,
 } from "./lib.mjs"
 
@@ -24,9 +24,16 @@ const POST = (body) => ({
 })
 
 test("a SID that is not on the class list cannot get in", async (page, t) => {
-  const url = await signIn(page, UNENROLLED_SID)
+  await go(page, "/signup")
+  await ready(page)
+  await page.locator('[data-testid="signup-sid"]').fill(UNENROLLED_SID)
+  await page.locator('[data-testid="signup-password"]').fill(E2E_PASSWORD)
+  const pick = page.locator('[data-testid="signup-section"]')
+  if (await pick.count()) await pick.first().click()
+  await page.locator('[data-testid="signup-submit"]').click()
+  await page.waitForTimeout(2500)
 
-  t.check("stays on the login page", url.includes("/login"), url)
+  t.check("stays on the signup page", page.url().includes("/signup"), page.url())
   const html = await page.content()
 
   // AUDIT 2026-08-21: this used to test /not|isn't|cannot|class list/, which MATCHES
@@ -43,6 +50,18 @@ test("a SID that is not on the class list cannot get in", async (page, t) => {
 
   const me = await apiFromPage(page, "/api/auth/me")
   t.check("no session was created", me.status === 401, me)
+
+  // The OTHER door must stay mute. Sign-in refuses an unknown SID and a wrong
+  // password with one identical message, so this page cannot be walked to find out
+  // who is on the class list.
+  await logIn(page, UNENROLLED_SID)
+  t.check("sign-in stays on the login page", page.url().includes("/login"), page.url())
+  const loginHtml = await page.content()
+  t.check("sign-in does NOT confirm the SID is unknown",
+    !/isn't on the class list for this study/i.test(loginHtml))
+  t.check("it gives the one generic message instead",
+    /don't match an account/i.test(loginHtml),
+    loginHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 180))
 })
 
 test("signed-out students are sent to login, not to a broken page", async (page, t) => {
@@ -347,12 +366,26 @@ test("a student can actually withdraw, and withdrawal holds", async (page, t) =>
   const me = await apiFromPage(page, "/api/auth/me")
   t.check("the server session is gone", me.status === 401, me)
 
+  // With the RIGHT password, which is the only version of this worth asserting: a
+  // withdrawn account must stay shut to the person who owns it, not merely to someone
+  // guessing. 401 rather than the old 403 -- /session has one failure mode now, so a
+  // withdrawal is indistinguishable from a wrong password and cannot be confirmed
+  // back to whoever typed the SID.
   const back = await apiFromPage(page, "/api/auth/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sid }),
+    body: JSON.stringify({ sid, password: E2E_PASSWORD }),
   })
-  t.check("a withdrawn SID cannot sign back in", back.status === 403, back)
+  t.check("a withdrawn SID cannot sign back in", back.status === 401, back)
+  t.check("and the refusal does not reveal that they withdrew",
+    back.body?.error === "bad_credentials", back.body)
+  // Nor can they start over: create_account refuses a tombstoned SID outright.
+  const again = await apiFromPage(page, "/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sid, password: E2E_PASSWORD }),
+  })
+  t.check("and cannot sign up again to get around it", again.status === 409, again)
 
   await go(page, "/dashboard")
   await page.waitForTimeout(1500)
@@ -384,4 +417,84 @@ test("the consent form describes what its own buttons do", async (page, t) => {
     notice && decline && notice.y < decline.y,
     { notice: notice?.y, decline: decline?.y },
   )
+})
+
+// ── the teacher surface ───────────────────────────────────────────────────────
+
+const TEACHER_SID = "24E00399A" // matches backend/admin_sids.txt; high in the roster
+                                // so freshSid() never allocates it out from under us
+
+test("a student who finds /admin learns nothing from it", async (page, t) => {
+  // The interesting case is not the teacher, it is everyone else. A student who
+  // guesses this URL must get a refusal, not an empty table and not a stack trace.
+  await fullSignIn(page, freshSid(), "NotATeacher")
+  await go(page, "/admin")
+  await page.waitForTimeout(2500)
+
+  t.check("they get a plain refusal", (await page.locator('[data-testid="admin-denied"]').count()) > 0)
+  t.check("no account list is rendered", (await page.locator('[data-testid="admin-list"]').count()) === 0)
+  const html = await page.content()
+  t.check("no other student's SID is on the page", !/24E00\d{3}A[\s\S]{0,40}Section/.test(html))
+  t.check("and no stack trace leaks", !/Traceback|TypeError|undefined is not/i.test(html))
+
+  // The page is only a door. The server is the lock, so ask it directly.
+  const api = await apiFromPage(page, "/api/admin/participants")
+  t.check("the API refuses them (403)", api.status === 403, api.status)
+  t.check("and returns no participant data", !JSON.stringify(api.body ?? {}).includes("has_password"), api.body)
+  const sect = await apiFromPage(page, "/api/admin/section", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sid: TEACHER_SID, section: "A" }),
+  })
+  t.check("a student cannot move anyone between sections", sect.status === 403, sect.status)
+})
+
+test("a teacher can reset a lost password, and the class list still wins on sections", async (page, t) => {
+  const student = freshSid()
+  await fullSignIn(page, student, "Forgetful")
+
+  // Same browser, different account: the teacher.
+  // context.clearCookies(), NOT document.cookie: the session cookie is HttpOnly and
+  // therefore invisible to page JS. Clearing from the page left the student session
+  // standing, so /signup and /login both bounced the "teacher" straight back to the
+  // dashboard and the test ground through three 30s locator timeouts before failing.
+  await page.context().clearCookies()
+  await signIn(page, TEACHER_SID)
+  await giveConsent(page)
+  await onboard(page, "Dr E2E")
+
+  await go(page, "/admin")
+  await page.waitForTimeout(2500)
+  t.require("the teacher gets the page", (await page.locator('[data-testid="admin-list"]').count()) > 0, page.url())
+  t.check("it counts the accounts", (await page.locator('[data-testid="admin-counts"]').count()) > 0)
+
+  // The e2e fixture HAS a class list, so the section buttons must be inert and the
+  // page must say why -- sign-in re-reads that file every time and would revert them.
+  await page.locator('[data-testid="admin-search"]').fill(student)
+  await page.waitForTimeout(600)
+  await page.locator('[data-testid="admin-manage"]').first().click()
+  await page.waitForTimeout(500)
+  const sectionBtn = page.locator('[data-testid="admin-section"]').first()
+  t.check("section buttons are disabled while a roster is configured",
+    await sectionBtn.isDisabled().catch(() => false))
+  t.check("and the page explains why rather than just greying out",
+    /class list is configured/i.test(await page.locator("body").innerText()))
+
+  // The reset is the whole reason this panel exists: there is no self-serve path.
+  await page.locator('[data-testid="admin-newpw"]').fill("reset-passw0rd")
+  await page.locator('[data-testid="admin-reset"]').click()
+  await page.waitForTimeout(2000)
+  const note = await page.locator('[data-testid="admin-note"]').innerText().catch(() => "")
+  t.check("the new password is shown to the teacher once", /reset-passw0rd/.test(note), note.slice(0, 160))
+  t.check("and it says to pass it on now", /tell them now/i.test(note))
+
+  t.check("the change is in the audit log",
+    /reset_password/.test(await page.locator('[data-testid="admin-audit"]').innerText().catch(() => "")))
+
+  // The proof is at the door, not in the log: the OLD password must stop working.
+  const ctx = await page.context().browser().newContext()
+  const fresh = await ctx.newPage()
+  await logIn(fresh, student)                    // logIn uses E2E_PASSWORD -- the old one
+  t.check("the student's old password no longer works", fresh.url().includes("/login"), fresh.url())
+  await ctx.close()
 })

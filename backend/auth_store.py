@@ -9,19 +9,27 @@ by Wilson 2026-08-16): cookie-only state cannot survive 300 students on their ow
 laptops. It gives no cross-device resume, no deletion path when a participant
 withdraws, and silent total data loss on a cache clear.
 
-WHAT THIS IS NOT: authentication. The credential model is **SID only, no secret**.
-Anyone who knows a classmate's SID can start a session as them. Hence:
+THE CREDENTIAL MODEL CHANGED 2026-08-30 (Wilson): **SID + password**, and the class
+list became optional. What the old docstring said here -- "this is not
+authentication", "the allowlist is the only gate", "never hang an admin surface off
+it" -- was true of the SID-only design and is true no longer. Three consequences:
 
-  * `start_session`, not `login` -- the name should not imply a guarantee we do
-    not provide.
-  * The enrolled-SID allowlist is the ONLY gate. It gives enrolment control on a
-    public URL (an arbitrary string will not work) but does NOT stop impersonation
-    between enrolled students. That limitation belongs in the paper.
-  * The `session` cookie is an identity hint, never a security boundary. Do not
-    later hang an admin surface off it without adding a real credential first.
+  * A password is required to start a session, so impersonation between students is
+    no longer free. scrypt from the stdlib; still no bcrypt/passlib.
+  * The allowlist is OPTIONAL. When `enrolled_sids.txt` exists and parses to at
+    least one SID it still gates signup and still dictates the section -- the
+    teacher's list outranks a student's guess. When it is absent, signup is open and
+    the student picks their own section, which is then the ONLY source of their
+    release window: a wrong pick is wrong data, and /api/admin exists to correct it.
+  * Because there is a real secret, an admin surface is now defensible. It lives in
+    its own router with its own allowlist file, never on this one.
+
+WHAT THIS STILL IS NOT: strong identity. A password can be shared, and with no
+roster an unenrolled person can create an account. Both belong in the paper.
 
 Schema:
-  users     sid PK · username · avatar_id · section · created_at · last_seen_at · withdrawn
+  users     sid PK · username · avatar_id · section · pw_salt · pw_hash
+            · created_at · last_seen_at · withdrawn
   sessions  token PK · sid · created_at · expires_at
 
 Enrolment file (`enrolled_sids.txt`, one per line, `#` comments):
@@ -45,6 +53,16 @@ ENROLMENT_PATH = os.environ.get("ENROLMENT_PATH", os.path.join(_HERE, "enrolled_
 SECRET_PATH = os.environ.get("PARTICIPANT_SECRET_PATH", os.path.join(_HERE, ".participant_secret"))
 
 SESSION_DAYS = int(os.environ.get("SESSION_DAYS", "120"))  # one semester + margin
+
+# Teacher accounts, same shape and same house pattern as the enrolment list: one SID
+# per line, `#` comments, re-read on mtime. Gitignored -- it names real people.
+ADMIN_PATH = os.environ.get("ADMIN_PATH", os.path.join(_HERE, "admin_sids.txt"))
+
+# stdlib scrypt. n=2**14, r=8, p=1 measures ~37 ms per verify on the dev box: dear
+# enough that an offline guess costs, cheap enough that a section of 100 signing in
+# at once is not a self-inflicted DoS. 16 MiB of working memory per call.
+_SCRYPT = {"n": 2 ** 14, "r": 8, "p": 1, "dklen": 32}
+MIN_PASSWORD = 8
 
 _lock = Lock()
 _enrolment: dict[str, str] = {}     # sid -> section
@@ -121,6 +139,55 @@ def enrolled_section(sid: str) -> str | None:
 
 # ── schema ────────────────────────────────────────────────────────────────────
 
+def roster_active() -> bool:
+    """Is there a class list to gate on? Absent or empty means open signup."""
+    _refresh_enrolment()
+    return len(_enrolment) > 0
+
+
+_admins: set[str] = set()
+_admins_mtime: float | None = None
+
+
+def is_admin(sid: str) -> bool:
+    """Teacher? Read from ADMIN_PATH, re-read on mtime like the enrolment list.
+
+    Deliberately a FILE and not a database flag: revoking a teacher must not need a
+    migration or a running app, and the list is reviewable in one `cat`.
+    """
+    global _admins, _admins_mtime
+    try:
+        mtime = os.path.getmtime(ADMIN_PATH)
+    except OSError:
+        _admins, _admins_mtime = set(), None
+        return False
+    if mtime != _admins_mtime:
+        parsed = set()
+        with open(ADMIN_PATH, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.split("#", 1)[0].strip()
+                if line:
+                    parsed.add(line.split(",")[0].strip().upper())
+        _admins, _admins_mtime = parsed, mtime
+    return sid.strip().upper() in _admins
+
+
+# -- passwords ----------------------------------------------------------------
+
+def hash_password(password: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
+    salt = salt if salt is not None else secrets.token_bytes(16)
+    return salt, hashlib.scrypt(password.encode("utf-8"), salt=salt, **_SCRYPT)
+
+
+def verify_password(password: str, salt, expected) -> bool:
+    """Constant-time check. A row with no password can never verify -- that is what
+    makes a legacy SID-only account unusable until it is claimed through signup."""
+    if not salt or not expected:
+        return False
+    _, got = hash_password(password, bytes(salt))
+    return hmac.compare_digest(got, bytes(expected))
+
+
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -157,6 +224,31 @@ def init_db() -> None:
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_sid ON sessions(sid)")
+            # Additive migration rather than a new table: an existing dev DB keeps its
+            # rows, and those rows simply have no password -- which reads correctly as
+            # "not signed up yet" and cannot be logged into (verify_password refuses a
+            # null hash). ALTER TABLE ADD COLUMN is not idempotent, so ask first.
+            # Every teacher action that can change a participant's data or their
+            # release window is written here. A section change moves WHEN topics open
+            # for that student, which is the timing of the independent variable -- an
+            # unlogged mutation of an experimental condition is not something the
+            # paper could defend later.
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS admin_audit (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    at          TEXT NOT NULL,
+                    admin_sid   TEXT NOT NULL,
+                    action      TEXT NOT NULL,
+                    target_sid  TEXT,
+                    detail      TEXT
+                )
+                """
+            )
+            have = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
+            for col, decl in (("pw_salt", "BLOB"), ("pw_hash", "BLOB")):
+                if col not in have:
+                    conn.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
             conn.commit()
         finally:
             conn.close()
@@ -165,17 +257,37 @@ def init_db() -> None:
 
 # ── sessions ──────────────────────────────────────────────────────────────────
 
-def start_session(sid: str, username: str | None = None, avatar_id: str | None = None) -> dict | None:
-    """Claim an identity. Returns {token, sid, username, avatar_id, section,
-    needs_onboarding} or None if the SID is not enrolled / has withdrawn.
+def create_account(sid: str, password: str, section: str | None = None,
+                   username: str | None = None, avatar_id: str | None = None):
+    """Sign up. Returns (session_dict, None) or (None, reason).
 
-    NOT authentication -- see the module docstring. The allowlist is the only gate.
+    reason is one of: bad_sid | weak_password | not_enrolled | bad_section |
+    exists | withdrawn. Unlike `start_session` this one DOES distinguish, because
+    a signup form that will not say "that account already exists" is unusable.
+
+    Claiming: a row that exists but has no password -- a legacy SID-only account,
+    or one an admin pre-created -- is claimed here rather than being a dead end.
     """
-    sid = sid.strip().upper()
-    section = enrolled_section(sid)
-    if section is None:
-        return None
+    sid = (sid or "").strip().upper()
+    if not sid:
+        return None, "bad_sid"
+    if len(password or "") < MIN_PASSWORD:
+        return None, "weak_password"
 
+    # The teacher's list outranks a student's guess. With no list, the student's
+    # choice is the only source of the release window -- see the module docstring.
+    if roster_active():
+        rostered = enrolled_section(sid)
+        if rostered is None:
+            return None, "not_enrolled"
+        section = rostered
+    else:
+        import schedule  # lazy: auth_store must stay importable with no schedule config
+        if section not in schedule.sections():
+            return None, "bad_section"
+
+    # Hashed BEFORE the lock is taken -- see start_session for why.
+    salt, pw = hash_password(password)
     now = datetime.now(timezone.utc)
     token = secrets.token_urlsafe(32)
 
@@ -184,23 +296,23 @@ def start_session(sid: str, username: str | None = None, avatar_id: str | None =
         try:
             row = conn.execute("SELECT * FROM users WHERE sid = ?", (sid,)).fetchone()
             if row and row["withdrawn"]:
-                return None
+                return None, "withdrawn"
+            if row and row["pw_hash"]:
+                return None, "exists"
 
             if row is None:
                 conn.execute(
-                    "INSERT INTO users (sid, username, avatar_id, section, created_at, last_seen_at)"
-                    " VALUES (?, ?, ?, ?, ?, ?)",
-                    (sid, username, avatar_id, section, now.isoformat(), now.isoformat()),
+                    "INSERT INTO users (sid, username, avatar_id, section, pw_salt, pw_hash,"
+                    " created_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (sid, username, avatar_id, section, salt, pw, now.isoformat(), now.isoformat()),
                 )
-                username_out, avatar_out = username, avatar_id
             else:
-                # Section can change if the lecturer moves a student between days.
-                username_out = username or row["username"]
-                avatar_out = avatar_id or row["avatar_id"]
+                username = username or row["username"]
+                avatar_id = avatar_id or row["avatar_id"]
                 conn.execute(
-                    "UPDATE users SET last_seen_at = ?, section = ?, username = ?, avatar_id = ?"
-                    " WHERE sid = ?",
-                    (now.isoformat(), section, username_out, avatar_out, sid),
+                    "UPDATE users SET pw_salt = ?, pw_hash = ?, section = ?, username = ?,"
+                    " avatar_id = ?, last_seen_at = ? WHERE sid = ?",
+                    (salt, pw, section, username, avatar_id, now.isoformat(), sid),
                 )
 
             conn.execute(
@@ -214,11 +326,175 @@ def start_session(sid: str, username: str | None = None, avatar_id: str | None =
     return {
         "token": token,
         "sid": sid,
-        "username": username_out,
-        "avatar_id": avatar_out,
+        "username": username,
+        "avatar_id": avatar_id,
         "section": section,
-        "needs_onboarding": not (username_out and avatar_out),
+        "needs_onboarding": not (username and avatar_id),
+    }, None
+
+
+def start_session(sid: str, password: str) -> dict | None:
+    """Sign in. Returns the session, or None for ANY failure.
+
+    ONE failure mode on purpose: unknown SID, unclaimed account, wrong password and
+    withdrawn are indistinguishable from outside, so this endpoint cannot be used to
+    enumerate who is enrolled. Signup is where the distinctions live, because there
+    they are unavoidable.
+    """
+    sid = (sid or "").strip().upper()
+    if not sid:
+        return None
+
+    # scrypt costs ~37 ms and `_lock` is module-global, so verifying while holding it
+    # would serialise a section of 100 signing in together into ~4 s for the last one
+    # -- the same mistake journey() made with fetch_all(). Read, release, hash, write.
+    with _lock:
+        conn = _connect()
+        try:
+            row = conn.execute("SELECT * FROM users WHERE sid = ?", (sid,)).fetchone()
+        finally:
+            conn.close()
+
+    if row is None or row["withdrawn"]:
+        return None
+    if not verify_password(password or "", row["pw_salt"], row["pw_hash"]):
+        return None
+
+    # A student the lecturer moved between days gets the new window on next sign-in.
+    section = enrolled_section(sid) or row["section"]
+    now = datetime.now(timezone.utc)
+    token = secrets.token_urlsafe(32)
+
+    with _lock:
+        conn = _connect()
+        try:
+            conn.execute("UPDATE users SET last_seen_at = ?, section = ? WHERE sid = ?",
+                         (now.isoformat(), section, sid))
+            conn.execute(
+                "INSERT INTO sessions (token, sid, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                (token, sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    return {
+        "token": token,
+        "sid": sid,
+        "username": row["username"],
+        "avatar_id": row["avatar_id"],
+        "section": section,
+        "needs_onboarding": not (row["username"] and row["avatar_id"]),
     }
+
+
+# -- teacher operations (see admin_api.py; every one of these is audited) -------
+
+def audit(admin_sid: str, action: str, target_sid: str | None = None,
+          detail: str | None = None) -> None:
+    with _lock:
+        conn = _connect()
+        try:
+            conn.execute(
+                "INSERT INTO admin_audit (at, admin_sid, action, target_sid, detail)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (datetime.now(timezone.utc).isoformat(), admin_sid.strip().upper(),
+                 action, (target_sid or "").strip().upper() or None, detail),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def audit_log(limit: int = 100) -> list[dict]:
+    with _lock:
+        conn = _connect()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM admin_audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        finally:
+            conn.close()
+    return [dict(r) for r in rows]
+
+
+def list_participants() -> list[dict]:
+    """Everyone with an account. ONE query, no per-row lookups -- a teacher opening
+    this page must not fan out into 300 of them. Password material never leaves
+    here: `has_password` is a boolean, and the hash is not selected at all."""
+    with _lock:
+        conn = _connect()
+        try:
+            rows = conn.execute(
+                "SELECT sid, username, section, created_at, last_seen_at, withdrawn,"
+                " (pw_hash IS NOT NULL) AS has_password FROM users ORDER BY sid"
+            ).fetchall()
+        finally:
+            conn.close()
+    return [dict(r) for r in rows]
+
+
+def set_section(sid: str, section: str) -> tuple[bool, str | None]:
+    """Correct a student's section. (ok, reason).
+
+    REFUSES while a class list is active, and that refusal is the point: with a
+    roster, `start_session` re-reads the section from the file on every sign-in, so a
+    change made here would be silently reverted the next time the student logged in.
+    Editing the list is the real fix; pretending otherwise would be worse than saying
+    no.
+    """
+    import schedule  # lazy, as in create_account
+    sid = (sid or "").strip().upper()
+    if section not in schedule.sections():
+        return False, "bad_section"
+    if roster_active():
+        return False, "roster_authoritative"
+    with _lock:
+        conn = _connect()
+        try:
+            cur = conn.execute("UPDATE users SET section = ? WHERE sid = ?", (section, sid))
+            conn.commit()
+            if cur.rowcount == 0:
+                return False, "no_such_user"
+        finally:
+            conn.close()
+    return True, None
+
+
+def set_password(sid: str, password: str) -> tuple[bool, str | None]:
+    """Teacher-side reset. There is no self-serve path and no email, so this is the
+    only way back in for a student who forgot -- which is why it exists and why it is
+    audited."""
+    sid = (sid or "").strip().upper()
+    if len(password or "") < MIN_PASSWORD:
+        return False, "weak_password"
+    salt, pw = hash_password(password)          # hashed before the lock, as everywhere
+    with _lock:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                "UPDATE users SET pw_salt = ?, pw_hash = ? WHERE sid = ? AND withdrawn = 0",
+                (salt, pw, sid))
+            conn.commit()
+            if cur.rowcount == 0:
+                return False, "no_such_user"
+        finally:
+            conn.close()
+    # Every existing session keeps working on purpose: a reset is a lost password, not
+    # a compromise. end_all_sessions() is the separate, deliberate action for that.
+    return True, None
+
+
+def end_all_sessions(sid: str) -> int:
+    """Sign a student out everywhere. Used after a reset that WAS a compromise."""
+    sid = (sid or "").strip().upper()
+    with _lock:
+        conn = _connect()
+        try:
+            cur = conn.execute("DELETE FROM sessions WHERE sid = ?", (sid,))
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
 
 
 def resolve_session(token: str) -> dict | None:

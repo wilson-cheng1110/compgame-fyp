@@ -1,0 +1,8 @@
+# Teachers. One SID per line; everything after # is a comment.
+# Copy to admin_sids.txt (gitignored) and fill in the real ones.
+#
+# Anyone listed here can, through /admin: see every account, correct a student's
+# section, and reset a password. They CANNOT read answers or scores -- that is the
+# pseudonymised export in research_api -- and they cannot delete anything.
+#
+# 22000000D   # Dr Example, course leader
