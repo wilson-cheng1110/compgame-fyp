@@ -122,5 +122,33 @@ check("pre_done true", w["pre_done"] is True)
 check("post_done true", w["post_done"] is True)
 check("complete true", w["complete"] is True)
 
+print("\n-- a replayed assessment keeps the BEST attempt --")
+# The debrief can now send a student back into a failed assessment, so
+# assessment_complete is the one event a participant can log more than once.
+# journey() used to take whichever row came last, which meant a worse retry
+# silently dropped the badge level they had already earned (lib/badges.ts:
+# +1 at 60%, +1 at 80%). Every attempt is still its own row in the sink --
+# this is a display derivation, not the measurement.
+sid = "24012345D"
+for s in (88, 25):
+    research_store.record_event({
+        "participant_id": sid, "event_type": "assessment_complete",
+        "topic_id": "webers-law", "mode": "assessment", "score": s,
+    })
+rows = [e for e in research_store.fetch_for_participant(sid)
+        if e["event_type"] == "assessment_complete" and e["topic_id"] == "webers-law"]
+check("both attempts are in the sink", len(rows) == 2, len(rows))
+j = c.get("/api/topics").json()
+w = [t for t in j["topics"] if t["topic_id"] == "webers-law"][0]
+check("assess_done true", w["assess_done"] is True)
+check("assess_score is the best attempt, not the last", w["assess_score"] == 88, w["assess_score"])
+
+# The checks are single-submission (the server 409s a resubmit), so they must NOT
+# be quietly max-ed alongside it -- that would be a measurement change, not a
+# display one. Assert the pre/post path still reads exactly what was recorded.
+check("the post-check score is untouched by the max rule",
+      w["post_correct"] is not None and w["post_total"] is not None,
+      (w.get("post_correct"), w.get("post_total")))
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

@@ -144,7 +144,7 @@ export default function ExperimentDesignUnderstanding() {
                 Try another design
               </button>
               <button onClick={() => setPhase("debrief")} className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-6 hover:bg-[#fde047] shadow-[3px_3px_0px_0px_#000]">
-                Take Assessment →
+                Finish and review →
               </button>
             </div>
           </div>

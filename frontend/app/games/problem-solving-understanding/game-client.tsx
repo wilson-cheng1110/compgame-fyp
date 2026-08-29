@@ -147,7 +147,7 @@ export default function ProblemSolvingUnderstanding() {
               onClick={() => setPhase("debrief")}
               className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
             >
-              Take Assessment →
+              Finish and review →
             </button>
           </div>
         ) : (

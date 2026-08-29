@@ -68,7 +68,15 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
         key = (r.get("topic_id"), r.get("event_type"))
         done[key] = r.get("server_ts")
         if r.get("score") is not None:
-            scores[key] = r.get("score")
+            # The assessment can now be replayed from the debrief, so it is the one
+            # event a participant can log more than once -- keep the BEST attempt,
+            # or a worse retry would silently drop the badge level a student had
+            # already earned. Every attempt is still its own row in the sink; this
+            # is a display derivation, not the measurement.
+            if r.get("event_type") == "assessment_complete" and key in scores:
+                scores[key] = max(scores[key], r.get("score"))
+            else:
+                scores[key] = r.get("score")
     banks = checks.bank_report()
 
     for st in states:

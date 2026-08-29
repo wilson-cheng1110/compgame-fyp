@@ -214,7 +214,7 @@ export default function GestaltUnderstandingWrapper() {
       // Initialize and play background music
       if (!musicInitialized) {
         const bgMusic = initBackgroundMusic(
-          "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/game1_homepage-u6zpr4NXI8gulA5VNTZkmkAktmGdBd.mp3",
+          "/audio/menu-music.mp3",
         )
         if (bgMusic) {
           playBackgroundMusic()
@@ -294,10 +294,16 @@ export default function GestaltUnderstandingWrapper() {
                 <ul className="space-y-4 md:space-y-6">
                   {principles.map((principle) => (
                     <li key={principle.id}>
-                      <Link href={principle.link}>
+                      <Link href={principle.link} className="block">
+                        {/* These five ARE the game's menu, and they were five lines of text whose
+                            only clue was a hover colour -- nothing said "press me" while the mouse
+                            was still. Same pixel register as the CTA below, now with an edge. */}
                         <span
-                          className={`font-mono text-xl md:text-2xl cursor-pointer transition-colors duration-200 ${
-                            hoveredItem === principle.id ? "text-[#FFE100]" : "text-white"
+                          data-testid="principle-button"
+                          className={`block w-64 md:w-80 text-center font-mono text-xl md:text-2xl px-5 py-3 border-2 cursor-pointer transition-colors duration-200 shadow-[3px_3px_0px_0px_#000] ${
+                            hoveredItem === principle.id
+                              ? "bg-[#FFE100] border-[#a16207] text-black"
+                              : "bg-[#00507a] border-[#00BFFF] text-white"
                           }`}
                           onMouseEnter={() => setHoveredItem(principle.id)}
                           onMouseLeave={() => setHoveredItem(null)}

@@ -148,7 +148,7 @@ export function playCongratsSound() {
   console.log("Playing congratulations sound")
   playSound(
     "congrats",
-    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/congratulations-pPML7PZuxEx4j6lrXAsbqrG1RapvjN.mp3",
+    "/audio/congratulations.mp3",
   )
 }
 
@@ -165,7 +165,7 @@ export function playRollingSound() {
     // Use the loadSound function to ensure proper caching
     rollingSound = loadSound(
       "rolling",
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rolling-aZXbfR9ZmPRHLbFG27NNo8G4TN40ND.mp3",
+      "/audio/rolling.mp3",
     )
     rollingSound.volume = 0.4
     rollingSound.loop = true

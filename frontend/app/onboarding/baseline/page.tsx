@@ -164,9 +164,15 @@ export default function BaselinePage() {
             onClick={submit}
             disabled={busy}
             data-testid="baseline-submit"
-            className="u-btn u-btn-primary u-btn-lg"
+            className={`u-btn u-btn-lg ${answeredCount === 0 ? "" : "u-btn-primary"}`}
           >
-            {busy ? "Saving…" : answeredCount === items.length ? "Finish" : "Skip the rest and finish"}
+            {busy
+              ? "Saving…"
+              : answeredCount === 0
+                ? "Skip these questions"
+                : answeredCount === items.length
+                  ? "Finish"
+                  : "Skip the rest and finish"}
           </button>
         </div>
 

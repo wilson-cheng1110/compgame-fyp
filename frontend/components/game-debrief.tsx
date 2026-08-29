@@ -389,6 +389,26 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
                 {content.nextGameLabel ?? "Next →"}
               </button>
             )}
+            {/* The banner tells a student who scored 0/6 to "try again" and, until
+                now, nothing on this screen let them. The badge LEVEL is what a
+                retry moves (lib/badges.ts: +1 at 60%, +1 at 80%) -- the badge
+                itself was already earned at the post-check, and every attempt is
+                its own row in the sink, so replaying costs the measurement
+                nothing and `assess_score` keeps the best of them.
+                A hard navigation, not router.push: this is the URL we are already
+                on, so a client-side push is a no-op and the game would never
+                remount. */}
+            {isAssessment && passed === false && (
+              <button
+                onClick={() =>
+                  window.location.assign(`/games/${gameId}${unit ? `?unit=${unit}` : ""}`)
+                }
+                className="u-btn flex-1"
+                data-testid="debrief-retry"
+              >
+                ↻ Try it again
+              </button>
+            )}
             {isAssessment && (
               <button
                 onClick={() => {

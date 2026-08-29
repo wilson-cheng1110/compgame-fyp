@@ -164,22 +164,94 @@ mutant — it is a vacuity guard for the assertion after it, and mutant A demons
 the counter moving (to 2/3), so the mechanism is exercised even though the assertion
 itself was not independently killed.
 
-## Stage 5 — the polish sweep
+## Stage 5 — the polish sweep · **DONE**
 
-- [ ] locked dates carry a year; "Late" says it is still open; NEXT UP stops pointing
-      at an overdue topic silently
-- [ ] onboarding counters agree (1 of 2 / 2 of 2 / then 3 of 3)
-- [ ] baseline's primary button stops being "Skip the rest and finish" at 0 answered
-- [ ] ship `click.mp3`; bring the background music in-repo off the external blob host
-- [ ] the five principles get button affordances; the Controls card stops describing
-      keys that do nothing
-- [ ] first check acknowledges the submission before auto-advancing
-- [ ] `0 / 6` gets a route onward
-- [ ] the 12 games' own in-game "Take Assessment →" buttons advance to the DEBRIEF, not
-      to an assessment — the label has been a small lie the whole time, and inside a
-      unit the debrief no longer offers an assessment at all, so it now reads as a
-      dead end. Each game words it differently; this is a 12-file copy pass, which is
-      why it was left out of stage 3 rather than folded into it.
+Every item was MEASURED before it was acted on, and two of the eight were wrong as
+written. The list came from a screenshot audit; the code disagreed with it twice.
+
+- [x] locked dates carry a year, "Late" says it is still open, NEXT UP stops pointing
+      at an overdue topic silently. All three are `app/dashboard/page.tsx`. The year
+      appears only when it is not the current one, so the common case stays short —
+      a release date with no year is only unambiguous inside the year it belongs to.
+      The row's date line was the worst of the three: a late topic rendered
+      `Until <a date that has already passed>`, which reads as *closed*, on a topic
+      that is still open. It now reads `Still open · was due 8 Sep`. And the Next up
+      card suppressed the due date entirely when `late` was true, so the one topic
+      the student is being pushed toward looked identical whether it was due on
+      Friday or three weeks ago; it now says `overdue since 8 Sep — still open`.
+- [x] onboarding counters agree. Avatar and username said "of 2" and then baseline
+      announced itself as "Step 3 of 3" — a contradiction every fresh account saw,
+      because `needsBaseline` is true for all of them. All three now count to 3, and
+      the rails carry three segments. The one case where the baseline is skipped
+      finishes at step 2 instead of contradicting the screen before it.
+- [x] baseline's primary button stops being "Skip the rest and finish" at 0 answered.
+      At zero the PRIMARY action was an invitation to skip the study's own pre-measure,
+      and "the rest" named a remainder that did not exist. Three states now:
+      `Skip these questions` (not primary) → `Skip the rest and finish` → `Finish`.
+      Skipping is still possible — never hard-gate — it is just no longer recommended.
+- [x] `click.mp3` shipped, and the audio is in-repo. `new Audio("/click.mp3")` appears
+      in five gestalt files and `public/` did not contain it: nothing throws on that
+      404, the click was simply silent. The file is now synthesised (40 ms, 1.7 kB,
+      ffmpeg pink-noise burst). The five blob-hosted mp3s — menu music, correct,
+      wrong, congratulations, rolling — are fetched into `public/audio/` (1.84 MB
+      total) and the 15 references rewritten. Zero external `.mp3` references remain.
+- [x] the five principles get button affordances; the Controls card stops describing
+      keys that do nothing. The gestalt menu was five lines of text whose only clue
+      was a hover colour — nothing said "press me" while the mouse was still. They
+      now carry a border, a fill and real hit area, in the game's own pixel register.
+      Both copies were fixed (`gestalt-game.tsx` and the `[gameId]` wrapper). The
+      Controls card claimed "Arrow keys to navigate"; the only `keydown` listener in
+      either gestalt file is the audio-unlock handler, so it described a control
+      scheme the game has never had.
+- [x] first check acknowledges the submission before auto-advancing. It was
+      `onDone={() => setTimeout(advance, 1200)}`: the card that explains *why* the
+      first check shows no score was torn down 1.2 s after it appeared, so the one
+      screen answering "where is my score?" was the one nobody had time to read. It
+      is now the same shape as the post-check — acknowledge, then the student decides.
+- [x] `0 / 6` gets a route onward — **the item was right, its diagnosis was not.**
+      The dead end is not the number, it is the sentence next to it: the debrief
+      banner reads `0% (0/6 correct) — Review below and try again.` and there has
+      never been anything on the screen to try again *with*. A `Try it again` control
+      now appears when an assessment is failed. It is a hard navigation, not
+      `router.push`, because that is the URL the student is already on and a
+      client-side push would not remount the game.
+      **This forced a server change:** `assessment_complete` becomes the one event a
+      participant can log more than once, and `journey()` took whichever row came
+      last — so a worse retry silently dropped a badge level they had already earned
+      (`lib/badges.ts`: +1 at 60 %, +1 at 80 %). `topic_api` now keeps the best
+      attempt for that event only. Every attempt is still its own row in the sink;
+      this is a display derivation, not the measurement. The single-submission checks
+      are deliberately left alone — max-ing those would be a measurement change.
+- [x] the in-game "Take Assessment →" buttons — **the list said 12 games; it is 6.**
+      `grep` finds the label in ergonomics, experiment-design, language,
+      problem-solving, stroop and visual-perception. Five call `setPhase("debrief")`
+      and language's is the last-sentence label on `next()`. None of them has ever
+      opened an assessment, and since stage 3 the debrief does not offer one inside a
+      unit either, so the label had stopped being merely imprecise and become a dead
+      end. All six now read `Finish and review →`.
+
+### Stage 5 aftermath — found by the tests, not by the audit
+
+- [ ] **The reflection dialog opens on top of the retry.** The debrief dispatches
+      `start-reflection` 600 ms after an assessment mounts, so on a *failed* attempt
+      the modal lands over the "Try it again" this stage just added. The student can
+      dismiss it (Esc, or "Leave for now") and the test now asserts exactly that — an
+      unreachable button is not a route onward. Whether the Socratic turn should fire
+      at all before a student has had the chance to retry is a pedagogy call, not a
+      bug fix. *(Wilson)*
+- [ ] **The images are still on the external blob host.** 22 references, 13 distinct
+      assets, all `hebbkx1anhila5yf.public.blob.vercel-storage.com`. This stage moved
+      the audio in-repo and left the images exactly where they were, because the item
+      said "music". One host outage and 26 games render empty. Same treatment,
+      about an hour.
+- [x] **Two of the suite's own helpers were stale, and the suite caught both.**
+      `walkToDebrief` matched the OLD label `/Next sentence|Take Assessment/`, so the
+      moment item 8 renamed it the walker fell through to the answer list and sat
+      clicking a disabled option until the 30 s timeout. And four new assertions were
+      written case-sensitively against `.u-eyebrow`, which is `text-transform:
+      uppercase` — `innerText` returns `STEP 1 OF 3` and `RECORDED`, so those checks
+      could only ever fail. Both are recorded here because they are the same class of
+      trap: an assertion written against source text rather than rendered text.
 
 ---
 

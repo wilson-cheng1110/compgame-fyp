@@ -92,10 +92,11 @@ export default function UsernameSelectionPage() {
         <div className="u-rail mb-8">
           <div className="u-rail-seg is-done" />
           <div className="u-rail-seg is-now" />
+          <div className="u-rail-seg" />
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="u-eyebrow">Step 2 of 2</p>
+          <p className="u-eyebrow">Step 2 of 3</p>
           <Link href="/onboarding/avatar" className="u-faint hover:underline">
             ← Back
           </Link>

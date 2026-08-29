@@ -55,6 +55,7 @@ export default function TopicUnitClient({
 }) {
   const topicId = state.topic_id
   const [step, setStep] = useState<Step>("brief")
+  const [preDone, setPreDone] = useState(false)
   const [postDone, setPostDone] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
 
@@ -181,8 +182,14 @@ export default function TopicUnitClient({
             form="A"
             telemetryEnabled={telemetryEnabled}
             darkMode={darkMode}
-            onDone={() => setTimeout(advance, 1200)}
+            onDone={() => setPreDone(true)}
           />
+        )}
+
+        {step === "pre" && preDone && (
+          <button onClick={advance} className="u-btn u-btn-primary u-btn-lg u-btn-block mt-5" data-testid="pre-continue">
+            Continue
+          </button>
         )}
 
         {step === "post" && (

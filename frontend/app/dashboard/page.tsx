@@ -147,6 +147,19 @@ export default function DashboardPage() {
   // Server truth, not the cookie. This used to read `assessmentCompleted` out of
   // `topicProgress`, which the unit never sets -- so a student could finish a topic,
   // watch it turn "Done" in the list, and read "0 of 13" in the rail beside it.
+  // A release date with no year is only unambiguous while you are inside the year
+  // it belongs to. These are dates a student plans around, so the year appears as
+  // soon as it is not the current one, and stays out of the way when it is.
+  const shortDate = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString(
+      undefined,
+      d.getFullYear() === new Date().getFullYear()
+        ? { day: "numeric", month: "short" }
+        : { day: "numeric", month: "short", year: "numeric" },
+    )
+  }
+
   const journeyList = Object.values(journey)
   const doneCount = completedCount(journeyList)
   const earned = badgesFromJourney(journeyList)
@@ -228,9 +241,15 @@ export default function DashboardPage() {
                         {nextUpState.has_bank
                           ? "Check, activity, then check again"
                           : "Activity, then talk it through"}
-                        {nextUpState.closes && !nextUpState.late
-                          ? ` · finish by ${new Date(nextUpState.closes).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}`
-                          : ""}
+                        {/* Late used to render as nothing here, so the one topic
+                            the student is being sent to looked identical whether
+                            it was due Friday or three weeks overdue. It says both
+                            halves now: you are late, and it is still open. */}
+                        {nextUpState.closes && nextUpState.late
+                          ? ` · overdue since ${shortDate(nextUpState.closes)} — still open`
+                          : nextUpState.closes
+                            ? ` · finish by ${shortDate(nextUpState.closes)}`
+                            : ""}
                       </p>
                     </div>
                     <span className="u-btn u-btn-primary">Continue →</span>
@@ -259,10 +278,14 @@ export default function DashboardPage() {
 
                 const when =
                   locked && js?.opens
-                    ? `Opens ${new Date(js.opens).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
-                    : !locked && !done && js?.closes
-                      ? `Until ${new Date(js.closes).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
-                      : null
+                    ? `Opens ${shortDate(js.opens)}`
+                    : done
+                      ? null
+                      : js?.late && js?.closes
+                        ? `Still open · was due ${shortDate(js.closes)}`
+                        : js?.closes
+                          ? `Until ${shortDate(js.closes)}`
+                          : null
 
                 const row = (
                   <div

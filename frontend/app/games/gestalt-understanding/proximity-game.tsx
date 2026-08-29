@@ -42,10 +42,10 @@ const ProximityGame = () => {
     // Load sound effects (reused from similarity-game.tsx)
     const clickSound = new Audio("/click.mp3")
     const correctSound = new Audio(
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/correct-a3rGcNs8ZZg7gYzA0faB7NS1qBeFN5.mp3",
+      "/audio/correct.mp3",
     )
     const incorrectSound = new Audio(
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wrong-JlwHB0C2WUOcanUglt21NBfb8LGS7Q.mp3",
+      "/audio/wrong.mp3",
     )
 
     // Preload sounds

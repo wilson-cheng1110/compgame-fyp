@@ -44,8 +44,11 @@ const GAMES = [
     title: "Gestalt Principles - Learning",
     description: "Learn about Gestalt principles of visual perception",
     controls: [
-      { type: "mouse", description: "Click to interact with examples" },
-      { type: "keyboard", description: "Arrow keys to navigate" },
+      // The keyboard row said "Arrow keys to navigate". The only keydown listener
+      // in either gestalt file is the audio-unlock handler -- the card was
+      // describing a control scheme the game has never had.
+      { type: "mouse", description: "Click a principle to open it" },
+      { type: "mouse", description: "Click to interact with each example" },
     ],
   },
   {

@@ -9,7 +9,7 @@
 // topic — so the test reads the arm off the API and asserts that the ACTIVITY step
 // really did fall before the second check under FLIP, and after it under CONTROL.
 
-import { test, T, go, ready, signIn, giveConsent, onboard, apiFromPage, freshSid, APP } from "./lib.mjs"
+import { test, T, go, ready, signIn, giveConsent, onboard, fullSignIn, apiFromPage, freshSid, APP } from "./lib.mjs"
 
 test("landing page invites a student in", async (page, t) => {
   await go(page, "/")
@@ -372,7 +372,7 @@ async function walkToDebrief(page) {
   }
   for (let i = 0; i < 12; i++) {
     if (await page.locator('[data-testid="debrief-cta"]').count()) return true
-    const next = page.getByRole("button", { name: /Next sentence|Take Assessment/i }).first()
+    const next = page.getByRole("button", { name: /Next sentence|Finish and review/i }).first()
     if (await next.count()) {
       await next.click()
       await page.waitForTimeout(700)
@@ -539,4 +539,272 @@ test("the tutor step opens the Socratic surface, not the explain path", async (p
   t.check("being told does NOT advance the reflection floor", /1\/3/.test(afterTell), afterTell.match(/\d\/3/)?.[0])
   t.check("and the dialog renders **bold** too",
     (await page.locator('[role="dialog"] strong').count()) > 0 && !/\*\*/.test(afterTell))
+})
+
+// ── stage 5: the polish sweep ─────────────────────────────────────────────────
+
+/** One journey row, filled in with the fields the dashboard actually reads. */
+function journeyRow(topic_id, order, over) {
+  return {
+    topic_id, order, session: order, state: "locked", arm: "FLIP",
+    plays_game_first: true, mc_bank: true, has_bank: true, lecture_terms: [],
+    session_provisional: false, opens: null, closes: null, late: false,
+    pre_done: false, post_done: false, complete: false, ...over,
+  }
+}
+
+test("an overdue topic says it is overdue, and says it is still open", async (page, t) => {
+  // Stubbed, not seeded. The three states this asserts -- late, locked-far-out and
+  // open -- cannot coexist for one student under a real schedule, and the year half
+  // of it is invisible until the run crosses a year boundary. The stub is the only
+  // way to see all three at once; the shape is lib/api.ts's JourneyTopic.
+  const nextYear = new Date().getFullYear() + 1
+  await page.route("**/api/topics", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        section: "A",
+        telemetry_enabled: true,
+        topics: [
+          journeyRow("norman", 1, {
+            state: "late",
+            late: true,
+            opens: "2026-09-01T00:00:00",
+            closes: "2026-09-08T23:59:00",
+          }),
+          journeyRow("memory", 2, { opens: nextYear + "-03-04T00:00:00" }),
+        ],
+      }),
+    }),
+  )
+  await fullSignIn(page, freshSid(), "Overdue")
+  await go(page, "/dashboard")
+  await page.waitForTimeout(1800)
+
+  const body = await page.locator("body").innerText()
+  t.check("the overdue row says it is still open", /Still open/i.test(body), body.slice(0, 400))
+  t.check("and names the date it was due", /was due 8 Sep/.test(body))
+  t.check("it no longer reads as a window that has closed", !/Until 8 Sep/.test(body))
+
+  // The one topic the student is pushed toward used to render identically whether
+  // it was due on Friday or three weeks ago.
+  const card = await page.locator('a[href^="/topics/"]').first().innerText().catch(() => "")
+  t.check("the Next up card admits the topic is overdue", /overdue since 8 Sep/i.test(card), card.slice(0, 300))
+  t.check("and that it has not closed", /still open/i.test(card), card.slice(0, 300))
+
+  // A date in a different year, with no year on it, is a date you cannot plan around.
+  t.check("the far-off locked date carries its year", body.includes("4 Mar " + nextYear), body.slice(0, 600))
+})
+
+test("the first check acknowledges the submission instead of vanishing", async (page, t) => {
+  await fullSignIn(page, freshSid(), "Ack")
+  const unit = await openTopicId(page, t)
+  await go(page, "/topics/" + unit)
+  await page.waitForTimeout(1500)
+
+  // Walk forward to the first MC check.
+  for (let i = 0; i < 8; i++) {
+    if (await page.locator('[data-testid="mc-option"]').count()) break
+    const next = page.getByRole("button", { name: /^(Start|Continue)$/ }).first()
+    if (!(await next.count())) break
+    await next.click()
+    await page.waitForTimeout(1600)
+  }
+  t.require("reached the first check", (await page.locator('[data-testid="mc-option"]').count()) > 0)
+
+  const cards = await page.locator('[data-testid="mc-option"]').count()
+  for (let i = 0; i < cards; i++) await page.locator('[data-testid="mc-option"]').nth(i).click().catch(() => {})
+  await page.locator('[data-testid="mc-submit"]').first().click()
+  await page.waitForTimeout(2600)
+
+  // The card explaining why the first check shows no score used to be torn down
+  // 1.2s after it appeared: the one screen that answers "where is my score" was
+  // the one screen nobody had time to read.
+  const body = await page.locator("body").innerText()
+  t.check("the submission is acknowledged", /recorded/i.test(body), body.slice(0, 300))
+  t.check("and it explains the missing score", /No score yet/i.test(body))
+  t.check("the student is not moved on for them", (await page.locator('[data-testid="pre-continue"]').count()) > 0)
+
+  await page.locator('[data-testid="pre-continue"]').first().click()
+  await page.waitForTimeout(2000)
+  t.check("and Continue does move them on", !/No score yet/i.test(await page.locator("body").innerText()))
+})
+
+test("a failed assessment has a way back in", async (page, t) => {
+  // The shuffle is pinned to the identity permutation -- Fisher-Yates with a random
+  // that always picks the last index leaves the order untouched -- so the correct
+  // option sits where the source puts it, index 0 for all six ergonomics items.
+  // Clicking index 1 six times therefore scores exactly 0/6: the screen the audit
+  // flagged, reached deterministically rather than hoped for.
+  await page.addInitScript(() => {
+    Math.random = () => 0.9999999
+  })
+  await fullSignIn(page, freshSid(), "Zero")
+  await go(page, "/games/ergonomics-assessment")
+  await page.waitForTimeout(1500)
+
+  const start = page.getByRole("button", { name: /^Start$/ }).first()
+  if (await start.count()) {
+    await start.click()
+    await page.waitForTimeout(700)
+  }
+
+  for (let q = 0; q < 6; q++) {
+    const opts = page.locator(".max-w-xl.space-y-3 button")
+    if (!(await opts.count())) break
+    await opts.nth(1).click()
+    await page.waitForTimeout(450)
+    const on = page.getByRole("button", { name: /(Next →|See Results →)/ }).first()
+    if (await on.count()) {
+      await on.click()
+      await page.waitForTimeout(550)
+    }
+  }
+  await page.waitForTimeout(1800)
+
+  const body = await page.locator("body").innerText()
+  t.require("scored zero", /0%/.test(body) && /0\/6/.test(body), body.slice(0, 300))
+  t.check("the banner still tells them to try again", /try again/i.test(body))
+  t.check("and now there is something to try again WITH", (await page.locator('[data-testid="debrief-retry"]').count()) > 0)
+
+  // The reflection dialog opens itself over the debrief. Assert it is dismissible
+  // rather than pretending it is not there.
+  const dialog = page.locator('[aria-label^="Reflect on"]')
+  if (await dialog.count()) {
+    await page.keyboard.press("Escape")
+    await page.waitForTimeout(800)
+    t.check("the reflection dialog does not trap them on the debrief", (await dialog.count()) === 0)
+  } else {
+    t.note("the reflection dialog did not open over the debrief")
+    t.check("the reflection dialog does not trap them on the debrief", true)
+  }
+  await page.locator('[data-testid="debrief-retry"]').first().click()
+  await page.waitForTimeout(3000)
+  t.check("it lands back in the assessment", page.url().includes("/games/ergonomics-assessment"), page.url())
+  t.check(
+    "and the game restarted rather than redisplaying the old result",
+    !/0\/6/.test(await page.locator("body").innerText()),
+  )
+})
+
+test("the gestalt menu reads as five buttons, not five lines of text", async (page, t) => {
+  await fullSignIn(page, freshSid(), "Affordance")
+  await go(page, "/games/gestalt-understanding")
+  await page.waitForTimeout(2500)
+
+  const items = page.locator('[data-testid="principle-button"]')
+  t.require("all five principles are on screen", (await items.count()) === 5, await items.count())
+
+  const box = await items.first().evaluate((el) => {
+    const s = getComputedStyle(el)
+    return { border: s.borderTopWidth, bg: s.backgroundColor, pad: s.paddingTop }
+  })
+  t.check("they carry a visible edge", parseFloat(box.border) > 0, box)
+  t.check("and a filled surface, not the panel behind them", box.bg !== "rgba(0, 0, 0, 0)" && box.bg !== "transparent", box)
+  t.check("with real hit area around the label", parseFloat(box.pad) > 0, box)
+
+  // The Controls card described a keyboard mode the game has never had: the only
+  // keydown listener in either gestalt file is the audio unlock.
+  const shell = await page.locator("body").innerText()
+  t.check("the Controls card no longer promises arrow keys", !/Arrow keys/i.test(shell))
+})
+
+test("the sounds the games ask for are actually shipped", async (page, t) => {
+  // `new Audio("/click.mp3")` in five gestalt files pointed at a file that was not
+  // in public/. Nothing throws on a 404 there -- the click was simply silent, which
+  // is the same shape as the assets-400 deploy bug this suite exists to catch.
+  await go(page, "/")
+  for (const [label, path] of [
+    ["the click the gestalt games play", "/click.mp3"],
+    ["the menu music", "/audio/menu-music.mp3"],
+    ["the correct sting", "/audio/correct.mp3"],
+  ]) {
+    const res = await page.request.get(APP + path)
+    t.check(label + " is served", res.status() === 200, { path, status: res.status() })
+  }
+})
+
+test("onboarding counts to the number of screens it actually has", async (page, t) => {
+  await signIn(page, freshSid())
+  await giveConsent(page)
+  t.require("landed on the avatar step", page.url().includes("/onboarding/avatar"), page.url())
+  t.check("step 1 of 3", /step 1 of 3/i.test(await page.locator("body").innerText()))
+
+  await page.getByRole("button", { name: "Continue", exact: true }).first().click()
+  await page.waitForTimeout(2400)
+  t.require("landed on the username step", page.url().includes("/onboarding/username"), page.url())
+  t.check("step 2 of 3", /step 2 of 3/i.test(await page.locator("body").innerText()))
+
+  await page.locator('input[type="text"]').first().fill("Counter")
+  await page.getByRole("button", { name: "Continue", exact: true }).first().click()
+  await page.waitForTimeout(2800)
+  t.require("landed on the baseline step", page.url().includes("/onboarding/baseline"), page.url())
+  t.check("step 3 of 3 -- and the two before it now agree with it", /step 3 of 3/i.test(await page.locator("body").innerText()))
+
+  // The baseline is the study's own pre-measure, and at zero answered the PRIMARY
+  // button was an invitation to skip the whole instrument. Skipping stays possible;
+  // it is just no longer what the page recommends.
+  const submit = page.locator('[data-testid="baseline-submit"]').first()
+  await submit.waitFor({ timeout: 15000 })
+  const label0 = await submit.innerText()
+  t.check("the skip does not name a remainder that does not exist", !/Skip the rest/.test(label0), label0)
+  t.check("it says what it actually does", /Skip these questions/.test(label0), label0)
+  const class0 = (await submit.getAttribute("class")) ?? ""
+  t.check("and it is not the page's primary action", !class0.includes("u-btn-primary"), class0)
+
+  await page.locator('[data-testid="baseline-item"]').first().locator('[data-testid="baseline-option"]').first().click()
+  await page.waitForTimeout(500)
+  const class1 = (await submit.getAttribute("class")) ?? ""
+  t.check("answering one brings the primary action back", class1.includes("u-btn-primary"), class1)
+})
+
+test("the in-game button names the screen it actually opens", async (page, t) => {
+  // Six understanding games shipped a "Take Assessment" that calls setPhase
+  // ("debrief"). It has never opened an assessment, and since stage 3 the debrief
+  // does not offer one inside a unit either, so the label had become a dead end.
+  await fullSignIn(page, freshSid(), "Label")
+  await go(page, "/games/language-understanding")
+  await page.waitForTimeout(2000)
+
+  const start = page.getByRole("button", { name: /Disambiguate/i }).first()
+  if (await start.count()) {
+    await start.click()
+    await page.waitForTimeout(700)
+  }
+
+  let lastLabel = ""
+  let sawLie = false
+  for (let i = 0; i < 14; i++) {
+    if (await page.locator('[data-testid="debrief-cta"]').count()) break
+    if (/Take Assessment/i.test(await page.locator("body").innerText())) sawLie = true
+
+    const adv = page.getByRole("button", { name: /(Next sentence|Finish and review|Take Assessment)/i }).first()
+    if (await adv.count()) {
+      lastLabel = (await adv.innerText()).trim()
+      await adv.click()
+      await page.waitForTimeout(700)
+      continue
+    }
+
+    // No advance button yet, so the sentence still needs an answer. Only an ENABLED
+    // option can be clicked: picking one disables the whole set, and the first cut of
+    // this test kept clicking a dead element until the 30s timeout.
+    const opts = page.locator(".max-w-xl.space-y-3 button")
+    const n = await opts.count()
+    let clicked = false
+    for (let k = 0; k < n; k++) {
+      if (await opts.nth(k).isEnabled().catch(() => false)) {
+        await opts.nth(k).click()
+        clicked = true
+        break
+      }
+    }
+    if (!clicked) break
+    await page.waitForTimeout(600)
+  }
+
+  t.check("no screen in the game still says Take Assessment", !sawLie)
+  t.check("the last in-game button names the debrief it opens", /Finish and review/i.test(lastLabel), lastLabel)
+  t.check("and it does open the debrief", (await page.locator('[data-testid="debrief-cta"]').count()) > 0)
 })

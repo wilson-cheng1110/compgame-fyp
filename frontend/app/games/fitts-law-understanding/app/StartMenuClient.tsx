@@ -19,7 +19,7 @@ export default function StartMenuClient() {
       // Initialize and play background music
       if (!musicInitialized.current) {
         const bgMusic = initBackgroundMusic(
-          "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/game1_homepage-u6zpr4NXI8gulA5VNTZkmkAktmGdBd.mp3",
+          "/audio/menu-music.mp3",
         )
         if (bgMusic) {
           playBackgroundMusic()

@@ -124,7 +124,7 @@ export default function LanguageUnderstanding() {
               onClick={next}
               className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
             >
-              {idx + 1 >= SENTENCES.length ? "Take Assessment →" : "Next sentence →"}
+              {idx + 1 >= SENTENCES.length ? "Finish and review →" : "Next sentence →"}
             </button>
           </>
         )}

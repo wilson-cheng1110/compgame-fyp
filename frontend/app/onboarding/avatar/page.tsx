@@ -94,9 +94,10 @@ export default function AvatarSelectionPage() {
         <div className="u-rail mb-8">
           <div className="u-rail-seg is-now" />
           <div className="u-rail-seg" />
+          <div className="u-rail-seg" />
         </div>
 
-        <p className="u-eyebrow">Step 1 of 2</p>
+        <p className="u-eyebrow">Step 1 of 3</p>
         <h1 className="u-h1 mt-1">Pick your look</h1>
         <p className="u-stem u-muted mt-2">
           This is just for you — it shows up on your dashboard. You can ignore it entirely if
