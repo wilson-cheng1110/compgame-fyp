@@ -11,12 +11,12 @@ import { ChevronRight, ChevronLeft } from "lucide-react"
 const avatars = [
   {
     id: 1,
-    src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/avatar_1-0OHXpMnV7F5XjJKF4OuVW5OxvnxFRr.png",
+    src: "/images/avatar_1.png",
     alt: "Male character with brown hair",
   },
   {
     id: 2,
-    src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/avatar_2-QeIlj2Z9JERNw3e1qM9bzmMMkbbGso.png",
+    src: "/images/avatar_2.png",
     alt: "Female character with red hair",
   },
 ]

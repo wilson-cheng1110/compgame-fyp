@@ -22,8 +22,8 @@ import { TOPICS } from "@/lib/topic-definitions"
 //     page you were already on. Both gone.
 
 const AVATAR_URLS: Record<number, string> = {
-  1: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/avatar_1-0OHXpMnV7F5XjJKF4OuVW5OxvnxFRr.png",
-  2: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/avatar_2-QeIlj2Z9JERNw3e1qM9bzmMMkbbGso.png",
+  1: "/images/avatar_1.png",
+  2: "/images/avatar_2.png",
 }
 
 export default function BadgesPage() {

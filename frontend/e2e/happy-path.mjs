@@ -9,7 +9,7 @@
 // topic — so the test reads the arm off the API and asserts that the ACTIVITY step
 // really did fall before the second check under FLIP, and after it under CONTROL.
 
-import { test, T, go, ready, signIn, giveConsent, onboard, fullSignIn, apiFromPage, freshSid, APP } from "./lib.mjs"
+import { test, T, go, ready, signIn, giveConsent, onboard, fullSignIn, apiFromPage, freshSid, APP, grepBuild } from "./lib.mjs"
 
 test("landing page invites a student in", async (page, t) => {
   await go(page, "/")
@@ -710,19 +710,53 @@ test("the gestalt menu reads as five buttons, not five lines of text", async (pa
   t.check("the Controls card no longer promises arrow keys", !/Arrow keys/i.test(shell))
 })
 
-test("the sounds the games ask for are actually shipped", async (page, t) => {
-  // `new Audio("/click.mp3")` in five gestalt files pointed at a file that was not
-  // in public/. Nothing throws on a 404 there -- the click was simply silent, which
-  // is the same shape as the assets-400 deploy bug this suite exists to catch.
+/** Every asset a game reaches for, now that they all live in this repo. */
+const SHIPPED_ASSETS = [
+  ["the click the gestalt games play", "/click.mp3", "audio"],
+  ["the menu music", "/audio/menu-music.mp3", "audio"],
+  ["the correct sting", "/audio/correct.mp3", "audio"],
+  ["the wrong sting", "/audio/wrong.mp3", "audio"],
+  ["the congratulations sting", "/audio/congratulations.mp3", "audio"],
+  ["the rolling loop", "/audio/rolling.mp3", "audio"],
+  ["the Fitts play background", "/images/games/fitts-background.png", "image"],
+  ["the Fitts menu background", "/images/games/fitts-menu-background.png", "image"],
+  ["the fish both Fitts modules use", "/images/games/fitts-fish-a.png", "image"],
+  ["the distance module's second fish", "/images/games/fitts-distance-fish-b.png", "image"],
+  ["the size module's second fish", "/images/games/fitts-size-fish-b.png", "image"],
+  ["the Gestalt symmetry figure", "/images/games/gestalt-symmetry-question.png", "image"],
+  ["the Gestalt continuity figure", "/images/games/gestalt-continuity-question.png", "image"],
+  ["its answer figure", "/images/games/gestalt-continuity-answer.png", "image"],
+  ["the Gestalt closure figure", "/images/games/gestalt-closure-question.png", "image"],
+  ["the avatars the dashboard draws", "/images/avatar_1.png", "image"],
+  ["the second avatar", "/images/avatar_2.png", "image"],
+  ["the logo the game shell draws", "/images/logo.png", "image"],
+]
+
+test("every asset the games ask for is actually shipped", async (page, t) => {
+  // `new Audio("/click.mp3")` in five gestalt files once pointed at a file that was
+  // not in public/. Nothing throws on a 404 there -- the click was simply silent,
+  // which is the same shape as the assets-400 deploy bug this suite exists to catch.
+  // The images had the opposite problem: they WERE served, by someone else's host.
   await go(page, "/")
-  for (const [label, path] of [
-    ["the click the gestalt games play", "/click.mp3"],
-    ["the menu music", "/audio/menu-music.mp3"],
-    ["the correct sting", "/audio/correct.mp3"],
-  ]) {
+  for (const [label, path, kind] of SHIPPED_ASSETS) {
     const res = await page.request.get(APP + path)
-    t.check(label + " is served", res.status() === 200, { path, status: res.status() })
+    const type = res.headers()["content-type"] ?? ""
+    t.check(`${label} is served`, res.status() === 200, { path, status: res.status() })
+    // A 200 is not enough on its own: a misrouted path can return the HTML shell,
+    // and an <img> pointed at that shows a broken icon while the status looks fine.
+    t.check(`${label} is really ${kind === "audio" ? "audio" : "an image"}`,
+      type.startsWith(kind + "/"), { path, type })
   }
+})
+
+test("no game asset is fetched from a third party any more", async (page, t) => {
+  // 21 references across 12 files pointed at a v0 blob host nobody here controls.
+  // Three of the thirteen assets turned out to be byte-identical to files already
+  // sitting in public/images -- the app was going over the network for its own
+  // avatars and its own logo. If that host goes away, 26 games render empty, and
+  // nothing in the build would have told us.
+  const hits = await grepBuild("public.blob.vercel-storage.com")
+  t.check("the built bundle names no external asset host", hits.length === 0, hits.slice(0, 3))
 })
 
 test("onboarding counts to the number of screens it actually has", async (page, t) => {

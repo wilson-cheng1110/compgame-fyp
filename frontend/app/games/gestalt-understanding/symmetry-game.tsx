@@ -161,7 +161,7 @@ const SymmetryGame = () => {
       <div className="relative mb-8 w-[300px] h-[300px]">
         <div className="absolute inset-0">
           <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/symmetry_question-yxBRNCnS2YenKLzPeRwaKjm6DAUeaC.png"
+            src="/images/games/gestalt-symmetry-question.png"
             alt="Starbucks logo"
             width={300}
             height={300}

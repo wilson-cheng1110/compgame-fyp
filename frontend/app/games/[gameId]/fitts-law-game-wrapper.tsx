@@ -346,7 +346,7 @@ export default function FittsLawGameWrapper() {
           style={{
             width: "1920px",
             height: "1080px",
-            backgroundImage: `url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/menuBackground-OOsGT1dpBltNIZ3bE0WSk7nbcyM3ir.png')`,
+            backgroundImage: `url('/images/games/fitts-menu-background.png')`,
             backgroundPosition: "center",
             backgroundSize: "cover",
             backgroundRepeat: "no-repeat",

@@ -100,7 +100,7 @@ export default function GameLayout({ children, title, controls, className }: Gam
         <div className="container mx-auto px-8 md:px-16 flex items-center justify-between">
           <PreservedLink href="/dashboard" className="flex items-center">
             <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-6j0in4cMtwP0VsfG29Fx3ycVPSyTKf.png"
+              src="/images/logo.png"
               alt="COMPGame Logo"
               width={40}
               height={40}

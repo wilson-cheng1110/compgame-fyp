@@ -104,8 +104,8 @@ const ContinuityGame = () => {
         <Image
           src={
             showExplanation
-              ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/continuity_ans-gVSG8axDGdYnQCbBAHIWlkkQKzh5P5.png"
-              : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/continuity_question-nttf4ITHVSy22wiaxNVfVIp79v83e1.png"
+              ? "/images/games/gestalt-continuity-answer.png"
+              : "/images/games/gestalt-continuity-question.png"
           }
           alt={showExplanation ? "Continuity answer" : "Continuity question"}
           width={300}

@@ -58,14 +58,14 @@ export default function DistanceGame() {
       id: "A",
       x: 946,
       y: 395,
-      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/m1_fishA-ZyygJWyVWA0xx0mCZaz9H41sndP8UX.png",
+      image: "/images/games/fitts-fish-a.png",
       caught: false,
     },
     {
       id: "B",
       x: 412,
       y: 636,
-      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/m1_fishB-l43dbk1nrv2zDOg5dCtR9TXIKsGdVu.png",
+      image: "/images/games/fitts-distance-fish-b.png",
       caught: false,
     },
   ]
@@ -127,7 +127,7 @@ export default function DistanceGame() {
       <main
         className="relative overflow-hidden"
         style={{
-          backgroundImage: `url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/U_FL_Background-EkMpY1LirpRo7b2lrQtc3xw8hsirvD.png')`,
+          backgroundImage: `url('/images/games/fitts-background.png')`,
           backgroundPosition: "center",
           backgroundSize: "cover",
           backgroundRepeat: "no-repeat",

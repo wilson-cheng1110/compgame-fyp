@@ -105,7 +105,7 @@ const ClosureGame = () => {
       </h2>
       <div className="mb-8">
         <Image
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/closure_question-4WOmE9I0gzEbR8DYFeAz7OMOeWNf6H.png"
+          src="/images/games/gestalt-closure-question.png"
           alt="Closure question"
           width={300}
           height={300}

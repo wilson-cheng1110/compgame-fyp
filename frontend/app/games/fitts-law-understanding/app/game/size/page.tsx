@@ -66,7 +66,7 @@ export default function SizeGame() {
       id: "A",
       x: centerX - FISH_SIZE_A / 2, // Adjust position to center the fish
       y: centerY - FISH_SIZE_A / 2,
-      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/m2_fish%20A-jDTR4bi3sM8oukdSj2GsBoXnb802jZ.png",
+      image: "/images/games/fitts-fish-a.png",
       caught: false,
       size: FISH_SIZE_A,
     },
@@ -74,7 +74,7 @@ export default function SizeGame() {
       id: "B",
       x: centerX - FISH_SIZE_B / 2, // Adjust position to center the fish
       y: centerY - FISH_SIZE_B / 2,
-      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/m2_fish%20B-dUYD7D1WCZg7uJD3rIDE5uGMtFD4Cj.png",
+      image: "/images/games/fitts-size-fish-b.png",
       caught: false,
       size: FISH_SIZE_B,
     },
@@ -137,7 +137,7 @@ export default function SizeGame() {
       <main
         className="relative overflow-hidden"
         style={{
-          backgroundImage: `url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/U_FL_Background-EkMpY1LirpRo7b2lrQtc3xw8hsirvD.png')`,
+          backgroundImage: `url('/images/games/fitts-background.png')`,
           backgroundPosition: "center",
           backgroundSize: "cover",
           backgroundRepeat: "no-repeat",
