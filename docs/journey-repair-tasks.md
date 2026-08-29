@@ -343,6 +343,20 @@ Ordered by what blocks what, not by size. Each link states its own done-test.
         landed. What makes the tutor answer them anyway is `_EXAMPLE_BANK` in
         rag_api.py, which carries hand-written entries for `hick` and `norman`, plus
         gemma's own pretraining. Three sources; one of them is the course.
+
+        **PLACEMENT SETTLED 2026-08-30 (Wilson).** `hicks-law` stays at session 4 beside
+        `fitts-law`: deck 02 teaches the perceive/decide/act processor and already names
+        two of the three legs -- reaction time by stimulus type, and Fitts' index of
+        difficulty -- so Hick IS the decide leg it half-teaches, not an import. `norman`
+        MOVED from session 2 to session 6, beside `mental-model`: the Action Cycle is not
+        a lecture of its own, it is the umbrella over material in three decks (gulf of
+        execution -> affordances/mapping in decks 01 and 03p2; gulf of evaluation -> the
+        gap between the system image and the user's mental model, deck 03p2; and again as
+        Nielsen-Molich heuristics 1 and 2 in deck 06). That is exactly why it never appears
+        as a named slide while all its parts do. `session_provisional` is now set on it,
+        same footing as hicks-law. Consequence: `memory` is the first topic released, and
+        three tests that hardcoded norman-first were updated rather than the order bent
+        back to suit them.
       *Caveat: 2023 decks. The 2026/27 ones are pending and this needs redoing.* *(Wilson)*
 - [x] ~~The vector store is missing content that is in the PDFs~~ — **RETRACTED, false.**
       I claimed the decks contain `Hick` ten times while the corpus reports zero, and

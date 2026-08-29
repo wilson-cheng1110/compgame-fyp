@@ -44,7 +44,8 @@ j = c.get("/api/topics").json()
 check("13 topics", len(j["topics"]) == 13, len(j["topics"]))
 check("section A", j["section"] == "A")
 check("telemetry off by default", j["telemetry_enabled"] is False)
-check("lecture order", [t["topic_id"] for t in j["topics"]][:3] == ["norman","memory","problem-solving"])
+check("lecture order", [t["topic_id"] for t in j["topics"]][:3] == ["memory","problem-solving","stroop"],
+      [t["topic_id"] for t in j["topics"]][:3])
 check("has_bank flags 4", sum(1 for t in j["topics"] if t["has_bank"]) == 4)
 check("arm present on every topic", all(t["arm"] in ("FLIP","CONTROL") for t in j["topics"]))
 check("nothing done yet", not any(t["pre_done"] or t["post_done"] for t in j["topics"]))
@@ -112,7 +113,9 @@ grow = [e for e in research_store.fetch_all() if e["topic_id"]=="gestalt"]
 check("telemetry stripped even when sent", grow and "telemetry" not in (grow[0]["meta"] or ""), grow[0]["meta"] if grow else None)
 
 print("\n-- unbanked topic --")
-r = c.get("/api/topics/norman/check/A")
+# visual-perception, not norman: norman is session 6 now and therefore LOCKED at this
+# test's frozen date, so it 403s before the no-bank branch is ever reached.
+r = c.get("/api/topics/visual-perception/check/A")
 check("no_bank 404 (not a crash)", r.status_code == 404 and r.json()["error"]=="no_bank", r.status_code)
 
 print("\n-- journey reflects progress --")

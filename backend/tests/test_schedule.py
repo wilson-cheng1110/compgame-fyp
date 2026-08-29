@@ -68,7 +68,10 @@ print("\n-- order is lecture order, all 13 present --")
 states = S.topic_states("24012345D", "A")
 check("13 topics returned", len(states) == 13, len(states))
 check("order field is 1..13", [s["order"] for s in states] == list(range(1,14)))
-check("norman first", states[0]["topic_id"] == "norman")
+# norman moved to session 6 beside mental-model on 2026-08-30 (Wilson): the Action
+# Cycle is the umbrella over mental models and the evaluation heuristics, not a lecture
+# of its own. memory is the first release now.
+check("memory first", states[0]["topic_id"] == "memory", states[0]["topic_id"])
 check("experiment-design last", states[-1]["topic_id"] == "experiment-design")
 check("mc_bank true for exactly 4", sum(1 for s in states if s["mc_bank"]) == 4)
 check("lecture_terms carried for gestalt",

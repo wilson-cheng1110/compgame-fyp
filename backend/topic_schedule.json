@@ -35,11 +35,6 @@
   },
   "topics": [
     {
-      "id": "norman",
-      "session": 2,
-      "mc_bank": false
-    },
-    {
       "id": "memory",
       "session": 3,
       "mc_bank": true
@@ -96,6 +91,12 @@
       "id": "mental-model",
       "session": 6,
       "mc_bank": false
+    },
+    {
+      "id": "norman",
+      "session": 6,
+      "mc_bank": false,
+      "session_provisional": true
     },
     {
       "id": "language",
