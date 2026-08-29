@@ -30,7 +30,8 @@ FYP_Submission/
     rag_api.py           # Main FastAPI server — /api/ask, /api/socratic, /api/health.
                          #   Imports chromadb+langchain at module scope, so anything
                          #   that must work WITHOUT the RAG stack lives in a router:
-    auth_api.py          #   → /api/auth/*      session, consent, profile, withdraw
+    auth_api.py          #   → /api/auth/*      signup, session, consent, profile, withdraw
+    admin_api.py         #   → /api/admin/*     teacher panel; own allowlist file, audited
     topic_api.py         #   → /api/topics/*    journey, gate, pre/post checks
     research_api.py      #   → /api/research/*  event, summary, pseudonymised export
     auth_store.py        # Participant accounts (stdlib sqlite3) + HMAC pseudonyms
@@ -127,13 +128,23 @@ Each maps to a COMP3423 lecture session — mapping table in `docs/revamp.md` Pa
 run (Part 8.4).
 
 ## Auth & data model
-**Changed 2026-08-16 — see `docs/revamp.md` Part 0.** Ratified: server accounts, credential is
-**SID only, no secret**, gated on an enrolled-SID allowlist (`backend/enrolled_sids.txt`, gitignored —
-it holds real student SIDs).
+**Changed 2026-08-30 (Wilson) — this supersedes the 2026-08-16 SID-only model.** The credential is
+**SID + password** (stdlib `hashlib.scrypt`, per-user salt; no bcrypt/passlib), and the enrolled-SID
+allowlist became **OPTIONAL**. `backend/enrolled_sids.txt` is still gitignored — it holds real SIDs.
 
-- Login: SID → allowlist check → server session. `start_session`, not `login`: with no secret this is
-  **identity, not authentication**. An enrolled student can enter as another enrolled student; that is
-  accepted and disclosed in the paper.
+- **Sign up** at `/signup`: SID + password (+ section when no roster is configured). Roster present →
+  it gates who may sign up AND dictates the section; roster absent → open signup and the student picks
+  their section, which is then the ONLY source of their release window.
+- **Sign in** at `/login`: SID + password. `/session` returns ONE 401 for unknown SID, wrong password,
+  unclaimed account and withdrawn alike — it must never be usable to enumerate who is enrolled. `/signup`
+  DOES name its refusals, because a signup form that will not say why is unusable. Do not "improve" the
+  login error message.
+- **Teacher panel** at `/admin` (`backend/admin_api.py`), gated on a session AND `backend/admin_sids.txt`
+  (gitignored; `.example` is committed). Section correction + password reset, every mutation audited to
+  `admin_audit`. It could not exist before the password did — both auth modules forbade it in their own
+  docstrings. It cannot read answers or scores, return password material, or delete anything.
+- Still NOT strong identity: a password can be shared, and with no roster an unenrolled person can create
+  an account. Both belong in the paper.
 - Cookie `user` = `{ sid, username, avatarId }` — **shape unchanged**, so all 15 `Cookies.get("user")`
   call sites keep working. UI decoration only.
 - Badges: array of `{ gameId, name, level (1-5), earnedAt }`
