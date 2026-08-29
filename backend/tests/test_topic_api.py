@@ -46,7 +46,8 @@ check("section A", j["section"] == "A")
 check("telemetry off by default", j["telemetry_enabled"] is False)
 check("lecture order", [t["topic_id"] for t in j["topics"]][:3] == ["memory","problem-solving","stroop"],
       [t["topic_id"] for t in j["topics"]][:3])
-check("has_bank flags 4", sum(1 for t in j["topics"] if t["has_bank"]) == 4)
+check("has_bank flags all 13", sum(1 for t in j["topics"] if t["has_bank"]) == 13,
+      [t["topic_id"] for t in j["topics"] if not t["has_bank"]])
 check("arm present on every topic", all(t["arm"] in ("FLIP","CONTROL") for t in j["topics"]))
 check("nothing done yet", not any(t["pre_done"] or t["post_done"] for t in j["topics"]))
 
@@ -113,10 +114,19 @@ grow = [e for e in research_store.fetch_all() if e["topic_id"]=="gestalt"]
 check("telemetry stripped even when sent", grow and "telemetry" not in (grow[0]["meta"] or ""), grow[0]["meta"] if grow else None)
 
 print("\n-- unbanked topic --")
-# visual-perception, not norman: norman is session 6 now and therefore LOCKED at this
-# test's frozen date, so it 403s before the no-bank branch is ever reached.
-r = c.get("/api/topics/visual-perception/check/A")
+# Every scheduled topic now HAS a bank, so this branch can no longer be reached by
+# naming a real topic -- and pinning it to whichever topic happens to be unbanked is
+# what made this assertion break twice already. Force the condition instead: the
+# route must 404 cleanly rather than crash, which is what is actually under test.
+import checks as _C
+_real = _C.items_for_student
+_C.items_for_student = lambda *a, **k: None
+try:
+    r = c.get("/api/topics/visual-perception/check/A")
+finally:
+    _C.items_for_student = _real
 check("no_bank 404 (not a crash)", r.status_code == 404 and r.json()["error"]=="no_bank", r.status_code)
+check("items_for_student was restored", _C.items_for_student is _real)
 
 print("\n-- journey reflects progress --")
 j = c.get("/api/topics").json()

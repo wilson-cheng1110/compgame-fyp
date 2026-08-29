@@ -270,13 +270,26 @@ Ordered by what blocks what, not by size. Each link states its own done-test.
       empty — this is the thing most likely to break the EDC demo.
       *Done-test: 0 `public.blob` references survive the build, and each asset 200s.*
       ~1 hour, no decisions needed.
-- [ ] **P3 · the nine missing item banks.** 4 of 13 topics are banked
-      (gestalt, memory, problem-solving, webers-law); the other nine are 6 A + 6 B
-      each = 108 items. `hicks-law` and `norman` are authored WITHOUT lecture backing
-      by decision (see the resolved item below) — their ⟨g⟩ is not comparable to the
-      rest and they are extra topics, not H1 evidence.
-      *Done-test: `checks.bank_report()` shows 13/13 balanced; the existing
-      `test_checks.py` invariants extend to them automatically.*
+- [x] **P3 · the nine missing item banks — done 2026-08-30.** 108 items authored
+      (stroop, hicks-law, fitts-law, visual-perception, mental-model, norman, language,
+      ergonomics, experiment-design), 6 per form, from each game's own question arrays
+      and its `game-debrief.tsx` entry — the text a student actually sees — with every
+      in-game MCQ read first so Form A does not leak the assessment's scenarios.
+      `hicks-law` and `norman` are authored WITHOUT lecture backing by decision — their
+      ⟨g⟩ is not comparable to the rest and they are extra topics, not H1 evidence.
+      **`bank_report()` shows 13/13 balanced.** The "existing invariants extend
+      automatically" assumption in this task was WRONG in both directions and that is
+      the useful part: six assertions across two suites had hard-coded "only 4 topics
+      are banked" and went red, and the invariants that mattered did not exist yet —
+      nothing compared the parsed ✓ against the printed answer key (a ✓ on the wrong
+      option would have parsed cleanly and mis-scored forever), and nothing looked at
+      the distribution of correct letters. As first authored, 78 of 156 answers sat on
+      (b): always-(b) scored 50% against a 25% chance level. Topics 5-13 re-lettered
+      across a-d, topics 1-4 left alone because the focus group already sat them.
+      Backend 325 -> 348, browser 262 unchanged; 4 mutants, red list written first,
+      every prediction exact.
+      *Also fixed in passing: `run_all.py` crashed on cp1252 when a FAILING suite's
+      output contained a ✓, hiding the failure it was printing.*
 - [ ] **P4 · the resilience suite** (`e2e/resilience.mjs`, same stdlib harness).
       Thirteen surfaces nothing tests today: refresh mid-check · two tabs · backend
       down mid-submit · cross-device resume · Ollama actually dead · slow submit ·

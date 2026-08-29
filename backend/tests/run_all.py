@@ -7,6 +7,11 @@ would make the tests the reason the suite can't run.
 """
 import os, subprocess, sys, re
 
+# The suites decode as UTF-8 and some of them print ✓ (the item banks mark the
+# correct option with it). Without this, a FAILING suite whose output contains
+# one crashes the runner on cp1252 and hides the very failure it was printing.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SUITES = ["test_auth.py", "test_auth_api.py", "test_admin_api.py", "test_schedule.py",
           "test_checks.py", "test_topic_api.py", "test_research_api.py",

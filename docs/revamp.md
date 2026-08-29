@@ -99,7 +99,7 @@ graded weeks later.
 | 05 | Telemetry | **ships off** | Mouse hesitation, typing dynamics, idle gaps, paste + tab-switch counts. Aggregates per item, not raw traces. Flag defaults off until ethics approval | `lib/telemetry.ts` (new) · `lib/research-log.ts` |
 | 06 | Teacher report | **done 2026-08-21** | The tutorial brief generator. Counting in code, clustering + discussion points from the model, two versions out. Verified end-to-end | `generate_tutorial_report.py` ✓ · `reports/` (gitignored — holds verbatim answers + SIDs) |
 | 07 | Visual pass | **done 2026-08-21** | The 太game fix, done as REGISTER SEPARATION rather than a repaint: the **CUBIK design system ported** into a `.shell` layer (`app/shell.css`) for every measured surface; the 26 game routes untouched | `app/shell.css` ✓ · `fonts.ts` ✓ · dashboard · topic unit · check · probe · consent · login · badges · about |
-| R | Item banks | **rolling** | 9 topics still need pre/post sets. ~1 a week, drafted from each lecture deck as it becomes relevant | `docs/quiz-item-banks.md` · 4 of 13 done |
+| R | Item banks | **done 2026-08-30** | Authored in one pass rather than weekly, from the games' own question arrays + `game-debrief.tsx`, because a topic released without a bank runs its unit with no MC step and looks fine | `docs/quiz-item-banks.md` · **13 of 13**, 156 items · desk-review addendum at the foot of that file |
 
 **Prerequisites that are not this document's work but block it** — `stage2-deployment-plan.md`
 Loops A/C: A1 origins · A3 queue · C2 health check · C1 unattended-box hardening. At 300 students
@@ -408,7 +408,9 @@ and a class of CS students will find it.
 | OK | `visual-perception` 120 · `problem-solving` 102 · `language` 70 · `gestalt` 63 · `ergonomics` 54 · `experiment-design` 48 · `fitts-law` 47 | well grounded |
 
 **`webers-law` is the thinnest point in the study** — 3 hits, essentially one slide (Visual 1 p8), and
-it is one of only four topics with a validated item bank. A *measured* topic resting on a single slide.
+it carries a full pre/post item bank. A *measured* topic resting on a single slide. (Written when only
+four topics were banked; all 13 are banked since 2026-08-30, which makes the point sharper, not weaker —
+the instrument no longer distinguishes well-grounded topics from thin ones, so corpus coverage has to.)
 
 ### What the tutor actually does — measured live, 2026-08-16
 
@@ -517,9 +519,9 @@ displacements are edited in one place.
 ```
 
 Three fields carry findings into the running system: **`lecture_terms`** (the 9.2 naming fix, appended
-to the retrieval query), **`mc_bank`** (whether Form A/B exists *today* — 4 of 13 — so the MC step
-switches on per topic as banks land), and **`session_provisional`** (placement inferred, not read off a
-slide; clear when the 2026/27 decks arrive).
+to the retrieval query), **`mc_bank`** (whether Form A/B exists *today* — **13 of 13 since 2026-08-30**,
+so the switch is now always on, but the mechanism stays for a topic added ahead of its items), and
+**`session_provisional`** (placement inferred, not read off a slide; clear when the 2026/27 decks arrive).
 
 **The gate must be server-authoritative** — not localStorage, not the client bundle. Topic availability
 and order *is* the IV manipulation; a client-side gate is a suggestion, and the flip claim rests on it
@@ -1004,7 +1006,7 @@ All were patched on 2026-08-16 to point here rather than being left to contradic
 
 **Still current and not superseded:** `stage2-deployment-plan.md` Loops A (request), C (operations),
 D (data) and E (change); `experiment-design.md` §§4–7 (instruments, evidence dossier, psychometrics, APA
-references); `quiz-item-banks.md` (the 4 existing banks — but re-word Gestalt and Weber's per §9.2).
+references); `quiz-item-banks.md` (all 13 banks as of 2026-08-30 — but re-word Gestalt and Weber's per §9.2).
 
 ---
 

@@ -12,21 +12,56 @@ def check(label, cond, extra=""):
 
 print("\n-- parsing --")
 rep = C.bank_report()
-check("4 topics parsed", len(rep) == 4, list(rep))
+check("13 topics parsed", len(rep) == 13, list(rep))
 check("all A/B balanced at 6", all(r["A"]==6 and r["B"]==6 for r in rep.values()), rep)
 check("gestalt has 5 options", rep["gestalt"]["n_options"] == 5)
-check("others have 4", all(rep[t]["n_options"]==4 for t in ("webers-law","problem-solving","memory")))
+check("every topic but gestalt has 4",
+      all(r["n_options"]==4 for t,r in rep.items() if t != "gestalt"),
+      {t:r["n_options"] for t,r in rep.items() if r["n_options"]!=4})
 check("has_bank true for banked", C.has_bank("webers-law") and C.has_bank("gestalt"))
-check("has_bank false for unbanked", not C.has_bank("norman") and not C.has_bank("hicks-law"))
+import schedule as _S
+_sched = [t["id"] for t in _S._load()["topics"]]
+check("every scheduled topic has a bank", all(C.has_bank(t) for t in _sched),
+      [t for t in _sched if not C.has_bank(t)])
+check("and the bank has nothing the schedule does not", set(rep) == set(_sched),
+      set(rep) ^ set(_sched))
+# The no-bank path still exists for a topic added before its items are written.
+check("has_bank false for an unknown topic", not C.has_bank("not-a-topic"))
 
 print("\n-- THE KEY MUST NOT LEAK --")
-for topic in ("webers-law","gestalt","problem-solving","memory"):
+# Every topic, not the original four: the leak is a property of the SERVING code,
+# but a bank authored later can still introduce a shape the stripper misses.
+for topic in sorted(rep):
     for form in ("A","B"):
         items = C.items_for_student(topic, form)
         blob = json.dumps(items)
         leaked = any("correct" in i for i in items) or "✓" in blob
         check(f"{topic}/{form}: no key in student payload", not leaked)
-check("unbanked topic returns None", C.items_for_student("norman","A") is None)
+check("unbanked topic returns None", C.items_for_student("not-a-topic","A") is None)
+
+print("\n-- the ✓ agrees with the printed answer key --")
+import re as _re
+_text = open(C.BANK_PATH, encoding="utf-8").read()
+_marks = [(m.start(), m.group(1)) for m in C._TOPIC_RE.finditer(_text)]
+_bad = []
+for _i, (_s, _tid) in enumerate(_marks):
+    _end = _marks[_i+1][0] if _i+1 < len(_marks) else len(_text)
+    _chunk = _text[_s:_end]
+    for _form in ("A","B"):
+        _m = _re.search(rf"\*Answer key {_form}:([^*]+)\*", _chunk)
+        _declared = dict(p.strip().split("-") for p in _m.group(1).split(",") if p.strip())
+        for _it in C._load()[_tid][_form]:
+            if _declared.get(_it["id"]) != _it["correct"]:
+                _bad.append((_tid, _it["id"], _declared.get(_it["id"]), _it["correct"]))
+check("all 156 keys match the ✓", not _bad, _bad[:4])
+
+# A student who answers (b) to everything must not beat chance by much. As
+# first authored, 78 of 156 correct answers sat on (b) -- 50% for a fixed
+# guess on a 25%-chance instrument, which would inflate every pre-test.
+from collections import Counter as _Counter
+_dist = _Counter(i["correct"] for f in C._load().values() for it in f.values() for i in it)
+_top = _dist.most_common(1)[0]
+check("no single letter answers more than 40% of items", _top[1] <= 0.40*156, (_top, dict(_dist)))
 
 print("\n-- student payload still usable --")
 items = C.items_for_student("webers-law","A")
@@ -66,7 +101,7 @@ check("post is separate from pre", not C.already_submitted(events,"24012345D","w
 
 print("\n-- unbanked topic raises rather than scoring 0 --")
 try:
-    C.grade_submission("norman","A",{}); check("raises for unbanked", False)
+    C.grade_submission("not-a-topic","A",{}); check("raises for unbanked", False)
 except ValueError: check("raises for unbanked", True)
 
 print(f"\n{ok} passed, {fail} failed")

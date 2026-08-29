@@ -123,9 +123,13 @@ wrong; corrected 2026-08-16.)
 `norman` (Action Cycle) · `mental-model` · `problem-solving` · `visual-perception` · `language` ·
 `ergonomics` · `experiment-design`, plus Legacy Labs (lab1–lab6, HCI Research, legacy).
 
-Each maps to a COMP3423 lecture session — mapping table in `docs/revamp.md` Part 6.3. Note only **4 of
-13** have validated pre/post item banks (`docs/quiz-item-banks.md`); the other 9 are authored during the
-run (Part 8.4).
+Each maps to a COMP3423 lecture session — mapping table in `docs/revamp.md` Part 6.3. **All 13 now have
+pre/post item banks** (`docs/quiz-item-banks.md`, 6 items per form, 156 in total) — topics 1-4 from
+Stage 1, topics 5-13 authored 2026-08-30 from the games' own source. `checks.py` still returns `None`
+for an unbanked topic and the unit renders with no MC step, so a 14th topic added without items is
+silently unmeasured; `test_checks.py` asserts every scheduled topic has a bank to stop that.
+**`norman` and `hicks-law` are extra topics, not H1 evidence** — zero lecture-corpus coverage, so
+their gain is reported separately (Wilson's decision, 2026-08-30).
 
 ## Auth & data model
 **Changed 2026-08-30 (Wilson) — this supersedes the 2026-08-16 SID-only model.** The credential is
