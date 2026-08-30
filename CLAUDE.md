@@ -54,6 +54,14 @@ FYP_Submission/
     hci_chroma_db_local/ # Pre-built ChromaDB vector store (HCI lecture PDFs)
     *.pdf                # COMP3423 lecture slides (6 weeks)
     requirements.txt
+  deploy/                # ONE COMMAND to a running study server. setup.ps1 -> start.ps1
+                         #   -> publish.ps1, plus install-services.ps1 for the part
+                         #   three commands do NOT give you: Scheduled Tasks for boot,
+                         #   a watchdog, and a dead-man's-switch heartbeat (inbound
+                         #   monitoring cannot tell you a box is OFF -- silence is the
+                         #   signal). publish.ps1 REFUSES on a red gate. See deploy/README.md.
+                         #   All .ps1 are ASCII + UTF-8 BOM: PowerShell 5.1 reads a
+                         #   BOM-less .ps1 as ANSI and one em dash breaks the parse.
   frontend/              # Next.js 15 app
     e2e/                 # 352 browser assertions: node e2e/run.mjs (see e2e/README.md).
                          #   Catches what backend tests structurally cannot — the login
@@ -165,6 +173,20 @@ allowlist became **OPTIONAL**. `backend/enrolled_sids.txt` is still gitignored �
 - Withdrawal tombstones the account and kills every session.
 
 ## Critical rules
+
+### ONE ORIGIN (2026-08-30) — the browser never names the API
+The browser calls a **relative** `/api/...`; `next.config.mjs` rewrites it to FastAPI on
+loopback. Only port 3000 is ever exposed. Three things depend on this and each was a real
+hazard: the build carries **no hostname**, so it is portable (a bundle built with an
+absolute origin deploys, serves 200s, and does nothing — no data, no error); there is **no
+CORS** at all; and the session cookie stays **first-party `SameSite=Lax`** (a split origin
+forces `SameSite=None`, which Safari ITP and Chrome's third-party-cookie deprecation block
+— silent sign-in failure on iPhones. This is why a Vercel shell was declined).
+**TWO constants, not one.** `lib/api.ts` `API_BASE` is empty (browser, relative).
+Server-side callers — `app/topics/[topicId]/page.tsx` (server component) and
+`app/api/export-data/route.ts` (route handler) — use an **absolute** `API_ORIGIN` loopback
+URL, because server-side `fetch` has no document and so no origin to resolve against.
+`e2e/happy-path.mjs` asserts the built bundle names no `localhost:8080`.
 
 ### Cookie-based auth
 - Auth check in every page: `Cookies.get("user")` → redirect to /login if missing
