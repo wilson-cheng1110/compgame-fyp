@@ -10,6 +10,11 @@ student, and that the box survives without you afterwards.
 > holding `deploy\`, `backend\`, `frontend\`); every path is relative to it. As written
 > the commands are copy-paste-ready for PowerShell.
 
+> **Shortcut:** with the step-1 files in place, `deploy\bootstrap.ps1` does prerequisites
+> + `setup.ps1` + `start.ps1` in one command (add `-SecretFingerprint <16hex>` to have the
+> key checked). `publish.ps1` and `install-services.ps1` stay separate. The steps below are
+> the same thing, unrolled.
+
 ## 0. On the box already
 - [ ] **Python 3.11+**, **Node 18+**, **Ollama** installed (setup.ps1 checks and stops with a link if not). An NVIDIA GPU to *run* the tutor at a usable speed.
 - [ ] The repo pulled to the current branch HEAD (`git pull`). The tree **builds from a clean clone** — verified — so a pull is enough; you do not hand-copy source.

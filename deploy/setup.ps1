@@ -121,6 +121,19 @@ API_ORIGIN=http://127.0.0.1:8080
 AUTH_DB_PATH=$($Root -replace '\\','/')/data/auth.db
 RESEARCH_DB_PATH=$($Root -replace '\\','/')/data/research.db
 
+# The dead-man's-switch ping URL for deploy\install-services.ps1 (make one free at
+# healthchecks.io). If the pings stop, it emails you. Leave unset to skip the heartbeat.
+# HEARTBEAT_URL=
+
+# Session inactivity logout, minutes (default 30). The keep-alive refreshes an ACTIVE
+# session, so this only ends a genuinely idle one.
+# SESSION_IDLE_MINUTES=30
+
+# OFF until the HSESC amendment lands. Setting either to 1 begins collecting a new class
+# of participant data -- a deployment decision, never a code change.
+# QUESTIONNAIRES_ENABLED=0
+# TELEMETRY_ENABLED=0
+
 # Optional. With a class list, sign-up is restricted and the section is
 # authoritative; without one, sign-up is open and the student picks their section.
 # ENROLMENT_PATH=$($Root -replace '\\','/')/backend/enrolled_sids.txt
