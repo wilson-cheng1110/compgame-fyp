@@ -4,16 +4,16 @@ import { useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import Cookies from "js-cookie"
 
-// Keep-alive for the server-side idle timeout (auth_store.SESSION_IDLE_MINUTES, 15 min).
+// Keep-alive for the server-side idle timeout (auth_store.SESSION_IDLE_MINUTES, 30 min).
 //
-// The idle timeout logs a student out after 15 minutes with NO request. Most of the app
+// The idle timeout logs a student out after 30 minutes with NO request. Most of the app
 // makes requests as you use it (games, checks, the tutor), but one path does not: typing
 // a long short-answer probe is many minutes of keystrokes and zero network calls, so a
 // student mid-answer could be logged out and lose it on submit. This pings a do-nothing
 // endpoint that just refreshes the session — but ONLY while there has actually been
 // interaction since the last tick, so a truly idle tab (walked away, no input) still
 // times out as intended. Active use resets the clock; absence does not.
-const PING_EVERY_MS = 5 * 60 * 1000 // 5 min — comfortably inside the 15-min window
+const PING_EVERY_MS = 5 * 60 * 1000 // 5 min — comfortably inside the 30-min window
 
 export default function SessionKeepAlive() {
   const pathname = usePathname()

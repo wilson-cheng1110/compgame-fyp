@@ -57,7 +57,7 @@ SESSION_DAYS = int(os.environ.get("SESSION_DAYS", "120"))  # one semester + marg
 # request, independently of the absolute SESSION_DAYS expiry. `last_seen_at` on the
 # session is stamped (throttled, at most ~once/min) on each resolve; past the window
 # resolve_session refuses and deletes the row, so the next request lands on /login.
-SESSION_IDLE_MINUTES = int(os.environ.get("SESSION_IDLE_MINUTES", "15"))
+SESSION_IDLE_MINUTES = int(os.environ.get("SESSION_IDLE_MINUTES", "30"))
 
 # Teacher accounts, same shape and same house pattern as the enrolment list: one SID
 # per line, `#` comments, re-read on mtime. Gitignored -- it names real people.
