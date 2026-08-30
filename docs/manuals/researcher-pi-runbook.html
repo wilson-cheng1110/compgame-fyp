@@ -13,63 +13,110 @@
     --ink:#0f172a; --body:#334155; --muted:#64748b; --faint:#94a3b8;
     --paper:#ffffff; --ground:#f9fafb; --raised:#f2f4f5;
     --rule:#e5e7eb; --rule-strong:#d7dde3;
-    --ok:#0f766e; --warn:#b45309; --warn-soft:#fef3e2; --crit:#b91c1c; --crit-soft:#fef2f2;
+    --ok:#0f766e; --ok-soft:#e8f4f2; --warn:#b45309; --warn-soft:#fef3e2; --crit:#b91c1c; --crit-soft:#fef2f2;
     --shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
   }
   *{box-sizing:border-box}
   html{-webkit-print-color-adjust:exact; print-color-adjust:exact}
-  body{font-family:Inter,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--body); background:var(--ground); margin:0; font-size:14.5px; line-height:1.6; letter-spacing:-.005em}
+  body{font-family:Inter,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--body); background:var(--ground); margin:0; font-size:14.5px; line-height:1.62; letter-spacing:-.005em}
   .page{max-width:840px; margin:0 auto; padding:0 34px}
   code,.mono{font-family:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
   h1,h2,h3{color:var(--ink); letter-spacing:-.02em; line-height:1.2; text-wrap:balance}
-  h2{font-size:24px; font-weight:800; margin:0 0 6px}
-  h3{font-size:16px; font-weight:700; margin:22px 0 4px}
-  p{margin:10px 0}
+  h2{font-size:22px; font-weight:800; margin:0}
+  h3{font-size:15px; font-weight:700; margin:20px 0 4px; color:var(--teal-ink)}
+  p{margin:9px 0}
   a{color:var(--teal); text-decoration:none}
   strong{color:var(--ink); font-weight:650}
   em{color:var(--teal-ink); font-style:normal; font-weight:600}
-  code.k{background:var(--raised); padding:1px 6px; border-radius:5px; font-size:.88em; color:var(--teal-ink); white-space:nowrap}
+  code.k{background:var(--raised); padding:1px 6px; border-radius:5px; font-size:.87em; color:var(--teal-ink); white-space:nowrap}
 
-  .cover{background:var(--paper); border-bottom:1px solid var(--rule); padding:58px 34px 44px}
+  /* ---- cover ---- */
+  .cover{background:var(--paper); border-bottom:1px solid var(--rule); padding:56px 34px 40px}
   .cover .wrap{max-width:840px; margin:0 auto}
   .brand{display:flex; align-items:center; gap:11px; font-weight:700; color:var(--ink); font-size:15px}
   .brand .glyph{width:30px;height:30px;border-radius:9px;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:16px}
   .eyebrow{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.16em; font-size:11px; color:var(--teal); font-weight:500}
-  .cover h1{font-size:42px; font-weight:800; margin:24px 0 10px; letter-spacing:-.03em}
-  .cover .lede{font-size:17px; color:var(--muted); max-width:640px; margin:0}
-  .meta{display:flex; gap:24px; flex-wrap:wrap; margin-top:28px; padding-top:20px; border-top:1px solid var(--rule)}
+  .cover h1{font-size:40px; font-weight:800; margin:22px 0 10px; letter-spacing:-.03em}
+  .cover .lede{font-size:16.5px; color:var(--muted); max-width:660px; margin:0}
+  .meta{display:flex; gap:24px; flex-wrap:wrap; margin-top:26px; padding-top:20px; border-top:1px solid var(--rule)}
   .meta .k{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--faint); display:block; margin-bottom:3px}
   .meta .v{color:var(--ink); font-weight:600; font-size:13px}
 
-  section{padding:30px 0 6px; border-top:1px solid var(--rule)}
+  /* ---- generic section ---- */
+  section{padding:28px 0 6px; border-top:1px solid var(--rule)}
   section:first-of-type{border-top:none}
-  .snum{font-family:"Roboto Mono",monospace; color:var(--teal); font-weight:500; font-size:13px; letter-spacing:.05em}
 
-  pre.cmd{background:#0f1e26; color:#dbe7ea; border-radius:10px; padding:14px 16px; margin:14px 0; font-family:"Roboto Mono",monospace; font-size:12.5px; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; break-inside:avoid; box-shadow:var(--shadow)}
+  /* ---- orientation blocks ---- */
+  .banner{background:var(--teal-soft); border:1px solid #cfe3e3; border-radius:12px; padding:15px 18px; margin:20px 0 4px; break-inside:avoid}
+  .banner .t{font-weight:700; color:var(--teal-ink); font-size:14px; margin-bottom:3px}
+  .banner p{margin:4px 0; font-size:13.5px}
+
+  .roadmap{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:18px 0 6px}
+  .phase{background:var(--paper); border:1px solid var(--rule); border-radius:12px; padding:15px 16px 14px; break-inside:avoid; box-shadow:var(--shadow)}
+  .phase .ph-k{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--teal); font-weight:600}
+  .phase h3{margin:5px 0 2px; font-size:15px; color:var(--ink)}
+  .phase .ph-when{font-size:11.5px; color:var(--muted); margin-bottom:9px}
+  .phase ol{margin:0; padding-left:0; list-style:none; counter-reset:pi}
+  .phase li{position:relative; padding:5px 0 5px 26px; font-size:12.8px; border-top:1px dashed var(--rule); color:var(--body)}
+  .phase li:first-child{border-top:none}
+  .phase li::before{counter-increment:pi; content:counter(pi); position:absolute; left:0; top:5px; width:18px; height:18px; border-radius:6px; background:var(--teal-soft); color:var(--teal-ink); font-family:"Roboto Mono",monospace; font-size:10px; font-weight:600; display:grid; place-items:center}
+
+  table.idx{width:100%; border-collapse:collapse; margin:14px 0 4px; font-size:13px}
+  table.idx th,table.idx td{text-align:left; padding:8px 11px; border-bottom:1px solid var(--rule); vertical-align:top}
+  table.idx th{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.05em; font-size:10px; color:var(--faint); font-weight:500}
+  table.idx td:first-child{font-weight:600; color:var(--ink)}
+  table.idx td:last-child{white-space:nowrap; color:var(--teal); font-family:"Roboto Mono",monospace; font-size:11.5px}
+
+  .gloss{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0 4px}
+  .gloss .g{background:var(--paper); border:1px solid var(--rule); border-left:3px solid var(--teal); border-radius:10px; padding:11px 14px; break-inside:avoid}
+  .gloss .gt{font-weight:700; color:var(--ink); font-size:13.5px; margin-bottom:2px}
+  .gloss .gd{font-size:12.8px; color:var(--body)}
+
+  /* ---- task cards ---- */
+  .task{background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:20px 22px 16px; margin:16px 0; box-shadow:var(--shadow); break-inside:avoid}
+  .thead{display:flex; align-items:center; gap:12px; margin-bottom:4px}
+  .tnum{flex:none; width:30px; height:30px; border-radius:9px; background:var(--teal); color:#fff; font-weight:800; font-size:14px; display:grid; place-items:center}
+  .thead h2{flex:1}
+  .ptag{flex:none; font-family:"Roboto Mono",monospace; font-size:10px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; color:var(--teal-ink); background:var(--teal-soft); padding:4px 9px; border-radius:20px}
+  .task .lead-in{font-size:14.5px; color:var(--body); margin:8px 0 4px}
+  .dolabel{display:inline-flex; align-items:center; gap:7px; font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.08em; font-size:10.5px; color:var(--muted); font-weight:600; margin-top:14px}
+  .dolabel::before{content:"›"; color:var(--teal); font-size:15px; font-weight:800; line-height:0}
+
+  pre.cmd{background:#0f1e26; color:#dbe7ea; border-radius:10px; padding:13px 15px; margin:6px 0 4px; font-family:"Roboto Mono",monospace; font-size:12.5px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; break-inside:avoid}
   pre.cmd .c{color:#7fb0b0}
   pre.cmd .o{color:#8fd0c0}
   pre.cmd b{color:#ffffff; font-weight:600}
 
-  .note{border:1px solid var(--rule); border-left:3px solid var(--teal); background:var(--paper); border-radius:10px; padding:12px 15px; margin:14px 0; font-size:13.5px; break-inside:avoid}
+  .youll{background:var(--ok-soft); border-radius:10px; padding:10px 14px; margin:10px 0 4px; font-size:13.3px; color:#0b4f4a; break-inside:avoid}
+  .youll .yl{display:block; font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.08em; font-size:10px; color:var(--ok); font-weight:600; margin-bottom:2px}
+  .youll code{background:#d6ebe7; color:#0b4f4a; padding:1px 5px; border-radius:4px; font-size:.9em}
+
+  .note{border:1px solid var(--rule); border-left:3px solid var(--teal); background:var(--ground); border-radius:10px; padding:11px 14px; margin:12px 0 4px; font-size:13.3px; break-inside:avoid}
   .note.warn{border-left-color:var(--warn); background:var(--warn-soft)}
   .note.crit{border-left-color:var(--crit); background:var(--crit-soft)}
   .note .t{font-weight:700; color:var(--ink); display:block; margin-bottom:2px; font-size:13px}
   .note.warn .t{color:var(--warn)} .note.crit .t{color:var(--crit)}
 
-  ul.clean{margin:10px 0; padding-left:20px} ul.clean li{margin:5px 0}
-  table.g{width:100%; border-collapse:collapse; margin:14px 0; font-size:13px; break-inside:avoid}
+  ul.clean{margin:9px 0; padding-left:20px} ul.clean li{margin:5px 0; font-size:13.5px}
+  table.g{width:100%; border-collapse:collapse; margin:12px 0 4px; font-size:13px; break-inside:avoid}
   table.g th,table.g td{text-align:left; padding:8px 11px; border-bottom:1px solid var(--rule); vertical-align:top}
   table.g th{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.05em; font-size:10px; color:var(--faint); font-weight:500}
   table.g td:first-child{white-space:nowrap}
   table.g td code{font-family:"Roboto Mono",monospace; font-size:12px; color:var(--teal-ink)}
 
-  figure{margin:18px 0 6px; break-inside:avoid}
+  figure{margin:14px 0 4px; break-inside:avoid}
   figure img{display:block; width:100%; border:1px solid var(--rule-strong); border-radius:12px; box-shadow:var(--shadow)}
   figcaption{margin-top:8px; font-size:12px; color:var(--muted)}
   figcaption .fl{font-family:"Roboto Mono",monospace; color:var(--teal); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:10.5px; margin-right:6px}
-  .end{padding:24px 0 46px; color:var(--faint); font-size:12px; font-family:"Roboto Mono",monospace}
-  .lead-in{font-size:15.5px; color:var(--body)}
-  @media print{ .cover{padding-top:28px} body{background:#fff} }
+
+  .divider{margin:30px 0 4px; padding-top:6px}
+  .divider .dk{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.14em; font-size:11px; color:var(--teal); font-weight:600}
+  .divider h2{font-size:20px; margin:3px 0 2px}
+  .divider p{font-size:13.5px; color:var(--muted); margin:2px 0}
+
+  .end{padding:22px 0 46px; color:var(--faint); font-size:12px; font-family:"Roboto Mono",monospace}
+  .lead-in{font-size:15px; color:var(--body)}
+  @media print{ .cover{padding-top:26px} body{background:#fff} }
 </style>
 </head>
 <body>
@@ -79,11 +126,11 @@
     <div class="brand"><span class="glyph">▚</span> COMPGame</div>
     <div class="eyebrow" style="margin-top:22px">COMP3423 · Flip-learning study</div>
     <h1>Researcher / PI Runbook</h1>
-    <p class="lede">Running the experiment: exporting the data, blind-grading the short answers, generating tutorial briefs, and reading the arms — the study-owner operations that live at the command line, deliberately outside the web panel.</p>
+    <p class="lede">A walkthrough of the four things only the study owner does — export the data, grade the short answers blind, generate the tutorial briefs, and read the study arms. Written for the person running the experiment, not the person who built it.</p>
     <div class="meta">
       <div><span class="k">Audience</span><span class="v">Principal investigator</span></div>
-      <div><span class="k">Surface</span><span class="v">Command line + runbook</span></div>
-      <div><span class="k">Run from</span><span class="v mono">FYP_Submission/</span></div>
+      <div><span class="k">You'll need</span><span class="v">A terminal on the server</span></div>
+      <div><span class="k">Run everything from</span><span class="v mono">FYP_Submission/</span></div>
       <div><span class="k">Grounded in</span><span class="v">backend/ source, this build</span></div>
     </div>
   </div>
@@ -92,164 +139,256 @@
 <div class="page">
 
 <section>
-  <div class="snum">00</div>
-  <h2>Why this is a separate document</h2>
-  <p class="lead-in">The <strong>teacher panel</strong> (<code class="k">/admin</code>) is for running the class. It deliberately cannot see answers, scores or study conditions. Everything in <em>this</em> runbook — the pseudonymised export, the blind grading pass, arm balance, the questionnaire battery — is the <strong>study owner's</strong> job, and it runs at the command line on the server, on purpose. Keeping it off the web keeps the analysis blind and the raw identifiers on the box.</p>
+  <h2>Start here</h2>
+  <p class="lead-in">The <strong>teacher panel</strong> at <code class="k">/admin</code> runs the class, and it deliberately cannot see answers, scores, or who is in which study condition. Everything in <em>this</em> document is the other half — the study-owner work — and it lives at the command line on the server <strong>on purpose</strong>: keeping it off the web is what keeps the grading blind and the real student IDs on the box.</p>
+
+  <div class="banner">
+    <div class="t">You don't need to be a developer — but you do need a terminal</div>
+    <p>Every step below is one line you copy, paste into <strong>PowerShell on the study server</strong>, and run. Anything in <code class="k">&lt;angle brackets&gt;</code> is a placeholder you replace. Nothing here changes a student's experience; it only reads and processes what they've already done.</p>
+  </div>
+
   <div class="note">
-    <span class="t">Design in one line</span>
-    Within-subjects, 13 topics × ~300 students. Each topic is <strong>FLIP</strong> or <strong>CONTROL</strong> per participant, assigned deterministically. Primary DV is Hake's normalized gain ⟨g⟩ from a uniform pre/post (Form A/B); secondary measures are IMI, CoI, ARCS and Paas.
+    <span class="t">The study in one line</span>
+    Within-subjects, 13 topics × ~300 students. Each topic is <strong>FLIP</strong> or <strong>CONTROL</strong> per participant, assigned deterministically. Your primary outcome is Hake's normalized gain ⟨g⟩ from a uniform pre/post (Form A/B); the secondary measures are IMI, CoI, ARCS, and Paas.
   </div>
 </section>
 
 <section>
-  <div class="snum">01</div>
-  <h2>The one file that must survive — <code class="k">.participant_secret</code></h2>
-  <p>Every export replaces the student ID with a pseudonym: <code class="k">HMAC-SHA256(secret, SID)</code>, first 16 hex. That secret is the <strong>only</strong> thing that joins a participant's pre-test row to their post-test row across separate exports. It is loaded from, in order: env <code class="k">PARTICIPANT_HMAC_SECRET</code>, then the file <code class="k">backend/.participant_secret</code>, else it is generated and persisted (with a "back this up" warning).</p>
-  <div class="note crit">
-    <span class="t">Lose it and the study is un-joinable — silently</span>
-    A new secret produces different pseudonyms for the same students, so old and new exports can never be linked again, with no error. Copy <code class="k">backend/.participant_secret</code> off the machine before first real run, and verify the fingerprint after copying it onto the deployment box (see the deploy guide). It must stay <strong>identical</strong> for the entire study.
+  <h2>Your three moments in the study</h2>
+  <p>You touch this runbook at three points, not continuously. Here's the whole job on one screen — the number on each task is the card further down.</p>
+  <div class="roadmap">
+    <div class="phase">
+      <div class="ph-k">Phase 1</div>
+      <h3>Before the term</h3>
+      <div class="ph-when">Set up once, then leave alone</div>
+      <ol>
+        <li>Protect the secret key <span class="mono" style="color:var(--faint)">(1)</span></li>
+        <li>Sanity-check the schedule &amp; arms <span class="mono" style="color:var(--faint)">(2)</span></li>
+      </ol>
+    </div>
+    <div class="phase">
+      <div class="ph-k">Phase 2</div>
+      <h3>While the term runs</h3>
+      <div class="ph-when">As lectures happen</div>
+      <ol>
+        <li>Generate tutorial briefs <span class="mono" style="color:var(--faint)">(3)</span></li>
+        <li>Turn on questionnaires <span class="mono" style="color:var(--faint)">(4)</span></li>
+        <li>Erase a participant on request <span class="mono" style="color:var(--faint)">(5)</span></li>
+      </ol>
+    </div>
+    <div class="phase">
+      <div class="ph-k">Phase 3</div>
+      <h3>At analysis time</h3>
+      <div class="ph-when">Once data is in</div>
+      <ol>
+        <li>Export the data <span class="mono" style="color:var(--faint)">(6)</span></li>
+        <li>Grade the short answers <span class="mono" style="color:var(--faint)">(7)</span></li>
+        <li>Derive the measures <span class="mono" style="color:var(--faint)">(8)</span></li>
+      </ol>
+    </div>
   </div>
 </section>
 
 <section>
-  <div class="snum">02</div>
-  <h2>Arms — FLIP / CONTROL, and what was actually played</h2>
-  <p>The arm is <strong>assigned</strong>, not stored: <code class="k">schedule.arm_for(sid, topic_index)</code> is deterministic from the SID hash parity and the topic's order, so it is recomputable forever — it survives a reload, a new device, a restart. Whether the student <em>actually</em> played the game before the post-check is a separate, <strong>observed</strong> fact, read from the event timestamps.</p>
-  <table class="g">
-    <tr><th>Quantity</th><th>Source</th><th>Meaning</th></tr>
-    <tr><td><code>arm</code></td><td>assigned</td><td><code>arm_for(sid, topic_index)</code> → FLIP / CONTROL</td></tr>
-    <tr><td><code>played_first</code></td><td>observed</td><td>activity timestamp &lt; post-check timestamp (server_ts)</td></tr>
-    <tr><td><code>complied</code></td><td>derived</td><td>does observed match assigned? (or <code>None</code>)</td></tr>
+  <h2>"I want to…" — jump to the right task</h2>
+  <table class="idx">
+    <tr><th>If you want to…</th><th>Go to</th></tr>
+    <tr><td>Get all the data out as a spreadsheet</td><td>Task 6</td></tr>
+    <tr><td>Score the written answers fairly</td><td>Task 7</td></tr>
+    <tr><td>Build the pre/post gain table for each student</td><td>Task 8</td></tr>
+    <tr><td>Give a lecturer a summary of their tutorial group</td><td>Task 3</td></tr>
+    <tr><td>Switch on the IMI / CoI / ARCS questionnaires</td><td>Task 4</td></tr>
+    <tr><td>Remove someone who has withdrawn</td><td>Task 5</td></tr>
+    <tr><td>Check who is FLIP vs CONTROL</td><td>Task 2</td></tr>
+    <tr><td>Understand a term you don't recognise</td><td>Glossary, below</td></tr>
   </table>
-  <p>Inspect the assignment and the release windows without touching any data:</p>
-  <pre class="cmd"><span class="c"># release windows + a sample of arm assignments for 3 SIDs</span>
+</section>
+
+<section>
+  <h2>The words this runbook uses</h2>
+  <p>Five terms carry the whole study. If these are clear, the rest reads easily.</p>
+  <div class="gloss">
+    <div class="g"><div class="gt">Arm — FLIP or CONTROL</div><div class="gd">Which condition a student got for a given topic. <strong>FLIP</strong> = they played the learning game before the check; <strong>CONTROL</strong> = they didn't. Assigned automatically, half-and-half.</div></div>
+    <div class="g"><div class="gt">Pseudonym</div><div class="gd">A scrambled stand-in for a student ID that goes into every export. It's stable, so you can still link one student's rows together — but it can't be reversed back to a real ID off the box.</div></div>
+    <div class="g"><div class="gt">Normalized gain ⟨g⟩</div><div class="gd">Your headline result. How much of the <em>available</em> improvement a student actually made from pre-test to post-test — fairer than raw score gain because it accounts for starting point.</div></div>
+    <div class="g"><div class="gt">Cohen's κ (kappa)</div><div class="gd">How well the machine grader and a human agree, beyond chance. Above ~0.6 you can trust the machine grades; below it, treat them as colour, not data.</div></div>
+    <div class="g"><div class="gt">The sink</div><div class="gd">The single database file that quietly records every study event — a check submitted, a game finished, a questionnaire answered. Everything you export comes from it.</div></div>
+    <div class="g"><div class="gt">The three brief copies</div><div class="gd">Every tutorial brief is written three times over — one safe to project, one with student IDs for the lecturer, one with the study arms for you. Never mix them up.</div></div>
+  </div>
+</section>
+
+<!-- ============ PHASE 1 ============ -->
+<div class="divider">
+  <div class="dk">Phase 1 · Before the term</div>
+  <h2>Set up once, then leave it alone</h2>
+  <p>Two things to get right before any real student data exists.</p>
+</div>
+
+<section class="task" id="secret">
+  <div class="thead"><span class="tnum">1</span><h2>Protect the secret key</h2><span class="ptag">Before the term</span></div>
+  <p class="lead-in">One tiny file, <code class="k">backend/.participant_secret</code>, is what scrambles student IDs into pseudonyms — and it's the <strong>only</strong> thing that lets you join a student's pre-test to their post-test across separate exports. It loads from the <code class="k">PARTICIPANT_HMAC_SECRET</code> environment variable, then that file, and if neither exists it makes a fresh one (with a "back this up" warning).</p>
+  <div class="note crit">
+    <span class="t">Lose or change it and the study quietly comes apart</span>
+    A different secret makes different pseudonyms for the same students, so old and new exports can never be linked again — and nothing errors to tell you. <strong>Copy this file off the machine before the first real run</strong>, and after copying it onto the deployment box, verify its fingerprint (see the installation guide). It must stay <em>identical</em> for the entire study.
+  </div>
+</section>
+
+<section class="task" id="arms">
+  <div class="thead"><span class="tnum">2</span><h2>Sanity-check the schedule and arms</h2><span class="ptag">Before the term</span></div>
+  <p class="lead-in">A student's condition isn't stored anywhere — it's <em>computed</em> from their ID and the topic order, so it survives a reload, a new laptop, or a server restart and can never drift. Whether they <strong>actually</strong> played the game before the check is a separate thing, read from the timestamps. Before the term opens, look at both without touching any data.</p>
+  <table class="g">
+    <tr><th>Quantity</th><th>Where it comes from</th><th>What it means</th></tr>
+    <tr><td><code>arm</code></td><td>assigned</td><td>FLIP or CONTROL — computed, deterministic</td></tr>
+    <tr><td><code>played_first</code></td><td>observed</td><td>did the activity happen before the post-check?</td></tr>
+    <tr><td><code>complied</code></td><td>derived</td><td>did what they did match what they were assigned?</td></tr>
+  </table>
+  <span class="dolabel">Run this</span>
+  <pre class="cmd"><span class="c"># see the release windows + a sample of arm assignments</span>
 python backend<b>\</b>schedule.py --preview
 
-<span class="c"># fail-closed calendar check (exit 1 on any problem) — run before a term</span>
+<span class="c"># check the calendar for problems — run before a term starts</span>
 python backend<b>\</b>schedule.py --validate</pre>
+  <div class="youll"><span class="yl">You'll see</span><code>--preview</code> prints when each topic opens and a few example FLIP/CONTROL assignments. <code>--validate</code> is your green light: it exits quietly if the calendar is clean, and stops with <strong>exit 1</strong> and a message if a lecture lands somewhere it shouldn't.</div>
 </section>
 
-<section>
-  <div class="snum">03</div>
-  <h2>Exporting the data for analysis</h2>
-  <p>The export endpoint is <strong>pseudonymised by construction</strong> — there is no identified mode — and it excludes any withdrawn participant. It is gated by a token and <strong>fails closed</strong>: with no token set, it refuses rather than leaks.</p>
-  <pre class="cmd"><span class="c"># set the token first (this session only); unset => endpoint 503s by design</span>
-$env:EXPORT_TOKEN = <b>"&lt;a long random string&gt;"</b>
+<!-- ============ PHASE 2 ============ -->
+<div class="divider">
+  <div class="dk">Phase 2 · While the term runs</div>
+  <h2>The work that happens as lectures go by</h2>
+  <p>Nothing here is urgent day-to-day — reach for it when a lecturer asks, when the ethics amendment lands, or when a student withdraws.</p>
+</div>
 
-<span class="c"># pull the full pseudonymised event log as CSV</span>
-curl -H <b>"X-Export-Token: $env:EXPORT_TOKEN"</b> "https://&lt;host&gt;/api/research/export?format=csv" -o events.csv
-
-<span class="c"># quick "is the sink alive" probe — open, no token, no identifiers</span>
-curl "https://&lt;host&gt;/api/research/summary"
-<span class="o">  → {"total_events": N, "participants": M}</span></pre>
-  <p>Each exported row carries exactly these columns:</p>
-  <pre class="cmd">id, participant_id, event_type, topic_id, mode, score,
-played_understanding_first, duration_ms, client_ts, server_ts, meta</pre>
-  <ul class="clean">
-    <li><code class="k">participant_id</code> is the HMAC pseudonym — never the real SID.</li>
-    <li><code class="k">meta</code> is JSON; it carries <code class="k">corpus_version</code> / <code class="k">app_version</code> stamped server-side, and questionnaire raw answers.</li>
-    <li>The sink DB is <code class="k">backend/research_events.db</code> (override with <code class="k">RESEARCH_DB_PATH</code>). CSV downloads as <code class="k">research_events.csv</code>.</li>
-  </ul>
-</section>
-
-<section>
-  <div class="snum">04</div>
-  <h2>Grading the short answers — offline and blind</h2>
-  <p>Short answers are graded by the model with the identity and the labels physically removed first: <code class="k">grade.blind()</code> strips the SID, pseudonym, form, phase, score, arm and timestamps, re-tags each answer with <code class="k">SHA256(seed:id)</code>, and sorts by that tag — which also destroys the pre/post positional order. The grader cannot know whose answer it is, or whether it is a pre or a post.</p>
-  <pre class="cmd">usage: grade_batch.py [--topic TOPIC] [--seed SEED] [--dry-run]
-                      [--resume] [--sample-for-human N] [--kappa HUMAN_CSV] [--out OUT]</pre>
-  <pre class="cmd"><span class="c"># see what would be graded, no model called</span>
-python backend<b>\</b>grade_batch.py --dry-run
-
-<span class="c"># grade one topic (~15 s/answer on the dev GPU)</span>
-python backend<b>\</b>grade_batch.py --topic webers-law
-
-<span class="c"># resume after an interruption</span>
-python backend<b>\</b>grade_batch.py --resume</pre>
-  <div class="note warn">
-    <span class="t">Never lower <code>GRADE_NUM_PREDICT</code> (pinned 1536)</span>
-    Measured on this model: a cap of 320/512/640/768 returns an <strong>empty string</strong>, which is indistinguishable from "not enough signal to grade" — so too low a cap silently turns every answer into a missing datum while the batch looks like it ran fine. 1024+ returns correct JSON; the code pins 1536.
-  </div>
-  <h3>Inter-rater reliability (Cohen's κ)</h3>
-  <p>Hand-code a sample against the machine, blind to its grades, then compare:</p>
-  <pre class="cmd"><span class="c"># a blank coding sheet — 60 answers, NO machine grades in it (anti-anchoring)</span>
-python backend<b>\</b>grade_batch.py --sample-for-human 60
-
-<span class="c"># after a human fills it in: pair by tag, print n / agreement / kappa</span>
-python backend<b>\</b>grade_batch.py --kappa human-coding-sheet-60.csv</pre>
-  <p>Grades are written to <code class="k">reports/grades/</code> (override <code class="k">GRADES_DIR</code>). A κ below <strong>0.6</strong> prints a warning that the machine grades are "descriptive colour only" — report them as such.</p>
-</section>
-
-<section>
-  <div class="snum">05</div>
-  <h2>Tutorial briefs — and the three copies</h2>
-  <p>The report generator computes every number in Python (pass 1) and only uses the LLM to cluster free text (pass 2, skip with <code class="k">--no-llm</code>). It writes <strong>three files, always</strong>, to <code class="k">reports/{cohort}/section-{X}/{topic}-{date}-{suffix}.md</code>:</p>
+<section class="task" id="briefs">
+  <div class="thead"><span class="tnum">3</span><h2>Generate tutorial briefs</h2><span class="ptag">During the term</span></div>
+  <p class="lead-in">A tutorial brief is a short summary a lecturer can use in a tutorial: how the group did on the pre/post checks, how many played the game, and a plain-language read of the common sticking points. Every number is counted in code; only the free-text summary is written by the model (skip even that with <code class="k">--no-llm</code>). It always writes <strong>three copies</strong>, and telling them apart matters:</p>
   <table class="g">
-    <tr><th>Suffix</th><th>Contains</th><th>Handling</th></tr>
-    <tr><td><code>-discussion</code></td><td>anonymised, no SIDs</td><td><strong>Safe to project.</strong> The script greps it for leaked SIDs and warns.</td></tr>
-    <tr><td><code>-teacher</code></td><td>SIDs, no arms</td><td>Your eyes only. Never leaves the machine.</td></tr>
-    <tr><td><code>-research</code></td><td>SIDs <strong>and</strong> FLIP/CONTROL arm + sequence</td><td>Analysis only. <strong>Never served</strong> by the panel, by construction.</td></tr>
+    <tr><th>Copy</th><th>What's in it</th><th>Who it's for</th></tr>
+    <tr><td><code>-discussion</code></td><td>anonymised, no IDs</td><td><strong>Safe to project.</strong> The script even checks it for leaked IDs.</td></tr>
+    <tr><td><code>-teacher</code></td><td>student IDs, no arms</td><td>The lecturer's eyes only. Stays on the machine.</td></tr>
+    <tr><td><code>-research</code></td><td>IDs <strong>and</strong> FLIP/CONTROL</td><td>You only. Never reachable through the web panel, by design.</td></tr>
   </table>
+  <span class="dolabel">Run this</span>
   <pre class="cmd">python backend<b>\</b>generate_tutorial_report.py --topic webers-law --section B
-python backend<b>\</b>generate_tutorial_report.py --topic webers-law --section B --no-llm</pre>
-  <p>The <code class="k">-teacher</code> and <code class="k">-discussion</code> copies are the ones surfaced in the course-team panel (see the teacher manual). The <code class="k">-research</code> copy is the only one that names arms, and it is written to disk for you but is structurally unreachable through the browser.</p>
+<span class="c"># add --no-llm to skip the model and get numbers only</span></pre>
+  <div class="youll"><span class="yl">You'll see</span> three Markdown files land under <code>reports/{cohort}/section-B/</code>. The <code>-discussion</code> and <code>-teacher</code> copies are what the course-team panel surfaces; the <code>-research</code> copy is written to disk for your analysis and is the only one that names study arms.</div>
   <figure>
     <img src="img/t05-report-open.png" alt="An opened tutorial brief showing pre and post scores, gain, activity uptake and guidance.">
-    <figcaption><span class="fl">Figure 1</span> A generated brief opened in the panel (the anonymised <code>-discussion</code> copy). The numbers here are counted in code; only the plain-language read is written by the LLM.</figcaption>
+    <figcaption><span class="fl">Figure 1</span> A generated brief opened in the panel — the anonymised <code>-discussion</code> copy. The scores here are counted in code; only the plain-language read is written by the model.</figcaption>
   </figure>
 </section>
 
-<section>
-  <div class="snum">06</div>
-  <h2>Questionnaires — IMI · CoI · ARCS · Paas</h2>
-  <p>The four instruments are wired but <strong>OFF by default</strong>. Both routes return <strong>404</strong> until enabled, so the UI never draws a form that cannot be submitted.</p>
-  <pre class="cmd"><span class="c"># turn the battery ON — only after the HSESC amendment is approved</span>
-$env:QUESTIONNAIRES_ENABLED = <b>"1"</b>   <span class="c"># default "0" => 404 not_available</span></pre>
+<section class="task" id="questionnaires">
+  <div class="thead"><span class="tnum">4</span><h2>Turn on the questionnaires</h2><span class="ptag">During the term</span></div>
+  <p class="lead-in">The four instruments — IMI, CoI, ARCS, and Paas — are built and wired, but <strong>switched off</strong> until you enable them. While off, both routes return <strong>404</strong>, so the app never shows a form that can't be submitted. Enable them only <em>after</em> the HSESC ethics amendment is approved.</p>
+  <span class="dolabel">Run this — only after ethics approval</span>
+  <pre class="cmd"><span class="c"># default is off (returns 404); this switches the battery on</span>
+$env:QUESTIONNAIRES_ENABLED = <b>"1"</b></pre>
   <ul class="clean">
-    <li><strong>Consent-gated</strong> — 403 <code class="k">no_consent</code> before consent, same as every recorded path.</li>
-    <li><strong>One submission per instrument</strong> — a partial unique index (<code class="k">idx_events_once_v2</code>) is the real backstop against races; a second attempt gets 409.</li>
-    <li><strong>The scoring key never ships</strong> — the fetch response excludes the <code class="k">reverse</code> and <code class="k">subscales</code> fields. Raw answers only are stored (in <code class="k">meta.answers</code>); scoring is done at analysis time from the study-pack codebook.</li>
-    <li>Tied to the ethics amendment, same discipline as <code class="k">TELEMETRY_ENABLED</code> — do not enable ahead of approval.</li>
+    <li><strong>Consent still gates it</strong> — before a student consents, they get the same refusal as every other recorded path.</li>
+    <li><strong>One submission each</strong> — the database itself blocks a second attempt, so no one can answer twice.</li>
+    <li><strong>The scoring key never leaves the box</strong> — students receive only the questions; you score from the study-pack codebook at analysis time.</li>
   </ul>
+  <div class="note warn"><span class="t">Don't switch this on ahead of approval</span> It's tied to the ethics amendment, the same discipline as the telemetry flag. Enabling early collects data you're not yet cleared to collect.</div>
 </section>
 
-<section>
-  <div class="snum">07</div>
-  <h2>Deriving the measures</h2>
-  <p><code class="k">measures.py</code> turns the raw sink into analysis-ready rows without a server or the model — it reads the DB directly.</p>
-  <pre class="cmd"><span class="c"># per-(participant, topic) table + a coverage summary</span>
-python backend<b>\</b>measures.py
-
-<span class="c"># filter to one participant</span>
-python backend<b>\</b>measures.py --participant 22074221D</pre>
-  <p>Each row gives <code class="k">arm</code>, <code class="k">played_first</code> (with a <code class="k">played_first_basis</code> so you know why it is <code>None</code>), <code class="k">complied</code>, the three scores (pre / post / assessment), the step timestamps, and the skip/escape flags. <code class="k">coverage()</code> gives the headline: pairs, determinable, complied, no-activity, no-post-test, took-escape. Hake's ⟨g⟩ itself is computed in the report generator, over students who sat both checks.</p>
-</section>
-
-<section>
-  <div class="snum">08</div>
-  <h2>Erasing a participant on request</h2>
-  <p>Withdrawal from the app already tombstones the account and ends every session. To also purge their rows from the research sink:</p>
+<section class="task" id="forget">
+  <div class="thead"><span class="tnum">5</span><h2>Erase a participant on request</h2><span class="ptag">During the term</span></div>
+  <p class="lead-in">When a student withdraws in the app, their account is already tombstoned and their sessions ended. If they also ask for their research data removed, this purges their rows from the sink. Do a dry run first — it counts what would go without changing anything.</p>
+  <span class="dolabel">Run this</span>
   <pre class="cmd"><span class="c"># dry run — reports the count, changes nothing</span>
 python backend<b>\</b>research_store.py --forget 24E00123A
 
-<span class="c"># actually erase (irreversible)</span>
+<span class="c"># actually erase — this cannot be undone</span>
 python backend<b>\</b>research_store.py --forget 24E00123A --yes</pre>
-  <p>This purges the sink only; the account tombstone in <code class="k">auth_store</code> is separate and left intact.</p>
+  <div class="youll"><span class="yl">You'll see</span> the number of rows found (dry run) or removed. This clears the research sink only; the account tombstone is handled separately and left in place.</div>
 </section>
 
-<section>
-  <div class="snum">09</div>
-  <h2>Before you trust a run — the five silent failures</h2>
+<!-- ============ PHASE 3 ============ -->
+<div class="divider">
+  <div class="dk">Phase 3 · At analysis time</div>
+  <h2>Getting the data out and ready to analyse</h2>
+  <p>The three steps you run once the study data is in, in order: export, grade, derive.</p>
+</div>
+
+<section class="task" id="export">
+  <div class="thead"><span class="tnum">6</span><h2>Export the data</h2><span class="ptag">Analysis time</span></div>
+  <p class="lead-in">The export is <strong>always pseudonymised</strong> — there is no "with real IDs" mode — and it automatically leaves out anyone who withdrew. It's protected by a token and <strong>fails safe</strong>: with no token set, it refuses to hand anything over rather than risk a leak.</p>
+  <span class="dolabel">Run this</span>
+  <pre class="cmd"><span class="c"># 1. set a token for this session (no token => the endpoint refuses, by design)</span>
+$env:EXPORT_TOKEN = <b>"&lt;a long random string&gt;"</b>
+
+<span class="c"># 2. download the full event log as a CSV spreadsheet</span>
+curl -H <b>"X-Export-Token: $env:EXPORT_TOKEN"</b> "https://&lt;host&gt;/api/research/export?format=csv" -o events.csv
+
+<span class="c"># optional: a quick "is it alive?" check — open, no token, no identifiers</span>
+curl "https://&lt;host&gt;/api/research/summary"
+<span class="o">  → {"total_events": N, "participants": M}</span></pre>
+  <div class="youll"><span class="yl">You'll get</span> a CSV where each row is one study event, with these columns:<br>
+  <code>id, participant_id, event_type, topic_id, mode, score, played_understanding_first, duration_ms, client_ts, server_ts, meta</code></div>
   <ul class="clean">
-    <li><strong>Export refuses (503).</strong> <code class="k">EXPORT_TOKEN</code> is unset — that is the fail-closed default, not a bug. Set it.</li>
-    <li><strong>Every grade came back null.</strong> <code class="k">GRADE_NUM_PREDICT</code> was lowered below 1536 — the model returns empty and it reads as "no data". Restore 1536.</li>
-    <li><strong>Pseudonyms don't line up across exports.</strong> <code class="k">.participant_secret</code> changed between runs. There is no recovery — protect the file.</li>
-    <li><strong>A <code>-teacher</code> or <code>-research</code> copy left the machine.</strong> Only <code class="k">-discussion</code> is safe to share; the other two carry identifiers (and the research copy, arms).</li>
-    <li><strong>Questionnaires 404.</strong> <code class="k">QUESTIONNAIRES_ENABLED</code> is off — correct until the amendment lands.</li>
+    <li><code class="k">participant_id</code> is the pseudonym — never a real student ID.</li>
+    <li><code class="k">meta</code> holds extras as JSON: the corpus/app version stamped on each event, and the raw questionnaire answers.</li>
   </ul>
+</section>
+
+<section class="task" id="grade">
+  <div class="thead"><span class="tnum">7</span><h2>Grade the short answers — blind</h2><span class="ptag">Analysis time</span></div>
+  <p class="lead-in">Written answers are graded with the identity and every label physically stripped out first: the ID, form, pre/post phase, score, and arm are removed, each answer is re-tagged with an anonymous code, and the whole set is shuffled so the pre/post order is gone too. The grader genuinely can't tell whose answer it is or whether it's a pre-test or a post-test.</p>
+  <span class="dolabel">Run this</span>
+  <pre class="cmd"><span class="c"># preview what would be graded — no model is called</span>
+python backend<b>\</b>grade_batch.py --dry-run
+
+<span class="c"># grade one topic (about 15s per answer on the dev GPU)</span>
+python backend<b>\</b>grade_batch.py --topic webers-law
+
+<span class="c"># pick up where you left off after an interruption</span>
+python backend<b>\</b>grade_batch.py --resume</pre>
+  <div class="youll"><span class="yl">You'll get</span> grades written to <code>reports/grades/</code>. The full set of options is <code>--topic</code>, <code>--seed</code>, <code>--dry-run</code>, <code>--resume</code>, <code>--sample-for-human</code>, <code>--kappa</code>, and <code>--out</code>.</div>
+  <div class="note warn">
+    <span class="t">Never lower the model's answer-length cap</span>
+    It's pinned at <code>GRADE_NUM_PREDICT=1536</code> for a reason: measured on this model, a lower cap makes it return an <strong>empty string</strong> — which looks exactly like "couldn't grade this" — so too low a value silently turns every answer into a missing datum while the run <em>looks</em> fine. Leave it at 1536.
+  </div>
+  <h3>Check the grader against a human (Cohen's κ)</h3>
+  <p>Before you trust the machine grades, hand-code a sample and compare. The coding sheet has <strong>no machine grades in it</strong>, so you're not anchored by what the machine thought.</p>
+  <span class="dolabel">Run this</span>
+  <pre class="cmd"><span class="c"># 1. a blank coding sheet of 60 answers for a human to grade</span>
+python backend<b>\</b>grade_batch.py --sample-for-human 60
+
+<span class="c"># 2. once it's filled in, compare and print agreement + kappa</span>
+python backend<b>\</b>grade_batch.py --kappa human-coding-sheet-60.csv</pre>
+  <div class="youll"><span class="yl">You'll see</span> the count, raw agreement, and κ. If κ comes back <strong>below 0.6</strong>, the tool warns you to treat the machine grades as "descriptive colour only" — report them that way, and lean on the human coding.</div>
+</section>
+
+<section class="task" id="measures">
+  <div class="thead"><span class="tnum">8</span><h2>Derive the measures</h2><span class="ptag">Analysis time</span></div>
+  <p class="lead-in">This turns the raw event log into the analysis-ready table — one row per student per topic — with no server and no model. It reads the database directly.</p>
+  <span class="dolabel">Run this</span>
+  <pre class="cmd"><span class="c"># the per-(student, topic) table + a coverage summary</span>
+python backend<b>\</b>measures.py
+
+<span class="c"># zoom in on one participant</span>
+python backend<b>\</b>measures.py --participant 22074221D</pre>
+  <div class="youll"><span class="yl">You'll get</span> each row carrying the <code>arm</code>, whether they <code>played_first</code> (with a reason when it's unknown), whether they <code>complied</code>, the three scores (pre / post / assessment), the step timestamps, and any skip flags. The coverage summary is your headline: how many pairs you have, how many are usable, how many complied, and where the gaps are. The gain ⟨g⟩ itself is computed in the brief generator (Task 3), over students who sat both checks.</div>
+</section>
+
+<!-- ============ troubleshooting ============ -->
+<div class="divider">
+  <div class="dk">If something looks wrong</div>
+  <h2>The five silent failures — and what each one really means</h2>
+  <p>These don't throw obvious errors, so they're worth knowing on sight. In most cases the "failure" is a safety default doing its job.</p>
+</div>
+<section>
+  <table class="g">
+    <tr><th>What you see</th><th>What it means &amp; the fix</th></tr>
+    <tr><td>Export refuses (503)</td><td>The export token isn't set. That's the fail-safe default, not a bug — set <code>EXPORT_TOKEN</code> and re-run.</td></tr>
+    <tr><td>Every grade came back empty</td><td>The answer-length cap was lowered below 1536, so the model returns nothing and it reads as "no data". Restore <code>GRADE_NUM_PREDICT=1536</code>.</td></tr>
+    <tr><td>Pseudonyms don't line up across exports</td><td>The secret key changed between runs. There's no recovery — this is why Task 1 says protect that file.</td></tr>
+    <tr><td>A file with IDs left the machine</td><td>Only the <code>-discussion</code> brief is safe to share. The <code>-teacher</code> and <code>-research</code> copies carry identifiers (and the research one, arms).</td></tr>
+    <tr><td>Questionnaires return 404</td><td>They're switched off. Correct until the ethics amendment lands — then set <code>QUESTIONNAIRES_ENABLED=1</code>.</td></tr>
+  </table>
   <div class="note">
-    <span class="t">The full operational context</span>
-    Start/stop, backups, the go-live gate and deploy are in <code class="k">docs/runbook.md</code> and the installation guide. This document covers only the research operations layered on top.
+    <span class="t">Where the rest of it lives</span>
+    Starting and stopping the server, backups, the go-live gate, and deployment are in <code class="k">docs/runbook.md</code> and the installation guide. This document covers only the research operations layered on top.
   </div>
 </section>
 
