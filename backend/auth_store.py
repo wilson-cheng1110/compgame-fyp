@@ -30,7 +30,7 @@ roster an unenrolled person can create an account. Both belong in the paper.
 Schema:
   users     sid PK · username · avatar_id · section · pw_salt · pw_hash
             · created_at · last_seen_at · withdrawn
-  sessions  token PK · sid · created_at · expires_at
+  sessions  token PK · sid · created_at · expires_at · last_seen_at (idle timeout)
 
 Enrolment file (`enrolled_sids.txt`, one per line, `#` comments):
     24012345D,A          # SID,section  -- section drives the Tue/Wed/Thu windows
@@ -53,6 +53,11 @@ ENROLMENT_PATH = os.environ.get("ENROLMENT_PATH", os.path.join(_HERE, "enrolled_
 SECRET_PATH = os.environ.get("PARTICIPANT_SECRET_PATH", os.path.join(_HERE, ".participant_secret"))
 
 SESSION_DAYS = int(os.environ.get("SESSION_DAYS", "120"))  # one semester + margin
+# IDLE (inactivity) timeout: a login is dropped after this many minutes with NO
+# request, independently of the absolute SESSION_DAYS expiry. `last_seen_at` on the
+# session is stamped (throttled, at most ~once/min) on each resolve; past the window
+# resolve_session refuses and deletes the row, so the next request lands on /login.
+SESSION_IDLE_MINUTES = int(os.environ.get("SESSION_IDLE_MINUTES", "15"))
 
 # Teacher accounts, same shape and same house pattern as the enrolment list: one SID
 # per line, `#` comments, re-read on mtime. Gitignored -- it names real people.
@@ -244,6 +249,12 @@ def init_db() -> None:
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_sid ON sessions(sid)")
+            # IDLE TIMEOUT support (added 2026-08-31). Add last_seen_at to any older DB
+            # that predates it — guarded so it runs at most once. Existing sessions get
+            # NULL, which resolve_session treats as "stamp now" so nobody is logged out
+            # retroactively the instant this ships.
+            if "last_seen_at" not in {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}:
+                conn.execute("ALTER TABLE sessions ADD COLUMN last_seen_at TEXT")
             # Additive migration rather than a new table: an existing dev DB keeps its
             # rows, and those rows simply have no password -- which reads correctly as
             # "not signed up yet" and cannot be logged into (verify_password refuses a
@@ -336,8 +347,10 @@ def create_account(sid: str, password: str, section: str | None = None,
                 )
 
             conn.execute(
-                "INSERT INTO sessions (token, sid, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                (token, sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat()),
+                "INSERT INTO sessions (token, sid, created_at, expires_at, last_seen_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (token, sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat(),
+                 now.isoformat()),
             )
             conn.commit()
         finally:
@@ -410,8 +423,10 @@ def start_session(sid: str, password: str) -> dict | None:
             conn.execute("UPDATE users SET last_seen_at = ?, section = ? WHERE sid = ?",
                          (now.isoformat(), section, sid))
             conn.execute(
-                "INSERT INTO sessions (token, sid, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                (token, sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat()),
+                "INSERT INTO sessions (token, sid, created_at, expires_at, last_seen_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (token, sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat(),
+                 now.isoformat()),
             )
             conn.commit()
         finally:
@@ -550,15 +565,20 @@ def end_all_sessions(sid: str) -> int:
 
 
 def resolve_session(token: str) -> dict | None:
-    """Current user for a session token, or None if unknown/expired/withdrawn."""
+    """Current user for a session token, or None if unknown / expired / withdrawn / idle.
+
+    The session's own last_seen_at is aliased `s_last_seen` because the users table ALSO
+    has a last_seen_at column and `u.*` would otherwise collide with `s.last_seen_at`.
+    """
     if not token:
         return None
+    now = datetime.now(timezone.utc)
     with _lock:
         conn = _connect()
         try:
             row = conn.execute(
-                "SELECT s.expires_at, u.* FROM sessions s JOIN users u ON u.sid = s.sid"
-                " WHERE s.token = ?",
+                "SELECT s.expires_at, s.last_seen_at AS s_last_seen, u.*"
+                " FROM sessions s JOIN users u ON u.sid = s.sid WHERE s.token = ?",
                 (token,),
             ).fetchone()
         finally:
@@ -566,8 +586,40 @@ def resolve_session(token: str) -> dict | None:
 
     if row is None or row["withdrawn"]:
         return None
-    if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+    if datetime.fromisoformat(row["expires_at"]) < now:
         return None
+
+    # IDLE TIMEOUT (SESSION_IDLE_MINUTES). last_seen_at is NULL only on a session that
+    # predates the column; treat NULL as "seen just now" so shipping this logs nobody
+    # out retroactively, and stamp it below so its clock starts.
+    seen = row["s_last_seen"]
+    if seen is not None:
+        idle_s = (now - datetime.fromisoformat(seen)).total_seconds()
+        if idle_s > SESSION_IDLE_MINUTES * 60:
+            # Stale login: drop the row so the token can't be reused, and refuse — the
+            # next request lands on /login. Idempotent under a concurrent burst.
+            with _lock:
+                conn = _connect()
+                try:
+                    conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+                    conn.commit()
+                finally:
+                    conn.close()
+            return None
+        stamp = idle_s > 60          # throttle: at most ~one session write per minute
+    else:
+        stamp = True
+
+    if stamp:
+        with _lock:
+            conn = _connect()
+            try:
+                conn.execute("UPDATE sessions SET last_seen_at = ? WHERE token = ?",
+                             (now.isoformat(), token))
+                conn.commit()
+            finally:
+                conn.close()
+
     return {
         "sid": row["sid"],
         "username": row["username"],

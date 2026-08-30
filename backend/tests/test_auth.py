@@ -146,5 +146,46 @@ check("miss and wrong-password take comparable time", _ratio < 3.0,
       f"miss={_miss:.1f}ms wrong={_wrong:.1f}ms ratio={_ratio:.1f}x")
 print(f"     miss={_miss:.1f}ms  wrong-password={_wrong:.1f}ms  ratio={_ratio:.2f}x")
 
+print("\n-- idle timeout (SESSION_IDLE_MINUTES) --")
+import sqlite3
+from datetime import datetime, timezone, timedelta
+# Its own roster SID so it can't collide with an account another test already claimed.
+with open(os.environ["ENROLMENT_PATH"], "a", encoding="utf-8") as _fh:
+    _fh.write("24IDLE001A,A\n")
+A._refresh_enrolment()
+_iacc, _ireason = A.create_account("24IDLE001A", "hunter2xyz", "A")
+check("idle-test account created", _iacc is not None, _ireason)
+_tok = _iacc["token"]
+
+def _set_seen(minutes_ago):
+    ts = (datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)).isoformat()
+    c = sqlite3.connect(os.environ["AUTH_DB_PATH"])
+    c.execute("UPDATE sessions SET last_seen_at=? WHERE token=?", (ts, _tok)); c.commit(); c.close()
+
+def _seen():
+    c = sqlite3.connect(os.environ["AUTH_DB_PATH"])
+    v = c.execute("SELECT last_seen_at FROM sessions WHERE token=?", (_tok,)).fetchone(); c.close()
+    return v[0] if v else None
+
+def _nrows():
+    c = sqlite3.connect(os.environ["AUTH_DB_PATH"])
+    n = c.execute("SELECT count(*) FROM sessions WHERE token=?", (_tok,)).fetchone()[0]; c.close()
+    return n
+
+check("fresh session resolves", A.resolve_session(_tok) is not None)
+_set_seen(0.5); _before = _seen(); _ok = A.resolve_session(_tok) is not None
+check("recent activity resolves and is NOT re-stamped (write throttle)",
+      _ok and _before == _seen())
+_set_seen(5); _ok = A.resolve_session(_tok) is not None
+check("mid-window activity resolves and IS re-stamped (sliding)",
+      _ok and (datetime.now(timezone.utc) - datetime.fromisoformat(_seen())).total_seconds() < 5)
+_set_seen(A.SESSION_IDLE_MINUTES + 1)
+check("past the idle window the session is refused", A.resolve_session(_tok) is None)
+check("and the stale row is deleted (token cannot be reused)", _nrows() == 0)
+_l = A.start_session("24IDLE001A", "hunter2xyz"); _tok = _l["token"]
+_c = sqlite3.connect(os.environ["AUTH_DB_PATH"]); _c.execute("UPDATE sessions SET last_seen_at=NULL WHERE token=?", (_tok,)); _c.commit(); _c.close()
+check("a legacy row with NULL last_seen_at is honoured and then stamped",
+      A.resolve_session(_tok) is not None and _seen() is not None)
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

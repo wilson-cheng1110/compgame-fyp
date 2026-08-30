@@ -37,6 +37,11 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
   const [submitError, setSubmitError] = useState<string>("")
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<CheckResult | null>(null)
+  // "Already recorded" — a resubmit/reload or a lost race where the row is safely in
+  // but this request has no reveal to show. Distinct from `result` (our own graded
+  // reveal) so the render can show a clean locked card instead of a frozen quiz or an
+  // endless "Loading…" (finding L11).
+  const [done, setDone] = useState(false)
 
   const startedAt = useRef(Date.now())
   const trackers = useRef<Record<string, ItemTracker>>({})
@@ -59,6 +64,7 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
         // already handles the identical case by advancing; the check must too — the
         // one submission is in, there is nothing to answer, so move them along.
         if (res.status === 409 || res.error === "already_submitted") {
+          setDone(true)
           onDone()
           return
         }
@@ -125,6 +131,7 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
     // grade and no message. Only `already_submitted` means "the row is safely in"; any
     // other 409 must fall through to a visible error below.
     if (res.error === "already_submitted") {
+      setDone(true)
       onDone()
       return
     }
@@ -135,6 +142,19 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
     }
     setResult(res.data)
     onDone(res.data)
+  }
+
+  // Already recorded (reload after submit, or the lost side of a race): show a clean
+  // locked card, not the interactive quiz and not a stuck "Loading…" (finding L11).
+  // The parent's Continue is already showing; this is just what sits beside it.
+  if (done && !result) {
+    return (
+      <div className="u-card p-6">
+        <p className="u-stem" data-testid="check-already-recorded">
+          ✓ You’ve already answered this one — it’s recorded. Continue when you’re ready.
+        </p>
+      </div>
+    )
   }
 
   if (loadError) {

@@ -14,6 +14,7 @@ os.environ.update({
     "PARTICIPANT_SECRET_PATH": os.path.join(d, ".secret"),
     "TOPIC_SCHEDULE_PATH": os.path.join(BE, "topic_schedule.json"),
     "COOKIE_SECURE": "0", "TELEMETRY_ENABLED": "0",
+    "REPORTS_DIR": os.path.join(d, "reports"),   # a throwaway reports tree for the blinding test
 })
 for f in ("a.db", "r.db", ".secret"):
     p = os.path.join(d, f)
@@ -121,6 +122,44 @@ check("both resets were logged", actions.count("reset_password") == 2, actions)
 check("the audit names WHO did it", all(e["admin_sid"] == "24TEACH01A" for e in entries), entries[:2])
 check("and WHO it was done to", all(e["target_sid"] == "24STUDENT1B" for e in entries), entries[:2])
 check("a refused change is NOT in the log", len(entries) == 3, len(entries))
+
+print("\n-- report blinding is an allowlist, not a '-research.md' denylist (L7) --")
+# generate_tutorial_report writes <t>-<date>-{teacher,discussion,research}.md into
+# REPORTS_DIR. The research copy names each student's FLIP/CONTROL order and must never
+# be listed or served — nor may any ORDINARY copy of it (a backup, an autosave, a
+# Windows "(1)" duplicate), which a suffix denylist let straight through.
+_rep = os.path.join(d, "reports", "COMP3423", "section-A")
+os.makedirs(_rep, exist_ok=True)
+_files = {
+    "memory-2026-08-31-teacher.md": "TEACHER copy (has SIDs, but servable to the teacher)",
+    "memory-2026-08-31-discussion.md": "DISCUSSION copy (projectable)",
+    "memory-2026-08-31-research.md": "RESEARCH copy — names FLIP/CONTROL, never serve",
+    "memory-2026-08-31-research-backup.md": "a BACKUP of the research copy — same content",
+    "memory-2026-08-31-research (1).md": "a Windows duplicate of the research copy",
+    "memory-2026-08-31-RESEARCH.md": "a case-variant of the research copy",
+}
+for _fn, _body in _files.items():
+    with open(os.path.join(_rep, _fn), "w", encoding="utf-8") as _fh:
+        _fh.write(_body)
+
+_listing = teacher.get("/api/admin/reports")
+_names = [r["name"] for r in _listing.json().get("reports", [])] if _listing.status_code == 200 else []
+check("listing shows the teacher + discussion copies",
+      any("teacher" in n for n in _names) and any("discussion" in n for n in _names), _names)
+check("listing hides EVERY research variant (backup, (1), case-variant included)",
+      not any("research" in n.lower() for n in _names), _names)
+
+def _read(fn):
+    return teacher.get("/api/admin/reports/file", params={"path": "COMP3423/section-A/" + fn})
+
+check("teacher copy is served (200)", _read("memory-2026-08-31-teacher.md").status_code == 200)
+check("discussion copy is served (200)", _read("memory-2026-08-31-discussion.md").status_code == 200)
+check("research copy is refused (403)", _read("memory-2026-08-31-research.md").status_code == 403)
+check("a research BACKUP is refused (403)", _read("memory-2026-08-31-research-backup.md").status_code == 403)
+check("a research '(1)' duplicate is not served",
+      _read("memory-2026-08-31-research (1).md").status_code in (400, 403, 404))
+check("a case-variant research copy is refused (403)",
+      _read("memory-2026-08-31-RESEARCH.md").status_code == 403)
 
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

@@ -139,5 +139,16 @@ r = c2.post("/api/auth/session", json={"sid": "24099999Z", "password": "hunter2x
 check("a different student signs in fine while another is throttled", r.status_code == 200, r.status_code)
 _ops._buckets.clear()
 
+print("\n-- /ping keep-alive (idle-timeout refresh) --")
+# `c` was logged out and then used to withdraw a different account above, so it holds no
+# valid session right now — the 401 path.
+_ka = c.post("/api/auth/ping")
+check("ping with no session -> 401", _ka.status_code == 401, _ka.status_code)
+# Sign back in (24012345D still exists, was only logged out) and the keep-alive succeeds.
+c.post("/api/auth/session", json={"sid": "24012345D", "password": "hunter2xyz"})
+_ka2 = c.post("/api/auth/ping")
+check("ping with a live session -> 200 ok",
+      _ka2.status_code == 200 and _ka2.json().get("ok") is True, (_ka2.status_code, _ka2.text))
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

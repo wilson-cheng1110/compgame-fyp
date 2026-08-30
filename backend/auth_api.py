@@ -56,7 +56,7 @@ import os
 
 import asyncio
 
-from fastapi import APIRouter, Cookie, Request, Response
+from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel, Field
 
 import auth_store
@@ -134,7 +134,7 @@ async def list_sections():
 
 
 @router.post("/signup")
-async def signup(req: SignupRequest, request: Request, response: Response):
+async def signup(req: SignupRequest, response: Response):
     """Create an account. Returns the same body as /session so the frontend stores
     one shape either way."""
     # THROTTLE, KEYED BY THE SUBMITTED SID -- not by client IP (finding S1). Under the
@@ -184,7 +184,7 @@ async def signup(req: SignupRequest, request: Request, response: Response):
 
 
 @router.post("/session")
-async def create_session(req: SessionRequest, request: Request, response: Response):
+async def create_session(req: SessionRequest, response: Response):
     """Sign in. 401 on any failure, with one message -- see the module docstring.
 
     The response body is what the frontend writes into its own `user` cookie.
@@ -250,6 +250,21 @@ async def whoami(response: Response, session: str | None = Cookie(default=None))
         "needsBaseline": not auth_store.is_admin(user["sid"])
                          and not await asyncio.to_thread(research_store.has_event, user["sid"], baseline.EVENT_TYPE),
     }
+
+
+@router.post("/ping")
+async def ping(response: Response, session: str | None = Cookie(default=None)):
+    """Keep-alive for the idle timeout. The frontend pings this only while the student
+    is actually interacting (see components/session-keep-alive.tsx), so an active user —
+    including one typing a long probe answer with no other request in flight — never
+    idle-expires, while a truly idle tab still times out. Resolving the session is the
+    whole job: it stamps last_seen_at (auth_store.resolve_session). 401 tells the client
+    the session is already gone so it can send the student to /login."""
+    user = await asyncio.to_thread(auth_store.resolve_session, session or "")
+    if user is None:
+        response.status_code = 401
+        return {"error": "no_session"}
+    return {"ok": True}
 
 
 @router.post("/logout")
