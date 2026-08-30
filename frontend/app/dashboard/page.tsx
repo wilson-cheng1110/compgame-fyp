@@ -9,7 +9,8 @@ import { getUsers } from "@/lib/user-store"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
-import { topics as topicsApi, auth, type JourneyTopic } from "@/lib/api"
+import { topics as topicsApi, auth, admin, type JourneyTopic } from "@/lib/api"
+import { nextStep } from "@/lib/session-handoff"
 import { badgesFromJourney, completedCount } from "@/lib/badges"
 import JourneyPath from "@/components/journey-path"
 import SessionMap from "@/components/session-map"
@@ -44,8 +45,22 @@ export default function DashboardPage() {
   // The student's own lecture day ("Tue"), so a row can explain itself in terms
   // of THEIR class rather than the timetable in general.
   const [sectionDay, setSectionDay] = useState<string>("")
+  // The battery adds 29 items to every unit; the promised time has to follow.
+  const [longUnits, setLongUnits] = useState(false)
+  // Is this the course team? `/admin` was linked from NOWHERE -- grep found the
+  // string only inside two code comments -- so a teacher reached the panel by
+  // typing the URL from memory or not at all. whoami is the same check the panel
+  // itself makes; this only decides whether to draw a link, and a student who
+  // forges it still meets a 403 from the server.
+  const [isStaff, setIsStaff] = useState(false)
   // No page may hang forever — see lib/use-slow-load.ts.
   const slowToLoad = useSlowLoad(!user)
+
+  useEffect(() => {
+    let alive = true
+    admin.whoami().then((r) => { if (alive && r.ok) setIsStaff(true) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -56,6 +71,7 @@ export default function DashboardPage() {
         res.data.topics.forEach((t) => { byId[t.topic_id] = t })
         setJourney(byId)
         setSectionDay(res.data.section_day ?? "")
+        setLongUnits(res.data.questionnaires_enabled === true)
       }
       setJourneyLoaded(true)
     })
@@ -71,7 +87,12 @@ export default function DashboardPage() {
     const userCookie = Cookies.get("user")
     if (!userCookie) { router.push("/login"); return }
     const userData = JSON.parse(userCookie)
-    if (userData.needsOnboarding) { router.push("/onboarding/avatar"); return }
+    // NOTE: the onboarding/consent/baseline ordering is decided below from SERVER
+    // truth via nextStep(), not from this cookie. The cookie carries needsOnboarding
+    // but NOT needsConsent, so redirecting to onboarding here (as this did) sent an
+    // unconsented student to /onboarding/avatar instead of /consent — inverting the
+    // gate order nextStep() defines (consent first). The cookie is decoration; the
+    // gate is the server's to set.
     if (!userData.avatarId || !userData.username) { Cookies.remove("user"); router.push("/login"); return }
     setUser(userData)
     refreshBadges()
@@ -91,15 +112,16 @@ export default function DashboardPage() {
         router.push("/login")
         return
       }
-      // The cookie carries needsOnboarding but NOT needsConsent, so a student who
-      // typed /dashboard past the consent screen reached it with consent unrecorded.
-      // Nothing of theirs could be saved (the server 403s every write), so they would
-      // have hit a dead end they could not diagnose. Ask the server instead.
-      if (res.data?.needsConsent) { router.push("/consent"); return }
-      // Same reasoning as consent: the cookie cannot carry this, and a student who
-      // typed /dashboard would otherwise skip the covariate entirely — and unlike a
-      // check they can retake, this one is sat once and then gone for good.
-      if (res.data?.needsBaseline) router.push("/onboarding/baseline")
+      // The FULL gate order, from server truth, in one place — consent → onboarding
+      // → baseline (lib/session-handoff.ts nextStep). Doing it here rather than in
+      // scattered synchronous cookie checks is what fixes the inverted order: an
+      // unconsented student now reaches /consent, not /onboarding/avatar.
+      const step = nextStep(
+        res.data?.needsConsent ?? false,
+        res.data?.needsOnboarding ?? false,
+        res.data?.needsBaseline,
+      )
+      if (step !== "/dashboard") router.push(step)
     })
     const darkModePref = Cookies.get("darkMode")
     if (darkModePref === "true") { setDarkMode(true); document.body.classList.add("dark-mode") }
@@ -120,7 +142,13 @@ export default function DashboardPage() {
     else { document.body.classList.remove("dark-mode"); Cookies.set("darkMode", "false", { expires: 365 }) }
   }
 
-  const handleSignOut = () => { Cookies.remove("user"); router.push("/") }
+  const handleSignOut = async () => {
+    // Kill the server session (HttpOnly cookie) BEFORE clearing the UI cookie —
+    // otherwise /login re-authenticates whoever still holds a live session.
+    try { await auth.logout() } catch { /* sign out locally regardless */ }
+    Cookies.remove("user")
+    router.push("/")
+  }
 
   if (!user) {
     if (slowToLoad) {
@@ -223,6 +251,7 @@ export default function DashboardPage() {
     : undefined
   const nextUpState = nextUp ? journey[nextUp.id] : undefined
 
+
   return (
     <main className="shell min-h-screen">
       <header className="u-nav">
@@ -243,6 +272,26 @@ export default function DashboardPage() {
       </header>
 
       <div className="mx-auto w-full max-w-5xl px-5 py-8 pb-20">
+        {/* A teacher lands on the STUDENT dashboard, whose one primary CTA ("Start")
+            is for a topic that is not theirs. The panel link is in the sidebar, but a
+            lecturer 30 minutes before a tutorial should not have to hunt. This banner
+            names the course-team panel up top for staff, and is invisible to students. */}
+        {isStaff && (
+          <Link href="/admin" data-testid="admin-banner">
+            <div
+              className="u-card p-4 mb-6 flex items-center justify-between gap-4 flex-wrap"
+              style={{ borderColor: "var(--accent)" }}
+            >
+              <div>
+                <p style={{ fontWeight: 600 }}>You&apos;re on the course team</p>
+                <p className="u-faint mt-0.5">
+                  Tutorial briefs, accounts and lecture dates are in the course-team panel.
+                </p>
+              </div>
+              <span className="u-btn u-btn-primary">Open the panel →</span>
+            </div>
+          </Link>
+        )}
         <div className="flex flex-col lg:flex-row gap-10">
           <div className="flex-1 min-w-0">
             <p className="u-eyebrow">COMP3423 · Human–Computer Interaction</p>
@@ -275,8 +324,9 @@ export default function DashboardPage() {
                           here. "Check, activity, then check again" described the
                           MECHANISM, which is the one thing they were not asking. */}
                       <p className="u-faint mt-1">
-                        About 12 minutes. Not graded — it just helps us see whether
-                        this way of learning works.
+                        {longUnits ? "About 20 minutes" : "About 12 minutes"}. Not
+                        graded — it just helps us see whether this way of learning
+                        works.
                         {nextUpState.closes && nextUpState.late
                           ? ` Overdue since ${shortDate(nextUpState.closes)}, and still open.`
                           : nextUpState.closes
@@ -295,7 +345,7 @@ export default function DashboardPage() {
 
             {/* Orientation before navigation: what this is, then where things are. */}
             <div className="mt-8">
-              <SessionMap topics={journeyList} />
+              <SessionMap topics={journeyList} longUnits={longUnits} />
             </div>
 
             <div className="mt-3 space-y-3">
@@ -514,6 +564,16 @@ export default function DashboardPage() {
               <Link href="/account" className="u-btn u-btn-block" data-testid="account-link">
                 Account &amp; my data
               </Link>
+
+              {isStaff && (
+                <Link
+                  href="/admin"
+                  className="u-btn u-btn-block mt-2"
+                  data-testid="admin-link"
+                >
+                  Course team →
+                </Link>
+              )}
 
               <p className="u-faint">
                 Stuck on anything? The tutor is the chat button, bottom right.

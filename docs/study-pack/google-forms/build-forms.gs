@@ -15,7 +15,12 @@
  *
  * NOTES
  *   - Concept forms are Google Forms QUIZZES with the answer keys baked in (1 pt/item) → H1
- *     auto-scores. Keys are in code only; respondents never see them (feedback set to hidden).
+ *     auto-scores. The keys live in code, BUT Google does NOT hide correct answers automatically.
+ *     ⚠ MANUAL STEP after running: for EACH quiz form open Settings → Quizzes and set
+ *     "Release grade: Later (after manual review)" and UNCHECK "Correct answers" under
+ *     "Respondent can see". Otherwise a respondent sees the answers right after the pre-test,
+ *     which leaks them into the isomorphic post-test and contaminates the flip-gain measure.
+ *     (FormApp does not expose this toggle, so it cannot be done in code — verify it in the UI.)
  *   - Email collection is OFF (anonymity). Participant code is asked as a short-answer item.
  *   - All Likert items use a 1–5 grid; Paas load uses a 1–9 scale. Matches the paper docs.
  *   - Per-topic forms keep the protocol's per-topic gating (Form A before a topic, Form B after).
@@ -164,7 +169,7 @@ var TOPICS = {
       ['You perceive a complete circle even though its outline is dashed with gaps.', GESTALT_OPTS, 4],
       ['Two crossing lines are seen as each flowing smoothly through the intersection, not as four separate segments.', GESTALT_OPTS, 2],
       ['Two mirror-image shapes are perceived as one unified, balanced object.', GESTALT_OPTS, 3],
-      ['You want a form’s related fields (a label and its input) to read as belonging together, with clear space separating unrelated fields. Which principle would you rely on?', GESTALT_OPTS, 1]
+      ['You are designing a settings screen with many options. Without using colour, borders, or boxes, you want users to instantly see which options belong together. Which principle would you rely on?', GESTALT_OPTS, 1]
     ],
     B: [
       ['Icons placed in tight clusters with clear gaps between the clusters are seen as separate groups.', GESTALT_OPTS, 1],
@@ -172,7 +177,7 @@ var TOPICS = {
       ['The IBM logo’s horizontally-striped letters are still readable as letters despite the gaps.', GESTALT_OPTS, 4],
       ['Dots arranged along a gentle curve are perceived as a single flowing path.', GESTALT_OPTS, 2],
       ['A logo with a clear left–right mirror axis is perceived as a single balanced whole.', GESTALT_OPTS, 3],
-      ['You want a toolbar’s related tools to read as one group, set apart from other tools. Which principle would you use by spacing the related tools close together with gaps between groups?', GESTALT_OPTS, 1]
+      ['You are laying out a navigation menu with many links. Without using colour or boxes, you want links on the same topic to read as one group. Which principle would you use?', GESTALT_OPTS, 1]
     ]
   },
   miller: {
@@ -266,7 +271,9 @@ function buildConceptForm(topicKey, formLabel) {
   items.forEach(function (it, i) {
     addQuizMCQ(f, (pre ? 'A' : 'B') + (i + 1) + '. ' + it[0], it[1], it[2]);
   });
-  // hide per-question correctness from respondent
+  // Hides the aggregate "see previous responses" link only. NOTE: this does NOT hide the quiz
+  // answer key — that is a manual per-form step (Settings → Quizzes → Release grade: Later;
+  // uncheck "Correct answers"). See the ⚠ MANUAL STEP in the header NOTES.
   f.setPublishingSummary(false);
   logForm(t.name + ' Form ' + formLabel, f);
 }

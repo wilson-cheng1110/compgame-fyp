@@ -108,6 +108,38 @@ async def run_gated(fn, *args, **kwargs):
         return await asyncio.to_thread(fn, *args, **kwargs)
 
 
+# ── heavy admin jobs (report generation) ──────────────────────────────────────
+# A DIFFERENT bound from the GPU slot. `/api/admin/reports/generate` shells out to a
+# generator that runs up to 120 s and occupies a shared threadpool worker the whole
+# time (finding S3). It is NOT Ollama work, so it must not consume the tutor's
+# concurrency (gpu_slot) -- but left completely unbounded on the default executor, a
+# burst of admin clicks could tie up the pool that sign-in (scrypt), record_event and
+# the now-threaded session reads all share, stalling the cohort for minutes. So it
+# gets its own tiny semaphore: at most ONE report subprocess at a time, off the loop.
+# NOTE what this does and does not do: it bounds how many report jobs run CONCURRENTLY
+# (default 1) — it does NOT reserve a dedicated thread, so the single running report
+# still occupies one worker of the shared default executor for up to 120 s. That
+# footprint (one worker, not a growing pile) is the acceptable part; the unbounded part
+# it removes is many reports stacking. The per-admin rate limit stops one teacher
+# self-stacking; across the ~3-teacher roster a short serial queue can still form,
+# which is fine for an admin action (it is not a cohort-facing path).
+_report_sem: asyncio.Semaphore | None = None
+REPORT_MAX_CONCURRENT = int(os.environ.get("REPORT_MAX_CONCURRENT", "1"))
+
+
+def _report_semaphore() -> asyncio.Semaphore:
+    global _report_sem
+    if _report_sem is None:
+        _report_sem = asyncio.Semaphore(REPORT_MAX_CONCURRENT)
+    return _report_sem
+
+
+async def run_report_job(fn, *args, **kwargs):
+    """Run one heavy admin subprocess job off the event loop AND bounded (see above)."""
+    async with _report_semaphore():
+        return await asyncio.to_thread(fn, *args, **kwargs)
+
+
 def queue_stats() -> dict:
     return {
         "max_concurrent": MAX_CONCURRENT,
@@ -124,19 +156,37 @@ def queue_stats() -> dict:
 # Not a security control -- there is no credential to protect (docs/revamp.md
 # Part 0). It exists so one stuck client in a retry loop cannot starve a cohort.
 
+# SINGLE-WORKER ASSUMPTION (finding C4). `_buckets` is one in-process dict, so the
+# whole rate limiter is correct ONLY while there is exactly one uvicorn worker --
+# which deploy/start.ps1 guarantees (it launches uvicorn with NO --workers flag, i.e.
+# one process). Under `--workers N` each process would get its OWN `_buckets`, so a
+# key's real ceiling silently becomes N× the configured number and the limiter no
+# longer bounds what it claims to. If this ever needs multiple workers, the buckets
+# have to move to a shared store (sqlite/redis); do not just add --workers. Same note
+# applies to the queue counters above -- they are per-process too.
 _buckets: dict[str, tuple[float, float]] = {}   # key -> (tokens, last_refill)
+# THREAD-SAFE. The read-modify-write below is not atomic, and since record_event and
+# the auth hashes now run in a threadpool (asyncio.to_thread), many requests hit
+# allow() on real OS threads at once. Unlocked, 30 concurrent callers all read the
+# same token count and each write count-1, so ~29 decrements are LOST and the bucket
+# barely moves — the limiter silently does nothing under exactly the concurrent load
+# it exists to bound (found while testing the /signup limit, 2026-08-30). One lock
+# around the tiny critical section fixes it; the arithmetic is microseconds.
+import threading
+_bucket_lock = threading.Lock()
 
 
 def allow(key: str, per_minute: int = 30, burst: int = 10) -> bool:
     """Token bucket. Returns False when the caller should back off."""
     now = time.monotonic()
-    tokens, last = _buckets.get(key, (float(burst), now))
-    tokens = min(burst, tokens + (now - last) * (per_minute / 60.0))
-    if tokens < 1.0:
-        _buckets[key] = (tokens, now)
-        return False
-    _buckets[key] = (tokens - 1.0, now)
-    return True
+    with _bucket_lock:
+        tokens, last = _buckets.get(key, (float(burst), now))
+        tokens = min(burst, tokens + (now - last) * (per_minute / 60.0))
+        if tokens < 1.0:
+            _buckets[key] = (tokens, now)
+            return False
+        _buckets[key] = (tokens - 1.0, now)
+        return True
 
 
 def forget_old(max_keys: int = 5000) -> None:
@@ -149,18 +199,43 @@ def forget_old(max_keys: int = 5000) -> None:
 
 # ── health ────────────────────────────────────────────────────────────────────
 
-def _sqlite_ok(path: str) -> dict:
+def _sqlite_ok(path: str, table: str) -> dict:
     if not os.path.exists(path):
         return {"ok": False, "detail": "missing"}
     try:
         conn = sqlite3.connect(path)
+        # WAIT, don't false-alarm. This opens its OWN connection (not via the stores'
+        # _connect), so without this PRAGMA it has busy_timeout=0 and a momentary
+        # collision with an in-flight write (record_event_status / create_account,
+        # now on threadpool workers) raises "database is locked" instantly — which the
+        # broad except below turns into {"ok": False} and flips /api/health to "down".
+        # That endpoint feeds the deploy watchdog / dead-man's-switch, so a transient
+        # write contention would fire a false outage alarm. Wait for the lock instead.
+        conn.execute("PRAGMA busy_timeout = 5000")
         try:
-            conn.execute("SELECT 1").fetchone()
+            # A REAL READ, not SELECT 1. The chaos sweep corrupted the DB file and
+            # deleted it outright, and in BOTH cases this reported "ok": SELECT 1
+            # touches no table and no page, so a monitor polling /api/health would
+            # never notice that the irreplaceable study data had gone bad — the exact
+            # failure the health check exists to catch. `PRAGMA quick_check` reads the
+            # b-tree structure (far cheaper than a full integrity_check, still a real
+            # read of the actual pages), and a count of a KNOWN table confirms the
+            # schema is present — a freshly-recreated 0-byte file has no such table.
+            # `table` is a hardcoded caller constant, never user input.
+            qc = conn.execute("PRAGMA quick_check(1)").fetchone()
+            if not qc or qc[0] != "ok":
+                return {"ok": False, "detail": "quick_check_failed",
+                        "size_bytes": os.path.getsize(path)}
+            conn.execute(f"SELECT count(*) FROM {table}").fetchone()
             return {"ok": True, "size_bytes": os.path.getsize(path)}
         finally:
             conn.close()
     except Exception as e:
-        return {"ok": False, "detail": type(e).__name__}
+        # Includes "no such table" (deleted/recreated DB) and
+        # "database disk image is malformed" (corruption) — both now surface as
+        # unhealthy instead of lying "ok".
+        return {"ok": False, "detail": type(e).__name__,
+                "size_bytes": os.path.getsize(path) if os.path.exists(path) else 0}
 
 
 def health_snapshot(rag_loaded: bool) -> dict:
@@ -170,8 +245,24 @@ def health_snapshot(rag_loaded: bool) -> dict:
     unauthenticated so it can be probed from outside.
     """
     here = os.path.dirname(__file__)
-    sink = _sqlite_ok(os.environ.get("RESEARCH_DB_PATH", os.path.join(here, "research_events.db")))
-    accounts = _sqlite_ok(os.environ.get("AUTH_DB_PATH", os.path.join(here, "auth_store.db")))
+    sink = _sqlite_ok(os.environ.get("RESEARCH_DB_PATH", os.path.join(here, "research_events.db")), "events")
+    accounts = _sqlite_ok(os.environ.get("AUTH_DB_PATH", os.path.join(here, "auth_store.db")), "users")
+
+    # IS THIS A THROWAWAY SINK OR THE REAL ONE?
+    #
+    # `node e2e/run.mjs` signs up students, sits checks and submits probes. Against a
+    # backend on the default paths it writes all of that into the SAME
+    # research_events.db the paper will be written from, and nothing says so. The
+    # effort screen on this box currently reads a median of 0.4 s per item and 75
+    # straight-lined submissions; that is the test suite, not a cohort.
+    #
+    # A boolean here lets the suite refuse to run against a real sink instead of
+    # quietly polluting it. No path is exposed -- this endpoint is unauthenticated
+    # and a filesystem layout is not something it should hand out.
+    default_sink = os.path.join(here, "research_events.db")
+    is_default = os.path.abspath(
+        os.environ.get("RESEARCH_DB_PATH", default_sink)) == os.path.abspath(default_sink)
+    sink = {**sink, "is_default_path": is_default}
 
     components = {
         "research_sink": sink,

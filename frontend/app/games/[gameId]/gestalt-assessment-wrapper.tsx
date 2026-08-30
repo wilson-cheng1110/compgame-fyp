@@ -55,35 +55,27 @@ export default function GestaltAssessmentWrapper() {
     }
   }, [router, refreshBadges])
 
-  const handleBadgeAchieved = (achieved: boolean, stars = 4) => {
-    if (achieved && user) {
-      const badgeName = stars === 5 ? "Gestalt Principles Expert (★★★★★)" : "Gestalt Principles Expert (★★★★☆)"
-      addBadge("gestalt-assessment", badgeName, stars)
-      setTimeout(refreshBadges, 500)
-    }
-  }
-
-  useEffect(() => {
-    // Listen for messages from the game iframe about completion / badges
-    const handleMessage = (event: MessageEvent) => {
-      if (!event.data) return
-      // New: fires on every completion (records progress + unlocks topic)
-      if (event.data.type === "gestaltComplete") {
-        const stars = event.data.stars ?? 4
-        markGameComplete("gestalt-assessment", event.data.score)
-        const name = `Gestalt Principles (${"★".repeat(stars)}${"☆".repeat(5 - stars)})`
-        addBadge("gestalt-assessment", name, stars)
-        setTimeout(refreshBadges, 300)
-      }
-      // Backward-compat with the older badge-only message
-      if (event.data.type === "badgeAchieved") {
-        handleBadgeAchieved(true, event.data.stars || 4)
-      }
-    }
-
-    window.addEventListener("message", handleMessage)
-    return () => window.removeEventListener("message", handleMessage)
-  }, [user])
+  // REMOVED 2026-08-30: a window "message" listener that accepted
+  // {type:"gestaltComplete", score, stars} from ANY origin and, on that alone,
+  // recorded the assessment complete and awarded a five-star badge.
+  //
+  // It had no producer. `results-screen.tsx` records completion directly through
+  // the shared contexts, and its own comment says it replaced this exact
+  // postMessage path for being fragile and wildcard-targeted -- so nothing in the
+  // app had sent those messages for some time. What remained was a listener only
+  // an outside document, or a console one-liner, would ever reach.
+  //
+  // It matters more from today: the topic unit now WAITS for the assessment to
+  // record before it will move on, so "anything that can fake a completion" stops
+  // being a cosmetic badge problem and becomes a way past the step. The iframe
+  // below is same-origin and shares this origin's storage, which is why deleting
+  // the listener costs nothing.
+  //
+  // The limit, stated plainly: this closes the CROSS-DOCUMENT hole. It cannot stop
+  // a student with devtools on their own machine -- no client can, and CLAUDE.md
+  // already treats client state as never a security boundary. Every game reports
+  // its own completion, and that trust is a property of the design; it belongs in
+  // the paper's limitations rather than in a comment pretending otherwise.
 
   if (!isClient || !user) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>

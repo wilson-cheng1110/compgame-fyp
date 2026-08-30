@@ -30,6 +30,7 @@ part the teacher needs, and they never depend on a model being up.
 """
 
 import argparse
+import io
 import json
 import os
 import re
@@ -39,6 +40,7 @@ from datetime import datetime, timezone
 
 import checks
 import grade
+import measures
 import research_store
 import schedule
 
@@ -128,6 +130,21 @@ def gather(topic: str, section: str) -> dict:
         "n_options": bank.get("n_options"),
         "item_error": {i: (item_wrong[i], item_seen[i]) for i in sorted(item_seen)},
         "not_completed": sorted(set(roster) - set(post)) if roster_credible else [],
+        # DID THEY ACTUALLY DO IT.
+        #
+        # The report could say "pre 41% -> post 58%" without ever saying how many of
+        # those students opened the activity, so a teacher had no way to read a flat
+        # gain: is the game not teaching, or did half the class never launch it?
+        # Those call for opposite tutorials. Derived server-side in measures.py from
+        # event timestamps -- never from a flag the browser sent.
+        "participation": [m for m in measures.per_topic() if m["topic_id"] == topic
+                          and (not roster or m["participant_id"] in set(roster))],
+        # Slow AND wrong. The most useful thing a tutorial can know and it is
+        # invisible without timing: a student at chance in 2 seconds needs a word
+        # about effort, one at chance in four minutes needs teaching. Same score.
+        "effort": [e for e in measures.effort()
+                   if e["topic_id"] == topic and e["phase"] == "post"
+                   and (not roster or e["participant_id"] in set(roster))],
         "probes": probes,
         "grades": _load_grades(topic),
     }
@@ -257,9 +274,44 @@ def pass_two(data: dict, sa: dict) -> dict | None:
         return {"_error": f"{type(e).__name__}: {e}"}
 
 
+def _check_status():
+    """One line when the daily checks failed or stopped running. None when fine."""
+    path = os.path.join(HERE, "..", "deploy", "last-check.txt")
+    try:
+        raw = io.open(path, encoding="utf-8").read().strip()
+        age_h = (datetime.now(timezone.utc)
+                 - datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)
+                 ).total_seconds() / 3600
+    except OSError:
+        return ("The daily data checks have never run, so nothing below is verified. "
+                "See docs/measurement-plan.md.")
+    if age_h > 48:
+        return (f"The daily data checks last ran {age_h / 24:.0f} days ago -- something "
+                f"has stopped. Treat the numbers below with care.")
+    if raw.startswith("FAIL"):
+        parts = raw.split(" ", 2)
+        which = parts[2] if len(parts) > 2 else "unknown"
+        return (f"The daily data checks FAILED ({which}). Run "
+                f"`python backend/check_measurement_coverage.py` before trusting anything "
+                f"below.")
+    return None
+
+
 # ── rendering ────────────────────────────────────────────────────────────────
 
-def render(data: dict, sa: dict, llm: dict | None, identified: bool, stamp: str) -> str:
+def render(data: dict, sa: dict, llm: dict | None, identified: bool, stamp: str,
+           blind: bool = True) -> str:
+    """`blind` hides the EXPERIMENT from the lecturer's copies.
+
+    Both the course lecturer and Wilson read these (confirmed 2026-08-30). A lecturer
+    who learns that some students saw the game before the second check can, with the
+    best intentions, teach to compensate -- and differential instruction by condition
+    is a confound that lands on H1 and cannot be removed afterwards. They do not need
+    the sequence to plan a tutorial; they need what was missed and who is struggling.
+
+    So the two lecturer files say nothing about order or arms, and a third
+    `-research` file carries everything.
+    """
     t = data["topic"]
     lv = sa["levels"]
     who = (f"n = {data['post_n']} of {data['roster_n']}" if data["roster_credible"]
@@ -272,10 +324,27 @@ def render(data: dict, sa: dict, llm: dict | None, identified: bool, stamp: str)
         head += ("*Anonymised version — safe to project. Quotes are verbatim but "
                  "unattributed; no SIDs appear anywhere in this file.*\n\n")
     else:
-        head += ("*TEACHER VERSION — contains student SIDs. Do not screen-share, "
+        head += (f"*{'RESEARCH' if not blind else 'TEACHER'} VERSION — contains student SIDs"
+                 f"{' AND the study conditions (FLIP/CONTROL, sequence)' if not blind else ''}. Do not screen-share, "
                  "email, or upload this file.*\n\n")
 
-    out = [head, "## Where the class landed\n"]
+    # THE CHECKS REACH A HUMAN HERE, and that is the whole point of writing them to
+    # a file. A scheduled task that fails into a log nobody opens is the same silent
+    # failure it was built to catch; a brief is a document somebody reads before
+    # every tutorial. No new alerting channel and nothing extra to remember.
+    out = [head]
+    warn = _check_status()
+    if warn:
+        out.append(f"> **{warn}**\n\n")
+    # Roster mismatch, surfaced at the TOP not buried in Flags. The integration sweep
+    # noted the whole participation section vanishes silently when the generator's
+    # ENROLMENT_PATH differs from the deployed server's — the teacher just sees a
+    # smaller report with no idea a chunk is missing. Say so where they will see it.
+    if not data["roster_credible"]:
+        out.append("> **This brief is running against a different class list than the "
+                   "live server** (the participation section is omitted). If numbers look "
+                   "thin, match `ENROLMENT_PATH` to the deployed server's roster.\n\n")
+    out.append("## Where the class landed\n")
     if data["pre_pct"] is not None and data["post_pct"] is not None:
         line = f"MC pre {data['pre_pct']}% → post {data['post_pct']}%"
         if data["hake_g"] is not None:
@@ -293,6 +362,61 @@ def render(data: dict, sa: dict, llm: dict | None, identified: bool, stamp: str)
                    + (f" · **{lv['not yet graded']} not yet graded** "
                       f"(run `grade_batch.py --topic {t}`)" if lv.get("not yet graded") else "")
                    + "\n")
+
+    # -- participation, ahead of the item breakdown -------------------------
+    part = data.get("participation") or []
+    if part:
+        no_act = [m for m in part if m["played_first_basis"] == "activity never recorded"]
+        played = [m for m in part if m["played_first"] is not None]
+        first = [m for m in played if m["played_first"]]
+        escaped = [m for m in part if m["skipped_activity"]]
+        out.append("\n## Did they actually do the activity\n")
+        out.append(f"Of {len(part)} student(s) with any record on this topic, "
+                   f"**{len(part) - len(no_act)} "
+                   f"{'has' if len(part) - len(no_act) == 1 else 'have'} the activity "
+                   f"recorded** and {len(no_act)} "
+                   f"{'does' if len(no_act) == 1 else 'do'} not.\n")
+        # ARM-REVEALING. Kept out of the lecturer's copies -- see render()'s docstring.
+        if played and not blind:
+            out.append(f"\nOf those that can be placed in sequence: {len(first)} played it "
+                       f"BEFORE the second check, {len(played) - len(first)} after.\n")
+        if escaped:
+            out.append(f"\n{len(escaped)} pressed \"the activity didn't record\" and carried "
+                       f"on. Worth a word - either the game broke for them, or they went "
+                       f"round it.\n")
+        if no_act and not played:
+            out.append("\n**Read this before the gain above.** No activity is recorded for "
+                       "anyone here, and that looks identical whether the class was idle or "
+                       "the pipe was broken - it was broken for ten weeks in 2026. Run "
+                       "`python check_measurement_coverage.py` before concluding anything "
+                       "about the game.\n")
+
+    # -- who to spend the hour on ------------------------------------------
+    eff = data.get("effort") or []
+    if eff:
+        strug = [e for e in eff if e["verdict"] == "struggling"]
+        rapid = [e for e in eff if e["verdict"] == "rapid guess"]
+        untimed = [e for e in eff if e["verdict"] == "no timing"]
+        out.append("\n## Who to spend the hour on\n")
+        if strug:
+            out.append(f"**{len(strug)} took their time and still got it wrong.** These are "
+                       f"the ones worth calling on: they engaged and it did not land, which "
+                       f"is a teaching problem and the most useful thing on this page.\n")
+            if identified:
+                out.append("\n" + ", ".join(
+                    f"`{e['participant_id']}` ({e['correct']}/{e['total']}, "
+                    f"{e['sec_per_item']}s per question)" for e in strug[:20]) + "\n")
+        if rapid:
+            out.append(f"\n{len(rapid)} answered fast enough that the answers are not really "
+                       f"answers. That is an effort problem rather than a comprehension one, "
+                       f"and the two need opposite responses.\n")
+            if identified:
+                out.append("\n" + ", ".join(f"`{e['participant_id']}`" for e in rapid[:20]) + "\n")
+        if untimed and not (strug or rapid):
+            out.append(f"\n{len(untimed)} submission(s) carry no timing, so effort cannot be "
+                       f"judged here.\n")
+        if not strug and not rapid and not untimed:
+            out.append("Nobody stands out on time against accuracy.\n")
 
     if data["item_error"]:
         out.append("\n### Per-item, post-check\n")
@@ -371,10 +495,16 @@ def main() -> int:
     os.makedirs(out_dir, exist_ok=True)
 
     written = []
-    for identified, suffix in ((True, "teacher"), (False, "discussion")):
+    # THREE files, and the third is the point of the split. The two lecturer copies
+    # are blind to the experiment; the research copy is not. Writing all three every
+    # time is the same discipline as always writing the anonymised one -- a control
+    # you have to remember is not a control.
+    for identified, blind, suffix in ((True, True, "teacher"),
+                                      (False, True, "discussion"),
+                                      (True, False, "research")):
         path = os.path.join(out_dir, f"{args.topic}-{stamp}-{suffix}.md")
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write(render(data, sa, llm, identified, stamp))
+            fh.write(render(data, sa, llm, identified, stamp, blind))
         written.append(path)
 
     # Cheap structural check that the anonymised file is actually anonymous. The

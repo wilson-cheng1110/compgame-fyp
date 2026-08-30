@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback } from "react"
+import { usePathname } from "next/navigation"
 import { MessageCircle, X, Send, Loader2, ChevronDown, ChevronRight } from "lucide-react"
 import { TOPICS } from "@/lib/topic-definitions"
 import { API_BASE } from "@/lib/api"
@@ -78,6 +79,18 @@ function saveChat(messages: Message[]) {
 }
 
 export function AiChatWidget() {
+  // The tutor answers from the LECTURE corpus, for students. It has no purpose on
+  // the course-team panel or the signed-out pages, and showing it there is a false
+  // affordance (sweep). Hidden on those surfaces.
+  const pathname = usePathname()
+  const hideOn = pathname === "/" || pathname?.startsWith("/admin") ||
+                 pathname?.startsWith("/login") || pathname?.startsWith("/signup")
+  // gestalt-assessment runs the game in an iframe whose src is a /games/* route, so
+  // this widget mounts a SECOND time inside the frame, stacked on the outer one. Hide
+  // the inner copy — keyed on the ROUTE (findings FE2/FE3), so it is precise (the app
+  // embedded in an external LMS iframe keeps its tutor) and flash-free (known at SSR,
+  // no client-only framed state to hydrate). The outer widget still floats above the frame.
+  const suppress = pathname?.includes("/gestalt-assessment/app") ?? false
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState("")
   const [currentTopic, setCurrentTopic] = useState<(typeof TOPICS)[number] | null>(null)
@@ -233,6 +246,9 @@ export function AiChatWidget() {
   }
 
   const widgetTitle = currentTopic ? `AI Tutor · ${currentTopic.title}` : "AI Teaching Assistant"
+
+
+  if (hideOn || suppress) return null
 
   return (
     <>

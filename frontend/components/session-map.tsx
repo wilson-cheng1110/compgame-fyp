@@ -21,7 +21,14 @@ import type { JourneyTopic } from "@/lib/api"
 // topics are really seven arrivals of one to three, which is the single fact that
 // makes the schedule feel survivable rather than relentless.
 
-export default function SessionMap({ topics }: { topics: JourneyTopic[] }) {
+export default function SessionMap({
+  topics,
+  longUnits = false,
+}: {
+  topics: JourneyTopic[]
+  /** With the battery on a unit roughly doubles. Say so rather than guess. */
+  longUnits?: boolean
+}) {
   if (!topics.length) return null
 
   const ordered = [...topics].sort((a, b) => a.order - b.order)
@@ -80,7 +87,11 @@ export default function SessionMap({ topics }: { topics: JourneyTopic[] }) {
 
         <p className="u-faint mt-3">
           Each topic is one short unit: a quick check, a game, the same check again,
-          then a short assessment. About twelve minutes, and it saves as you go.
+          then a short assessment.{" "}
+          {longUnits
+            ? "About twenty minutes, including a few questions at the end"
+            : "About twelve minutes"}
+          , and it saves as you go.
         </p>
         <p className="u-faint mt-1.5">
           None of it is graded. A topic stays open for five days, and if you miss

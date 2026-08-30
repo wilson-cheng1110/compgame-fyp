@@ -21,6 +21,23 @@ export default function ResultsScreen() {
   const { addBadge, refreshBadges } = useBadges()
   const recordedRef = useRef(false)
 
+  // When this game is launched from a topic unit, the wrapper's URL carries
+  // ?unit=<topicId> — but the iframe's OWN url does not, so useSearchParams here
+  // sees nothing. Read the TOP window's query instead, so Exit can return to the
+  // unit rather than dropping the student on the dashboard and out of the guided
+  // flow — matching every other game (game-debrief.tsx, games/layout.tsx).
+  // Same-origin by the ONE ORIGIN rule; the try/catch is belt-and-braces for a
+  // cross-origin top that cannot occur.
+  const [unit, setUnit] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      const top = window.top ?? window
+      setUnit(new URLSearchParams(top.location.search).get("unit"))
+    } catch {
+      setUnit(null)
+    }
+  }, [])
+
   const pct = Math.round((score / 10) * 100)
 
   // Record completion directly via the shared progress/badge contexts — same
@@ -49,9 +66,11 @@ export default function ResultsScreen() {
   // A plain <Link href="/dashboard"> navigates the IFRAME to /dashboard, which
   // re-renders the whole app inside the game frame (and re-opens gestalt in a
   // nested iframe → infinite loop). Break out to the top-level window instead.
-  // window.top === window when not framed, so this is safe everywhere.
-  const leaveToDashboard = () => {
-    ;(window.top ?? window).location.href = "/dashboard"
+  // window.top === window when not framed, so this is safe everywhere. Honour the
+  // unit: back to /topics/<unit> when launched from one, else the dashboard.
+  const leaveGame = () => {
+    const top = window.top ?? window
+    top.location.href = unit ? `/topics/${unit}` : "/dashboard"
   }
 
   return (
@@ -79,10 +98,10 @@ export default function ResultsScreen() {
               </button>
             </Link>
             <button
-              onClick={leaveToDashboard}
+              onClick={leaveGame}
               className="font-pixelify-sans text-gray-400 text-sm hover:text-white transition-colors"
             >
-              Dashboard
+              {unit ? "Back to unit" : "Dashboard"}
             </button>
           </div>
         </div>
@@ -139,10 +158,10 @@ export default function ResultsScreen() {
                 </button>
               </Link>
               <button
-                onClick={leaveToDashboard}
+                onClick={leaveGame}
                 className="flex-1 w-full bg-gray-700 text-white font-pixelify-sans text-sm py-2 px-3 rounded hover:bg-gray-600 transition"
               >
-                Back to Topics
+                {unit ? "Back to unit" : "Back to Topics"}
               </button>
             </div>
           </div>

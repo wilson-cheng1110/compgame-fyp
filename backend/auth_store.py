@@ -156,10 +156,18 @@ def is_admin(sid: str) -> bool:
     migration or a running app, and the list is reviewable in one `cat`.
     """
     global _admins, _admins_mtime
+    # THREAD-SAFE CACHE REFRESH. Since C2, is_staff() -> is_admin() runs on a threadpool
+    # worker (record_event_status is dispatched via asyncio.to_thread) at the same time
+    # is_admin() is still called on the event-loop thread (needsConsent/needsBaseline).
+    # Two OS threads racing on the two-name `_admins, _admins_mtime = ...` assignment
+    # could leave a reader seeing a new set against an old mtime. The lock makes the
+    # assignment atomic; the membership read below needs no lock (reading the _admins
+    # reference is atomic in CPython — a mid-swap reader gets a whole old or new set).
     try:
         mtime = os.path.getmtime(ADMIN_PATH)
     except OSError:
-        _admins, _admins_mtime = set(), None
+        with _lock:
+            _admins, _admins_mtime = set(), None
         return False
     if mtime != _admins_mtime:
         parsed = set()
@@ -168,7 +176,8 @@ def is_admin(sid: str) -> bool:
                 line = line.split("#", 1)[0].strip()
                 if line:
                     parsed.add(line.split(",")[0].strip().upper())
-        _admins, _admins_mtime = parsed, mtime
+        with _lock:
+            _admins, _admins_mtime = parsed, mtime
     return sid.strip().upper() in _admins
 
 
@@ -198,6 +207,10 @@ _DECOY_SALT, _DECOY_HASH = hash_password(secrets.token_urlsafe(32))
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    # Wait for the file lock rather than raise "database is locked" if the in-process
+    # _lock is ever relaxed or a second connection contends (finding C2). Harmless
+    # while _lock serialises access; a cheap correctness backstop.
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
@@ -441,6 +454,19 @@ def audit_log(limit: int = 100) -> list[dict]:
         finally:
             conn.close()
     return [dict(r) for r in rows]
+
+
+def withdrawn_sids() -> set:
+    """SIDs that have withdrawn. Used to keep their rows out of the research export
+    even before an operator runs the manual --forget purge (a promise on the consent
+    form should not depend on someone remembering a CLI command per withdrawal)."""
+    with _lock:
+        conn = _connect()
+        try:
+            return {r[0] for r in conn.execute(
+                "SELECT sid FROM users WHERE withdrawn=1")}
+        finally:
+            conn.close()
 
 
 def list_participants() -> list[dict]:

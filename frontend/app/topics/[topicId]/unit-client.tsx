@@ -6,9 +6,11 @@ import Cookies from "js-cookie"
 import { topics as topicsApi, type JourneyTopic } from "@/lib/api"
 import { logResearchEvent } from "@/lib/research-log"
 import JourneyPath from "@/components/journey-path"
-import { TOPICS } from "@/lib/topic-definitions"
+import { TOPICS, type TopicId } from "@/lib/topic-definitions"
+import { useProgress } from "@/lib/progress-context"
 import TopicCheck from "@/components/topic-check"
 import TopicProbe from "@/components/topic-probe"
+import TopicQuestionnaire from "@/components/topic-questionnaire"
 import UnitHeader from "./unit-header"
 
 // The INTERACTIVE half of the topic unit. Everything the student clicks.
@@ -62,6 +64,85 @@ export default function TopicUnitClient({
   const meta = useMemo(() => TOPICS.find((t) => t.id === topicId), [topicId])
   const stepKey = `compgame:unit:${topicId}:step`
 
+  // WHAT THE SERVER HAS SEEN, kept fresh.
+  //
+  // `state` is a prop from the server component and never changes after the first
+  // render. That was fine while the step buttons were self-declared, and is not
+  // fine now that Continue waits on `game_done`: coming back from the activity is
+  // a client-side navigation that can be served from the router cache, so a
+  // student who HAD just finished would return to a step that still says they
+  // hadn't. Re-ask on mount and whenever the tab comes back to the front.
+  const [live, setLive] = useState<JourneyTopic>(state)
+  useEffect(() => {
+    let alive = true
+    const pull = async () => {
+      const r = await topicsApi.detail(topicId)
+      if (alive && r.ok && r.data) setLive(r.data)
+    }
+    void pull()
+    const onBack = () => void pull()
+    window.addEventListener("focus", onBack)
+    document.addEventListener("visibilitychange", onBack)
+    return () => {
+      alive = false
+      window.removeEventListener("focus", onBack)
+      document.removeEventListener("visibilitychange", onBack)
+    }
+  }, [topicId])
+
+  // The student's own device also knows. `done` is server OR local on purpose:
+  // the server flag is what the PAPER uses, but a student whose record call was
+  // eaten by a dropped connection genuinely finished, and stranding them on a
+  // step they have completed is the failure this whole change must not cause.
+  const { getTopicProgress } = useProgress()
+  const localProgress = getTopicProgress(topicId as TopicId)
+  const done = {
+    game: !!live.game_done || localProgress.understandingCompleted,
+    assess: !!live.assess_done || localProgress.assessmentCompleted,
+    tutor: !!live.reflection_done || localProgress.reflectionCompleted,
+  }
+
+  // Did they actually go and try? Set when they open the thing, read back when
+  // they return. Per-device and clearable -- it is not a security boundary and is
+  // not trying to be. It exists so the "it didn't record" escape below is offered
+  // to someone who has been there, rather than to someone who has just arrived.
+  const [tried, setTried] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    // RE-READ ON RETURN, not just first mount (finding FE1). The game writes these
+    // keys on mount (games/layout.tsx GameClock); coming back to the unit is a
+    // client-side navigation served from the router cache, so THIS component instance
+    // persists and a mount-only effect would leave `tried` false forever after a
+    // genuine attempt — hiding the "it didn't record — continue without it" escape
+    // from the stuck student it exists for. Same reason `live` above re-pulls on
+    // focus/visibilitychange; mirror it exactly.
+    const readTried = () => {
+      try {
+        setTried({
+          game: !!localStorage.getItem(`compgame:unit:${topicId}:tried:game`),
+          assess: !!localStorage.getItem(`compgame:unit:${topicId}:tried:assess`),
+          tutor: !!localStorage.getItem(`compgame:unit:${topicId}:tried:tutor`),
+        })
+      } catch {
+        /* private mode: no memory of the attempt, so they open it once more */
+      }
+    }
+    readTried()
+    window.addEventListener("focus", readTried)
+    document.addEventListener("visibilitychange", readTried)
+    return () => {
+      window.removeEventListener("focus", readTried)
+      document.removeEventListener("visibilitychange", readTried)
+    }
+  }, [topicId])
+  const markTried = (what: string) => {
+    try {
+      localStorage.setItem(`compgame:unit:${topicId}:tried:${what}`, "1")
+    } catch {
+      /* ignore */
+    }
+    setTried((t) => ({ ...t, [what]: true }))
+  }
+
   // Steps in this student's arm order. A topic with no item bank yet simply has no
   // check steps — the unit still runs (docs/revamp.md Part 8.4).
   const steps: Step[] = useMemo(() => {
@@ -113,6 +194,38 @@ export default function TopicUnitClient({
     if (i >= 0 && i < steps.length - 1) go(steps[i + 1])
   }
 
+  // THE ESCAPE, AND WHY THERE HAS TO BE ONE.
+  //
+  // Requiring the activity is the point of this screen. But in the FLIP arm the
+  // activity sits BETWEEN the pre- and post-check, and in CONTROL it sits after
+  // both -- so a hard gate with no way past would lose the post-check of stuck
+  // FLIP students and none of CONTROL's. That is differential attrition by
+  // condition, which is a Campbell & Stanley internal-validity threat and the
+  // exact class of problem docs/experiment-design.md already argues about. A
+  // fallback is therefore part of the DESIGN, not a softness in it.
+  //
+  // What makes it not a free skip: it is offered only to someone who has already
+  // opened the thing, it says out loud what it is, and it LOGS. A skip that is
+  // recorded is data the analysis can flag or exclude; a skip indistinguishable
+  // from a completion is contamination, which is what the old
+  // "I've finished it -- continue" button quietly produced.
+  //
+  // NOT gated on `telemetryEnabled`, and that is deliberate rather than an
+  // oversight. `markGameComplete` mirrors `understanding_complete` to the sink
+  // with no such guard, so recording the completion but not the non-completion
+  // would leave a dataset where the two are indistinguishable by absence.
+  //
+  // And absence is not enough on its own any more. Replay means a student can
+  // take this escape at step four and finish the activity properly at step nine;
+  // the sink would then hold `understanding_complete` and `topic_complete` and no
+  // trace that the treatment was skipped IN SEQUENCE -- which is the thing the
+  // flip-learning claim actually rests on. Only an event at the moment it happens
+  // records that.
+  const carryOn = (what: "game" | "assess" | "tutor", eventType: string) => {
+    logResearchEvent({ event_type: eventType, topic_id: topicId, meta: { step: what } })
+    advance()
+  }
+
   // The server component already resolved this topic against TOPICS before rendering
   // us, so `meta` is present in every real path. The guard is here so TypeScript can
   // see it and so a future caller cannot render this component with a bad id.
@@ -130,7 +243,7 @@ export default function TopicUnitClient({
         <div className="u-card p-5 mb-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <p className="u-eyebrow">Session {state.session}</p>
+              <p className="u-eyebrow">Lecture {state.session}</p>
               <h1 className="u-h1 mt-1">{meta.title}</h1>
             </div>
             <p className="u-faint u-num whitespace-nowrap pt-1" data-testid="step-counter">
@@ -167,7 +280,7 @@ export default function TopicUnitClient({
                 : "You'll work through an activity, then talk it through with the tutor."}
             </p>
             <p className="u-stem u-muted mt-3">
-              It takes about 20 minutes. You can stop and come back — this page remembers where
+              It takes about 12 minutes. You can stop and come back — this page remembers where
               you were.
             </p>
             <button onClick={advance} className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
@@ -227,32 +340,61 @@ export default function TopicUnitClient({
             <p className="u-eyebrow">The activity</p>
             <h2 className="u-h2 mt-2">Play through {meta.title}</h2>
             <p className="u-stem u-muted mt-4">
-              This part is a game. Come back here when you&apos;ve finished it — the rest of the
-              unit is waiting.
+              This is the part the unit is built around. Play it through to the end —
+              the game tells us when you finish, and the next step opens then.
             </p>
-            <Link href={`/games/${meta.understandingGameId}?unit=${state.topic_id}&step=${position}&of=${steps.length}`}>
+            {/* No onClick markTried here: "tried" is set from the GAME side on mount
+                (games/layout.tsx GameClock), so the escape below only unlocks once the
+                activity actually loaded — not on this click, which a Back could beat in
+                a second (finding FE1). */}
+            <Link
+              href={`/games/${meta.understandingGameId}?unit=${state.topic_id}&step=${position}&of=${steps.length}`}
+            >
               <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
-                Open the activity →
+                {tried.game && !done.game ? "Back into the activity →" : "Open the activity →"}
               </button>
             </Link>
-            <button onClick={advance} className="u-btn u-btn-block mt-3">
-              {state.game_done ? "Continue" : "I've finished it — continue"}
-            </button>
-            {/* Observed, never a gate. The sink knows whether the activity was played;
-                saying so beats silently trusting a tick, and a student whose game failed
-                to record still walks on. */}
-            <p className="u-faint mt-3" data-testid="game-observed">
-              {state.game_done
-                ? "✓ We have your activity recorded."
-                : "We have not seen the activity finish yet — you can carry on either way."}
-            </p>
+
+            {done.game ? (
+              <>
+                <button onClick={advance} className="u-btn u-btn-block mt-3" data-testid="unit-continue">
+                  Continue
+                </button>
+                <p className="u-faint mt-3" data-testid="game-observed">
+                  ✓ We have your activity recorded.
+                </p>
+              </>
+            ) : (
+              <>
+                {/* NO SELF-DECLARED COMPLETION. This used to be an always-enabled
+                    "I've finished it — continue", under a line saying you could
+                    carry on either way. So the cheapest path through a twelve-week
+                    study was one click and nothing else, and `played_understanding_
+                    first` -- the independent variable -- would have recorded a
+                    treatment that never happened. */}
+                <p className="u-faint mt-3" data-testid="game-observed">
+                  Not finished yet. Continue opens by itself as soon as the activity
+                  records that you got to the end.
+                </p>
+                {tried.game && (
+                  <button
+                    onClick={() => carryOn("game", "activity_not_recorded")}
+                    data-testid="unit-carry-on"
+                    className="u-btn u-btn-block mt-3"
+                    style={{ fontSize: ".8125rem" }}
+                  >
+                    The activity didn&apos;t record — continue without it
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
 
         {/* Only after they've submitted and seen the answers — the post-check is
             where the feedback lands, so don't let them skip past it unread. */}
         {step === "post" && postDone && (
-          <button onClick={advance} className="u-btn u-btn-block mt-5">
+          <button onClick={advance} className="u-btn u-btn-block mt-5" data-testid="post-continue">
             Continue
           </button>
         )}
@@ -266,19 +408,43 @@ export default function TopicUnitClient({
               answers you already gave — those are recorded — and it is how your badge
               levels up.
             </p>
-            <Link href={`/games/${meta.assessmentGameId}?unit=${state.topic_id}&step=${position}&of=${steps.length}`}>
+            {/* "tried" set on game mount (GameClock), not this click — see the
+                understanding step above (finding FE1). */}
+            <Link
+              href={`/games/${meta.assessmentGameId}?unit=${state.topic_id}&step=${position}&of=${steps.length}`}
+            >
               <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
-                Open the assessment →
+                {tried.assess && !done.assess ? "Back into the assessment →" : "Open the assessment →"}
               </button>
             </Link>
-            <button onClick={advance} className="u-btn u-btn-block mt-3">
-              Continue
-            </button>
-            <p className="u-faint mt-3" data-testid="assess-observed">
-              {state.assess_done
-                ? `✓ Recorded${typeof state.assess_score === "number" ? ` — ${Math.round(state.assess_score)}%` : ""}.`
-                : "Not played yet — you can carry on either way; it only affects the badge level."}
-            </p>
+
+            {done.assess ? (
+              <>
+                <button onClick={advance} className="u-btn u-btn-block mt-3" data-testid="unit-continue">
+                  Continue
+                </button>
+                <p className="u-faint mt-3" data-testid="assess-observed">
+                  ✓ Recorded
+                  {typeof live.assess_score === "number" ? ` — ${Math.round(live.assess_score)}%` : ""}.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="u-faint mt-3" data-testid="assess-observed">
+                  Not played yet. Continue opens once the round is recorded.
+                </p>
+                {tried.assess && (
+                  <button
+                    onClick={() => carryOn("assess", "assessment_not_recorded")}
+                    data-testid="unit-carry-on"
+                    className="u-btn u-btn-block mt-3"
+                    style={{ fontSize: ".8125rem" }}
+                  >
+                    The assessment didn&apos;t record — continue without it
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -308,24 +474,61 @@ export default function TopicUnitClient({
                 Two tutors calling two endpoints would also mean two differently-shaped
                 reflection rows for one construct, which the paper cannot use. */}
             <button
-              onClick={() =>
+              onClick={() => {
+                markTried("tutor")
                 window.dispatchEvent(
                   new CustomEvent("start-reflection", { detail: { topicId: state.topic_id } }),
                 )
-              }
+              }}
               data-testid="open-reflection"
               className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7"
             >
-              Talk it through with the tutor →
+              {tried.tutor && !done.tutor
+                ? "Back to the tutor →"
+                : "Talk it through with the tutor →"}
             </button>
-            <button onClick={advance} className="u-btn u-btn-block mt-3">
-              Done reflecting
-            </button>
+
+            {done.tutor ? (
+              <>
+                <button onClick={advance} className="u-btn u-btn-block mt-3" data-testid="unit-continue">
+                  Continue
+                </button>
+                <p className="u-faint mt-3" data-testid="tutor-observed">
+                  ✓ We have your reflection.
+                </p>
+              </>
+            ) : (
+              <>
+                {/* Was "Done reflecting" -- always enabled, next to a tutor nobody
+                    had to open. */}
+                <p className="u-faint mt-3" data-testid="tutor-observed">
+                  Continue opens once you have talked it through. There is no length
+                  it has to reach.
+                </p>
+                {tried.tutor && (
+                  <button
+                    onClick={() => carryOn("tutor", "reflection_not_recorded")}
+                    data-testid="unit-carry-on"
+                    className="u-btn u-btn-block mt-3"
+                    style={{ fontSize: ".8125rem" }}
+                  >
+                    The tutor isn&apos;t responding — continue without it
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
 
         {step === "close" && <RecordCompletion topicId={state.topic_id} arm={state.arm} />}
-        {step === "close" && <CloseScreen topicId={state.topic_id} title={meta.title} />}
+        {step === "close" && (
+          <CloseScreen
+            topicId={state.topic_id}
+            title={meta.title}
+            understandingGameId={meta.understandingGameId}
+            assessmentGameId={meta.assessmentGameId}
+          />
+        )}
       </div>
     </main>
   )
@@ -362,7 +565,17 @@ function RecordCompletion({ topicId, arm }: { topicId: string; arm: string }) {
 // Fetched rather than lifted out of TopicCheck on purpose. The close step is
 // resumable -- localStorage remembers it -- so a student who reloads here has to see
 // the same thing, and only the server still knows it.
-function CloseScreen({ topicId, title }: { topicId: string; title: string }) {
+function CloseScreen({
+  topicId,
+  title,
+  understandingGameId,
+  assessmentGameId,
+}: {
+  topicId: string
+  title: string
+  understandingGameId: string
+  assessmentGameId: string
+}) {
   const [journey, setJourney] = useState<JourneyTopic[] | null>(null)
 
   useEffect(() => {
@@ -420,11 +633,43 @@ function CloseScreen({ topicId, title }: { topicId: string; title: string }) {
         </div>
       )}
 
+      {/* AFTER the unit is recorded, never before. A student who closes the tab on
+          this loses the questionnaire and nothing else -- their checks, probe and
+          completion are already in. It renders nothing at all while questionnaires
+          are switched off, which is the default. */}
+      <TopicQuestionnaire topicId={topicId} />
+
       <Link href="/dashboard">
         <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-6">
           Continue the path →
         </button>
       </Link>
+
+      {/* REPLAY. Until now finishing a topic made its game unreachable: this screen
+          offered only "Continue the path", and reopening a finished topic resumes
+          at the step it left off on, which is this one. So the last thing a student
+          saw of an activity was the moment they completed it, and "I'd like to look
+          at that again" had no answer.
+          It matters more now that the steps above WAIT for real completion, because
+          "you have to do it" is only fair next to "and you can do it again".
+          No `?unit=` on purpose: the unit is finished and its answers are in. These
+          open the games in free play, where nothing is re-sequenced and no check can
+          be re-submitted -- the server allows one submission per check regardless. */}
+      <div className="mt-7 pt-6" style={{ borderTop: "1px solid var(--rule)" }} data-testid="replay">
+        <p className="u-eyebrow">Come back to it</p>
+        <p className="u-faint mt-1.5">
+          Your answers are already saved — replaying changes nothing you have
+          submitted.
+        </p>
+        <div className="flex gap-3 mt-3 flex-wrap">
+          <Link href={`/games/${understandingGameId}`} data-testid="replay-activity">
+            <button className="u-btn">Play the activity again</button>
+          </Link>
+          <Link href={`/games/${assessmentGameId}`} data-testid="replay-assessment">
+            <button className="u-btn">Retry the assessment</button>
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }

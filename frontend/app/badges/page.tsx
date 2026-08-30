@@ -5,7 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Cookies from "js-cookie"
-import { topics as topicsApi } from "@/lib/api"
+import { topics as topicsApi, auth } from "@/lib/api"
 import { badgesFromJourney, MAX_LEVEL, type Badge } from "@/lib/badges"
 import { TOPICS } from "@/lib/topic-definitions"
 
@@ -58,7 +58,8 @@ export default function BadgesPage() {
     Cookies.set("darkMode", String(next), { expires: 365 })
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try { await auth.logout() } catch { /* sign out locally regardless */ }
     Cookies.remove("user")
     router.push("/")
   }

@@ -26,7 +26,7 @@ interface Props {
   topicId: string
   form: "A" | "B"
   telemetryEnabled: boolean
-  onDone: (result: CheckResult) => void
+  onDone: (result?: CheckResult) => void
   darkMode?: boolean
 }
 
@@ -53,6 +53,15 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
     topics.getCheck(topicId, form).then((res) => {
       if (!alive) return
       if (!res.ok || !res.data) {
+        // A student who reloads after submitting used to land on a DEAD SCREEN:
+        // the mount-time GET 409s "already_submitted" and this rendered only the
+        // message with NO button, no way forward (sweep finding H1). The probe
+        // already handles the identical case by advancing; the check must too — the
+        // one submission is in, there is nothing to answer, so move them along.
+        if (res.status === 409 || res.error === "already_submitted") {
+          onDone()
+          return
+        }
         setLoadError(res.message ?? "Couldn't load the questions.")
         return
       }
@@ -104,6 +113,21 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
       Object.keys(telemetry).length ? telemetry : undefined,
     )
     setBusy(false)
+
+    // Lost the one-submission race, or a double-submit (finding C1): the winning
+    // request already persisted this check. The server deliberately does NOT return a
+    // reveal here — the answers behind it may not be ours — so treat it as done rather
+    // than surface an error or a score that was never stored.
+    //
+    // Key on the ERROR STRING, not a bare 409: submit_check ALSO returns 409 for
+    // `pre_check_first` (a POST submitted before the PRE was recorded — the ordering
+    // gate). Auto-advancing on that would silently fake a completed post-check with no
+    // grade and no message. Only `already_submitted` means "the row is safely in"; any
+    // other 409 must fall through to a visible error below.
+    if (res.error === "already_submitted") {
+      onDone()
+      return
+    }
 
     if (!res.ok || !res.data) {
       setSubmitError(res.message ?? "Couldn't save your answers.")

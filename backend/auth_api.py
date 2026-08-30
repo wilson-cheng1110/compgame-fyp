@@ -57,7 +57,7 @@ import os
 import asyncio
 
 from fastapi import APIRouter, Cookie, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import auth_store
 import baseline
@@ -76,20 +76,20 @@ CONSENT_VERSION = os.environ.get("CONSENT_VERSION", "2026-08-info-sheet-v1")
 class SessionRequest(BaseModel):
     sid: str
     password: str = ""
-    username: str | None = None
+    username: str | None = Field(default=None, max_length=120)
     avatar_id: str | None = None
 
 
 class SignupRequest(BaseModel):
     sid: str
-    password: str
+    password: str = Field(max_length=512)
     section: str | None = None
-    username: str | None = None
+    username: str | None = Field(default=None, max_length=120)
     avatar_id: str | None = None
 
 
 class ProfileRequest(BaseModel):
-    username: str | None = None
+    username: str | None = Field(default=None, max_length=120)
     avatar_id: str | None = None
 
 
@@ -134,9 +134,29 @@ async def list_sections():
 
 
 @router.post("/signup")
-async def signup(req: SignupRequest, response: Response):
+async def signup(req: SignupRequest, request: Request, response: Response):
     """Create an account. Returns the same body as /session so the frontend stores
     one shape either way."""
+    # THROTTLE, KEYED BY THE SUBMITTED SID -- not by client IP (finding S1). Under the
+    # ONE ORIGIN rule the browser never reaches FastAPI directly: Next proxies /api
+    # server-side, so `request.client.host` is ALWAYS 127.0.0.1 and there is no
+    # X-Forwarded-For here. An IP key therefore put the WHOLE cohort in ONE bucket
+    # (signup:127.0.0.1): a single junk burst would 429 every student trying to sign
+    # up (self-DoS), and the enumeration protection it claimed was false because an
+    # attacker owned that shared bucket too. Keyed by the SID that was typed, a student
+    # fat-fingering their own signup a few times survives comfortably while a script
+    # hammering ONE account empties only that SID's bucket.
+    #
+    # This does NOT bound broad roster enumeration (each different SID is a fresh
+    # bucket), and that is a KNOWN, accepted trade (Wilson, 2026-08-30): /signup names
+    # its refusals by design because a signup form that won't say "that account already
+    # exists" is unusable, so the discovery surface is /session's job to close -- and it
+    # does, with one generic 401 for unknown / wrong-password / withdrawn alike.
+    _sid = (req.sid or "").strip().upper()
+    if not ops.allow(f"signup:sid:{_sid}", per_minute=15, burst=15):
+        response.status_code = 429
+        return {"error": "too_many_attempts",
+                "message": "Too many sign-up attempts for that student ID. Wait a minute and try again."}
     # to_thread: see the scrypt note at the foot of this module's docstring.
     result, reason = await asyncio.to_thread(
         auth_store.create_account,
@@ -153,8 +173,13 @@ async def signup(req: SignupRequest, response: Response):
         "avatarId": result["avatar_id"],
         "section": result["section"],
         "needsOnboarding": result["needs_onboarding"],
-        "needsConsent": not _has_consented(result["sid"]),
-        "needsBaseline": not research_store.has_event(result["sid"], baseline.EVENT_TYPE),
+        # STAFF SKIP THE PARTICIPANT GATES. Consent and the prior-knowledge baseline
+        # are instruments aimed at participants; a teacher is not one, and making
+        # them agree to an information sheet about their own study before the app
+        # will open is both absurd and how their rows ended up in the sink.
+        "needsConsent": not auth_store.is_admin(result["sid"]) and not await _has_consented(result["sid"]),
+        "needsBaseline": not auth_store.is_admin(result["sid"])
+                         and not await asyncio.to_thread(research_store.has_event, result["sid"], baseline.EVENT_TYPE),
     }
 
 
@@ -199,14 +224,19 @@ async def create_session(req: SessionRequest, request: Request, response: Respon
         "avatarId": result["avatar_id"],      # camelCase: matches the existing cookie shape
         "section": result["section"],
         "needsOnboarding": result["needs_onboarding"],
-        "needsConsent": not _has_consented(result["sid"]),
-        "needsBaseline": not research_store.has_event(result["sid"], baseline.EVENT_TYPE),
+        # STAFF SKIP THE PARTICIPANT GATES. Consent and the prior-knowledge baseline
+        # are instruments aimed at participants; a teacher is not one, and making
+        # them agree to an information sheet about their own study before the app
+        # will open is both absurd and how their rows ended up in the sink.
+        "needsConsent": not auth_store.is_admin(result["sid"]) and not await _has_consented(result["sid"]),
+        "needsBaseline": not auth_store.is_admin(result["sid"])
+                         and not await asyncio.to_thread(research_store.has_event, result["sid"], baseline.EVENT_TYPE),
     }
 
 
 @router.get("/me")
 async def whoami(response: Response, session: str | None = Cookie(default=None)):
-    user = auth_store.resolve_session(session or "")
+    user = await asyncio.to_thread(auth_store.resolve_session, session or "")
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -216,8 +246,9 @@ async def whoami(response: Response, session: str | None = Cookie(default=None))
         "avatarId": user["avatar_id"],
         "section": user["section"],
         "needsOnboarding": user["needs_onboarding"],
-        "needsConsent": not _has_consented(user["sid"]),
-        "needsBaseline": not research_store.has_event(user["sid"], baseline.EVENT_TYPE),
+        "needsConsent": not auth_store.is_admin(user["sid"]) and not await _has_consented(user["sid"]),
+        "needsBaseline": not auth_store.is_admin(user["sid"])
+                         and not await asyncio.to_thread(research_store.has_event, user["sid"], baseline.EVENT_TYPE),
     }
 
 
@@ -232,12 +263,12 @@ async def logout(response: Response, session: str | None = Cookie(default=None))
 @router.post("/profile")
 async def set_profile(req: ProfileRequest, response: Response,
                       session: str | None = Cookie(default=None)):
-    user = auth_store.resolve_session(session or "")
+    user = await asyncio.to_thread(auth_store.resolve_session, session or "")
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
     auth_store.update_profile(user["sid"], req.username, req.avatar_id)
-    refreshed = auth_store.resolve_session(session or "")
+    refreshed = await asyncio.to_thread(auth_store.resolve_session, session or "")
     return {
         "sid": refreshed["sid"],
         "username": refreshed["username"],
@@ -252,16 +283,19 @@ async def set_profile(req: ProfileRequest, response: Response,
 # research fact with a timestamp and a document version, not a profile field, and
 # it must survive in the same append-only log as everything it authorises.
 
-def _has_consented(sid: str) -> bool:
+async def _has_consented(sid: str) -> bool:
     # Indexed lookup, not a scan of the whole sink — see research_store.has_event.
-    return research_store.has_event(sid, "consent_recorded")
+    # Off the event loop (finding C2): this runs on the /me path, which fires on
+    # nearly every page load, so blocking the loop on auth/research locks here is the
+    # single hottest place not to.
+    return await asyncio.to_thread(research_store.has_event, sid, "consent_recorded")
 
 
 @router.post("/consent")
 async def record_consent(req: ConsentRequest, response: Response,
                          session: str | None = Cookie(default=None)):
     """Blocking gate: nothing else may record data until this exists for the SID."""
-    user = auth_store.resolve_session(session or "")
+    user = await asyncio.to_thread(auth_store.resolve_session, session or "")
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -270,7 +304,7 @@ async def record_consent(req: ConsentRequest, response: Response,
         return {"error": "not_agreed",
                 "message": "Consent can't be recorded without agreement."}
 
-    research_store.record_event({
+    await asyncio.to_thread(research_store.record_event, {
         "participant_id": user["sid"],
         "event_type": "consent_recorded",
         "meta": {"version": req.version or CONSENT_VERSION, "section": user["section"]},
@@ -285,13 +319,13 @@ async def withdraw(response: Response, session: str | None = Cookie(default=None
     Research rows are deleted separately and deliberately -- a destructive sweep of
     the append-only sink is not something a web request should be able to trigger.
     """
-    user = auth_store.resolve_session(session or "")
+    user = await asyncio.to_thread(auth_store.resolve_session, session or "")
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
 
     sid = user["sid"]
-    research_store.record_event({
+    await asyncio.to_thread(research_store.record_event, {
         "participant_id": sid,
         "event_type": "consent_withdrawn",
         "meta": {"section": user["section"]},
@@ -315,12 +349,12 @@ class BaselineSubmission(BaseModel):
 
 @router.get("/baseline")
 async def get_baseline(response: Response, session: str | None = Cookie(default=None)):
-    user = auth_store.resolve_session(session or "")
+    user = await asyncio.to_thread(auth_store.resolve_session, session or "")
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
 
-    if research_store.has_event(user["sid"], baseline.EVENT_TYPE):
+    if await asyncio.to_thread(research_store.has_event, user["sid"], baseline.EVENT_TYPE):
         response.status_code = 409
         return {"error": "already_taken"}
 
@@ -330,7 +364,7 @@ async def get_baseline(response: Response, session: str | None = Cookie(default=
 @router.post("/baseline")
 async def submit_baseline(body: BaselineSubmission, response: Response,
                           session: str | None = Cookie(default=None)):
-    user = auth_store.resolve_session(session or "")
+    user = await asyncio.to_thread(auth_store.resolve_session, session or "")
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -338,18 +372,18 @@ async def submit_baseline(body: BaselineSubmission, response: Response,
     # Consent first, exactly as for every other recorded thing (Part 15). Onboarding
     # runs after consent, so in the normal flow this is already satisfied; it is
     # asserted anyway because "the UI never sends it out of order" is not a control.
-    if not _has_consented(user["sid"]):
+    if not await _has_consented(user["sid"]):
         response.status_code = 403
         return {"error": "no_consent",
                 "message": "Consent has to be recorded before anything is saved."}
 
-    if research_store.has_event(user["sid"], baseline.EVENT_TYPE):
+    if await asyncio.to_thread(research_store.has_event, user["sid"], baseline.EVENT_TYPE):
         response.status_code = 409
         return {"error": "already_taken"}
 
     graded = baseline.grade(body.answers)
 
-    research_store.record_event({
+    _row_id, created = await asyncio.to_thread(research_store.record_event_status, {
         "participant_id": user["sid"],
         "event_type": baseline.EVENT_TYPE,
         "score": graded["score"],
@@ -363,6 +397,14 @@ async def submit_baseline(body: BaselineSubmission, response: Response,
             "section": user["section"],
         },
     })
+    if not created:
+        # Lost the one-submission race (finding C1, same class as submit_check). The
+        # baseline is once-only and covered by the unique index, so a concurrent
+        # double-submit's loser did NOT persist — its answers weren't stored. Return
+        # already_taken rather than a false ok. The window is real post-C2 (this write
+        # now runs off the event loop).
+        response.status_code = 409
+        return {"error": "already_taken"}
 
     # No score comes back. These five items cover five topics the student is about to
     # be measured on; telling them how they did, or which they missed, is a head start

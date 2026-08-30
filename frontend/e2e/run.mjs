@@ -16,6 +16,7 @@ const SUITES = [
   ["happy-path", "./happy-path.mjs"],
   ["unhappy-path", "./unhappy-path.mjs"],
   ["resilience", "./resilience.mjs"],
+  ["teacher-path", "./teacher-path.mjs"],
 ].filter(([n]) => !only || n === only || n === only + "-path")   // "happy" must not match "unhappy-path"
 
 // ── preflight ─────────────────────────────────────────────────────────────────
@@ -45,6 +46,26 @@ async function preflight() {
     }
     if (!health.components?.accounts?.ok || !health.components?.research_sink?.ok) {
       problems.push(`API health is "${health.status}" — accounts or the sink are down`)
+    }
+
+    // THIS SUITE IS A PARTICIPANT. It signs up students, sits checks, answers
+    // probes and completes topics, and every one of those is a research event. Run
+    // against a backend on the default paths it writes all of that into the sink
+    // the PAPER is written from, and nothing anywhere says so -- the effort screen
+    // on the dev box reads a median of 0.4 s per item and 75 straight-lined
+    // submissions, which is this suite, not a cohort.
+    //
+    // Refusing is the only version that works. A warning in a log nobody reads is
+    // how the data got mixed in the first place.
+    if (health.components?.research_sink?.is_default_path
+        && process.env.E2E_ALLOW_SHARED_SINK !== "1") {
+      problems.push(
+        "the API is writing to the DEFAULT research sink, and this suite would " +
+        "pollute it with synthetic participants.\n" +
+        "    Start the backend with its own files:\n" +
+        "      RESEARCH_DB_PATH=/tmp/e2e-research.db AUTH_DB_PATH=/tmp/e2e-auth.db\n" +
+        "      python -m uvicorn rag_api:app --port 8080\n" +
+        "    Or set E2E_ALLOW_SHARED_SINK=1 if you genuinely mean to write there.")
     }
   }
 

@@ -38,6 +38,19 @@ check("nothing recorded", len(research_store.fetch_all()) == 0)
 
 print("\n-- FIX 1b: client CANNOT spoof identity --")
 c.post("/api/auth/signup", json={"sid":"24000001A","password":"hunter2xyz"})
+
+# CONSENT is now required before any event records (the ethics precondition, which
+# this endpoint did not enforce before the 2026-08-30 sweep). Assert the refusal,
+# then record consent so the spoof-identity test below can proceed.
+r0 = c.post("/api/research/event", json={"event_type":"assessment_complete","topic_id":"gestalt"})
+check("a signed-in but UN-consented event -> 403 no_consent", r0.status_code == 403, r0.json())
+check("and nothing was recorded", len(research_store.fetch_all()) == 0)
+c.post("/api/auth/consent", json={"agreed": True})
+
+# An unknown topic_id is rejected, not silently stored (it would inflate the denominator).
+ru = c.post("/api/research/event", json={"event_type":"understanding_complete","topic_id":"not-a-real-topic"})
+check("unknown topic_id -> 400", ru.status_code == 400, ru.json())
+
 r = c.post("/api/research/event", json={
     "participant_id": "24000002B",              # claiming to be someone else
     "event_type": "assessment_complete", "topic_id": "gestalt", "score": 90})
@@ -120,6 +133,31 @@ check("withdraw tombstones a real account", auth_store.withdraw("24000002B") is 
 research_store.forget_participant("24000002B")
 check("the withdrawn SID still cannot start a session",
       auth_store.start_session("24000002B", "hunter2xyz") is None)
+
+print("\n-- C1: record_event_status signals created-vs-dup for once-only events --")
+# The store-level backstop the submit_check/submit_probe 409 depends on. A once-only
+# event that loses the race must report created=False and return the WINNER's row id,
+# never a second row — that is what lets the endpoint refuse to reveal a graded result
+# it never persisted.
+rid1, cr1 = research_store.record_event_status(
+    {"participant_id": "24C1TEST", "event_type": "topic_pretest", "topic_id": "memory", "score": 50})
+rid2, cr2 = research_store.record_event_status(
+    {"participant_id": "24C1TEST", "event_type": "topic_pretest", "topic_id": "memory", "score": 90})
+check("first once-only write reports created=True", cr1 is True, (rid1, cr1))
+check("duplicate once-only write reports created=False", cr2 is False, (rid2, cr2))
+check("duplicate returns the winner's row id, not a new row", rid2 == rid1, (rid1, rid2))
+_rows = [e for e in research_store.fetch_all()
+         if e["participant_id"] == "24C1TEST" and e["event_type"] == "topic_pretest"]
+check("only one row exists for the (sid, once-only event)", len(_rows) == 1, len(_rows))
+check("the persisted row is the WINNER's (first score), not the loser's",
+      _rows and _rows[0]["score"] == 50.0, _rows and _rows[0]["score"])
+# A repeatable event (understanding_complete) is NOT under the index, so it always
+# creates — the created flag must not falsely say dup there.
+_, cr3 = research_store.record_event_status(
+    {"participant_id": "24C1TEST", "event_type": "understanding_complete", "topic_id": "memory"})
+_, cr4 = research_store.record_event_status(
+    {"participant_id": "24C1TEST", "event_type": "understanding_complete", "topic_id": "memory"})
+check("a repeatable event always reports created=True", cr3 is True and cr4 is True, (cr3, cr4))
 
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

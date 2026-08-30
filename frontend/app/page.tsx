@@ -70,7 +70,8 @@ export default function Home() {
             </Link>
           </div>
           <p className="u-faint mt-4">
-            No password. Your ID just needs to be on the class list for this study.
+            Sign in with your student ID and a password you choose. New here? Create an
+            account in a few seconds.
           </p>
         </section>
 

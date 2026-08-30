@@ -76,12 +76,20 @@ def score(game_id: str, answers: dict) -> dict | None:
 
 def build_router():
     """Built in a function so importing this module never requires fastapi."""
+    import asyncio
+
     from fastapi import APIRouter, Cookie, Response
     from pydantic import BaseModel
 
     import auth_store
 
     router = APIRouter(prefix="/api/games", tags=["games"])
+
+    async def _signed_in(session: str | None) -> bool:
+        # resolve_session off the event loop (finding C2). These oracle endpoints are
+        # hit per in-game probe during an assessment, so keep the auth read off the loop.
+        user = await asyncio.to_thread(auth_store.resolve_session, session or "")
+        return user is not None
 
     class Attempt(BaseModel):
         question_id: int
@@ -96,7 +104,7 @@ def build_router():
         # Signed in, because an unauthenticated oracle is one anyone can grind at
         # leisure. It is not a strong control — a signed-in student can still probe —
         # but it puts every probe against a participant id in the server log.
-        if auth_store.resolve_session(session or "") is None:
+        if not await _signed_in(session):
             response.status_code = 401
             return {"error": "no_session"}
 
@@ -109,7 +117,7 @@ def build_router():
     @router.post("/{game_id}/score")
     async def final_score(game_id: str, body: Submission, response: Response,
                           session: str | None = Cookie(default=None)):
-        if auth_store.resolve_session(session or "") is None:
+        if not await _signed_in(session):
             response.status_code = 401
             return {"error": "no_session"}
         result = score(game_id, body.answers)

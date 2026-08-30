@@ -9,7 +9,7 @@
 // topic — so the test reads the arm off the API and asserts that the ACTIVITY step
 // really did fall before the second check under FLIP, and after it under CONTROL.
 
-import { test, T, go, ready, signIn, giveConsent, onboard, fullSignIn, apiFromPage, freshSid, APP, grepBuild } from "./lib.mjs"
+import { test, T, go, ready, signIn, giveConsent, onboard, fullSignIn, apiFromPage, freshSid, APP, grepBuild, passGatedStep } from "./lib.mjs"
 
 test("landing page invites a student in", async (page, t) => {
   await go(page, "/")
@@ -202,15 +202,15 @@ test("a full topic unit, in the arm the server assigned", async (page, t) => {
       }
     }
 
-    const next = page
-      .getByRole("button", { name: /^(Start|Continue|Done reflecting|I've finished it — continue)$/ })
-      // the assessment step reuses "Continue", so no new name is needed here
-      .first()
+    const next = page.getByRole("button", { name: /^(Start|Continue)$/ }).first()
     if (await next.count()) {
       await next.click()
       await page.waitForTimeout(1800)
       continue
     }
+    // No Continue: this is a step WAITING on the activity, the assessment or the
+    // tutor. See passGatedStep -- the self-declared "I've finished it" is gone.
+    if (await passGatedStep(page, `/topics/${topic.topic_id}`)) continue
     break
   }
 
@@ -506,8 +506,9 @@ test("the tutor step opens the Socratic surface, not the explain path", async (p
       if (await cont.count()) { await cont.click(); await page.waitForTimeout(1400) }
       continue
     }
-    const next = page.getByRole("button", { name: /^(Start|Continue|I've finished it — continue)$/ }).first()
+    const next = page.getByRole("button", { name: /^(Start|Continue)$/ }).first()
     if (await next.count()) { await next.click(); await page.waitForTimeout(1600); continue }
+    if (await passGatedStep(page, `/topics/${topic.topic_id}`)) continue
     break
   }
 
@@ -860,4 +861,285 @@ test("the in-game button names the screen it actually opens", async (page, t) =>
   t.check("no screen in the game still says Take Assessment", !sawLie)
   t.check("the last in-game button names the debrief it opens", /Finish and review/i.test(lastLabel), lastLabel)
   t.check("and it does open the debrief", (await page.locator('[data-testid="debrief-cta"]').count()) > 0)
+})
+
+
+test("the unit cannot be walked past the activity without opening it", async (page, t) => {
+  // THE HOLE THIS CLOSES. The activity step used to carry an always-enabled
+  // "I've finished it — continue", under a line that said you could carry on
+  // either way. One click and a student had "completed" the treatment without
+  // seeing it -- and `played_understanding_first`, the independent variable, would
+  // have recorded that it happened. Over 13 topics and 300 students that is not a
+  // UX blemish, it is the study measuring nothing.
+  const sid = freshSid()
+  await signIn(page, sid)
+  await giveConsent(page)
+  await onboard(page)
+
+  const journey = await apiFromPage(page, "/api/topics")
+  const topic = journey.body.topics.find((x) => x.state === "open" && x.has_bank)
+  t.require("an open topic with a bank exists", !!topic)
+  const url = `/topics/${topic.topic_id}`
+  await go(page, url)
+  await ready(page, 1500)
+
+  // Walk until the activity step. Checks and probes still advance normally --
+  // this change gates the ACTIVITY, not the instruments.
+  let reached = false
+  for (let i = 0; i < 10 && !reached; i++) {
+    if (await page.locator('[data-testid="game-observed"]').count()) { reached = true; break }
+    const probe = page.locator('[data-testid="probe-answer"]')
+    if (await probe.count()) {
+      await probe.fill("The ratio is what matters, not the fixed amount added.")
+      await page.locator('[data-testid="probe-submit"]').first().click()
+      await page.waitForTimeout(2200)
+    }
+    const options = page.locator('[data-testid="mc-option"]')
+    const n = await options.count()
+    for (let k = 0; k < n; k++) await options.nth(k).click().catch(() => {})
+    const submit = page.locator('[data-testid="mc-submit"]').first()
+    if (await submit.count()) { await submit.click(); await page.waitForTimeout(2600) }
+    // PREFIX, not exact: the probe step's button is "Continue →". An exact /^Continue$/
+    // silently matches nothing there and the walk stalls on step 3 forever.
+    const cont = page.getByRole("button", { name: /^(Start|Continue)/ }).first()
+    if (await cont.count()) { await cont.click(); await page.waitForTimeout(1600) }
+  }
+  t.require("the walk reached the activity step", reached, page.url())
+
+  const body = await page.locator("body").innerText()
+  t.check("the self-declared completion button is gone",
+    !/I've finished it|Done reflecting/i.test(body), body.slice(0, 200))
+  t.check("and there is no Continue to press yet",
+    (await page.getByRole("button", { name: /^Continue$/ }).count()) === 0)
+  t.check("and no escape is offered to someone who has not been there",
+    (await page.locator('[data-testid="unit-carry-on"]').count()) === 0)
+  t.check("the step says what will open it",
+    /records that you got to the end/i.test(body), body.slice(0, 300))
+
+  // Go and try. The escape is for the student whose game died, so it has to be
+  // reachable AFTER an attempt -- in FLIP the activity sits between the two
+  // checks, and a dead end there would cost the post-check of stuck FLIP students
+  // and none of CONTROL's, which is differential attrition by condition.
+  await page.getByRole("button", { name: /^Open the activity/ }).first().click()
+  await page.waitForTimeout(2500)
+  t.check("Open the activity actually opens the game", page.url().includes("/games/"), page.url())
+  await go(page, url)
+  await ready(page, 1500)
+
+  const carry = page.locator('[data-testid="unit-carry-on"]').first()
+  t.check("after a genuine attempt the escape appears", (await carry.count()) === 1)
+
+  // A skip that is RECORDED is data the analysis can flag or drop; a skip that
+  // looks identical to a completion is contamination. Watch the wire rather than
+  // the sink: /api/research/summary returns counts only ({total_events,
+  // participants}) and cannot tell you WHICH event landed, so the request body is
+  // the only place the event type is actually visible.
+  let logged = null
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("/api/research/event")) {
+      try {
+        const b = JSON.parse(r.postData() || "{}")
+        if (b.event_type === "activity_not_recorded") logged = b
+      } catch { /* not ours */ }
+    }
+  })
+  const before = (await apiFromPage(page, "/api/research/summary")).body?.total_events ?? 0
+
+  await carry.click()
+  await page.waitForTimeout(1800)
+  t.check("and it moves the unit on",
+    (await page.locator('[data-testid="game-observed"]').count()) === 0, page.url())
+  t.check("taking the escape sends activity_not_recorded", !!logged, logged)
+  t.check("tagged with the topic it happened on",
+    logged?.topic_id === topic.topic_id, { got: logged?.topic_id, want: topic.topic_id })
+
+  const after = (await apiFromPage(page, "/api/research/summary")).body?.total_events ?? 0
+  t.check("and the sink accepted it", after > before, { before, after })
+})
+
+
+test("playing the activity opens the gate, without the escape", async (page, t) => {
+  // THE OTHER HALF, and the one that must not be taken on trust. Gating Continue on
+  // a real completion is only safe if a real completion actually arrives -- and the
+  // path it travels is not obvious: the debrief calls markGameComplete, which writes
+  // the student's local progress AND mirrors `understanding_complete` to the sink
+  // with no telemetry guard, while TELEMETRY_ENABLED ships 0 pending the HSESC
+  // amendment. If that mirror had been gated, this gate would be a WALL on the
+  // default configuration and every student would meet it. Assert it, do not read it.
+  const sid = freshSid()
+  await signIn(page, sid)
+  await giveConsent(page)
+  await onboard(page)
+
+  const journey = await apiFromPage(page, "/api/topics")
+  const topic = journey.body.topics.find((x) => x.state === "open" && x.has_bank)
+  t.require("an open topic with a bank exists", !!topic)
+  const url = `/topics/${topic.topic_id}`
+  t.note(`topic=${topic.topic_id} telemetry_enabled=${journey.body.telemetry_enabled}`)
+
+  await go(page, url)
+  await ready(page, 1500)
+
+  // Walk to the activity step.
+  let reached = false
+  for (let i = 0; i < 10 && !reached; i++) {
+    if (await page.locator('[data-testid="game-observed"]').count()) { reached = true; break }
+    const probe = page.locator('[data-testid="probe-answer"]')
+    if (await probe.count()) {
+      await probe.fill("The ratio is what matters, not the fixed amount added.")
+      await page.locator('[data-testid="probe-submit"]').first().click()
+      await page.waitForTimeout(2200)
+    }
+    const options = page.locator('[data-testid="mc-option"]')
+    const n = await options.count()
+    for (let k = 0; k < n; k++) await options.nth(k).click().catch(() => {})
+    const submit = page.locator('[data-testid="mc-submit"]').first()
+    if (await submit.count()) { await submit.click(); await page.waitForTimeout(2600) }
+    const cont = page.getByRole("button", { name: /^(Start|Continue)/ }).first()
+    if (await cont.count()) { await cont.click(); await page.waitForTimeout(1600) }
+  }
+  t.require("reached the activity step", reached, page.url())
+
+  // Actually play it. These are short state machines -- click the forward control
+  // until the debrief appears. This is the one game surface the suite plays to the
+  // END rather than merely mounting.
+  let completion = null
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("/api/research/event")) {
+      try {
+        const b = JSON.parse(r.postData() || "{}")
+        if (b.event_type === "understanding_complete") completion = b
+      } catch { /* not ours */ }
+    }
+  })
+
+  await page.getByRole("button", { name: /^Open the activity/ }).first().click()
+  await page.waitForTimeout(2200)
+  let debrief = false
+  for (let i = 0; i < 12 && !debrief; i++) {
+    const txt = await page.locator("body").innerText().catch(() => "")
+    if (/what you just experienced|understanding complete|assessment complete|key takeaway/i.test(txt)) { debrief = true; break }
+    const fwd = page
+      .getByRole("button", { name: /^(Continue|Next|Experience|Complete|Finish|See|Start|Try|Play|Got it|Apply|Explore)/i })
+      .first()
+    if (!(await fwd.count())) break
+    await fwd.click().catch(() => {})
+    await page.waitForTimeout(1300)
+  }
+  t.check("the activity reached its debrief", debrief, (await page.locator("body").innerText()).slice(0, 160))
+
+  await go(page, url)
+  await ready(page, 1800)
+  const observed = await page.locator('[data-testid="game-observed"]').innerText().catch(() => "")
+  t.check("the unit now says the activity is recorded", /We have your activity recorded/i.test(observed), observed)
+  t.check("Continue is offered", (await page.locator('[data-testid="unit-continue"]').count()) === 1)
+  t.check("and no escape is shown, because none is needed",
+    (await page.locator('[data-testid="unit-carry-on"]').count()) === 0)
+
+  // The SERVER agrees -- not just this browser's localStorage. That distinction is
+  // the whole point: the paper reads game_done, the student's device does not.
+  const after = await apiFromPage(page, "/api/topics")
+  const row = after.body.topics.find((x) => x.topic_id === topic.topic_id)
+  t.check("and the server recorded understanding_complete", row?.game_done === true,
+    { game_done: row?.game_done })
+
+  // HOW LONG, not just whether. Completion is binary; twenty seconds and eight
+  // minutes were the same datum until this landed, and for a flip-learning claim
+  // they are not the same treatment.
+  //
+  // Asserted on the WIRE. There is no per-participant read endpoint and adding one
+  // to satisfy a test would put every student's event stream behind a URL, which is
+  // a poor trade for an assertion the request body already answers.
+  t.check("the activity reported how long it took, not just that it happened",
+    typeof completion?.duration_ms === "number" && completion.duration_ms > 0, completion)
+})
+
+
+test("the end-of-unit battery, in whichever state it is deployed", async (page, t) => {
+  // Covers BOTH configurations from one test, because both ship: questionnaires are
+  // off by default pending the HSESC amendment, and on is what September needs. A
+  // test that only ran in one of them would leave the other unverified on the day it
+  // is switched.
+  const sid = freshSid()
+  await signIn(page, sid)
+  await giveConsent(page)
+  await onboard(page)
+
+  const journey = await apiFromPage(page, "/api/topics")
+  const on = journey.body?.questionnaires_enabled === true
+  const topic = journey.body.topics.find((x) => x.state === "open" && x.has_bank)
+  t.require("an open topic exists", !!topic)
+  t.note(`questionnaires_enabled=${on}`)
+
+  // The promised duration has to follow the deployment. 29 extra items roughly
+  // doubles a unit, and opening the study by breaking a promise to a tired student
+  // is the thing the shell was rebuilt to stop doing.
+  await go(page, "/dashboard")
+  await ready(page, 1500)
+  const dash = await page.locator("body").innerText()
+  t.check("the dashboard promises a time that matches the deployment",
+    on ? /About 20 minutes/.test(dash) : /About 12 minutes/.test(dash),
+    dash.match(/About \d+ minutes/)?.[0] ?? "(no time promised)")
+
+  // Jump to the close step rather than re-walking a unit the suite already walks
+  // twice: this test is about the battery, not the flow, and the flow has its own
+  // tests. The unit resumes from this key by design (students close laptops).
+  await go(page, `/topics/${topic.topic_id}`)
+  await ready(page, 1200)
+  await page.evaluate((id) => localStorage.setItem(`compgame:unit:${id}:step`, "close"), topic.topic_id)
+  await page.reload({ waitUntil: "domcontentloaded" })
+  await page.waitForTimeout(2500)
+
+  const form = page.locator('[data-testid="questionnaire"]')
+  if (!on) {
+    // The default. A disabled instrument must leave NO trace -- not a heading, not
+    // an empty card, not a dead submit.
+    t.check("with questionnaires off the close screen shows no form",
+      (await form.count()) === 0)
+    t.check("and no stray options are rendered",
+      (await page.locator('[data-testid="q-option"]').count()) === 0)
+    t.check("the student can still leave the unit",
+      (await page.getByRole("button", { name: /Continue the path/ }).count()) > 0)
+    return
+  }
+
+  t.check("the battery renders", (await form.count()) === 1)
+  const opts = await page.locator('[data-testid="q-option"]').count()
+  // 12 IMI + 8 CoI + 8 ARCS on a 5-point scale, plus 1 Paas on a 9-point.
+  t.check("every item and every scale point is on screen", opts === 28 * 5 + 9, opts)
+
+  const submit = page.locator('[data-testid="questionnaire-submit"]')
+  t.check("submit is shut until every item is answered", await submit.isDisabled())
+  t.check("and it says how many are left",
+    /Answer all 29 remaining/.test(await submit.innerText()), await submit.innerText())
+
+  // The scoring key must not travel. The pack is explicit that reverse items and
+  // subscale membership are researcher-only: a student who can see M9 is reversed
+  // is being told which way looks good.
+  const html = await page.content()
+  t.check("the reverse-scored items are not in the page", !/\bM9\b.*reverse|reverse.*\bM9\b/i.test(html))
+  t.check("subscale names are not in the page", !/Interest \/ Enjoyment|Teaching Presence/i.test(html))
+
+  // Answer everything: click the first option of each item's group.
+  const groups = page.locator('[role="radiogroup"]')
+  const n = await groups.count()
+  for (let i = 0; i < n; i++) {
+    await groups.nth(i).locator('[data-testid="q-option"]').first().click().catch(() => {})
+  }
+  await page.waitForTimeout(400)
+  t.check("answering everything opens submit", !(await submit.isDisabled()),
+    await submit.innerText())
+
+  await submit.click()
+  await page.waitForTimeout(2500)
+  t.check("it acknowledges rather than vanishing",
+    (await page.locator('[data-testid="questionnaire-done"]').count()) === 1)
+
+  // One measurement occasion per topic. A second pass would silently double-weight
+  // one participant.
+  const again = await apiFromPage(page, "/api/questionnaire/paas", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ answers: { P1: 5 }, topic_id: topic.topic_id }),
+  })
+  t.check("a second submission for the same topic is refused", again.status === 409, again.status)
 })

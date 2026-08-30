@@ -254,3 +254,55 @@ export function freshSid() {
 }
 export const sidBlockStart = () => SID_OFFSET + 1
 export const UNENROLLED_SID = "99Z99999Z"
+
+
+/** Get past a unit step that WAITS for real completion (activity / assessment /
+ *  tutor), the way a stuck student would.
+ *
+ *  Until 2026-08-30 those steps carried an always-enabled "I've finished it --
+ *  continue" and this suite used it, which meant the tests walked a unit without
+ *  playing anything -- the same hole a student had, and the reason the button was
+ *  removed. Continue now appears only once the thing records.
+ *
+ *  A generic driver cannot finish most of the 26 games (that is the P5 gap in
+ *  docs/go-live-plan.md 4.1), so it takes the recorded escape instead. That is not
+ *  a workaround: exercising it here IS the check that a student whose game dies is
+ *  not stranded mid-unit -- which matters most in the FLIP arm, where the activity
+ *  sits between the pre- and post-check.
+ *
+ *  Returns true if it moved the unit on.
+ */
+export async function passGatedStep(page, topicUrl) {
+  const carry = () => page.locator('[data-testid="unit-carry-on"]').first()
+  if (await carry().count()) {
+    await carry().click()
+    await page.waitForTimeout(1500)
+    return true
+  }
+
+  // The tutor opens a DIALOG in place; the games are a navigation away. Both
+  // count as "they went and tried", which is what unlocks the escape.
+  const tutor = page.locator('[data-testid="open-reflection"]').first()
+  if (await tutor.count()) {
+    await tutor.click()
+    await page.waitForTimeout(1200)
+    await page.keyboard.press("Escape").catch(() => {})
+    await page.waitForTimeout(800)
+  } else {
+    const opener = page
+      .getByRole("button", { name: /^(Open the activity|Open the assessment|Back into)/ })
+      .first()
+    if (!(await opener.count())) return false
+    await opener.click()
+    await page.waitForTimeout(2000)
+    await go(page, topicUrl)
+    await ready(page)
+  }
+
+  if (await carry().count()) {
+    await carry().click()
+    await page.waitForTimeout(1500)
+    return true
+  }
+  return false
+}

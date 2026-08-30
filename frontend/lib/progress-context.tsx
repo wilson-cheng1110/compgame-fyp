@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import Cookies from "js-cookie"
-import { getUsers, setUsers } from "@/lib/user-store"
+import { getUsers, setUsers, ensureUser } from "@/lib/user-store"
 import {
   type TopicId,
   type GameMode,
@@ -15,7 +15,7 @@ import { logResearchEvent } from "@/lib/research-log"
 
 interface ProgressContextType {
   progress: AllTopicProgress
-  markGameComplete: (gameId: string, score?: number) => void
+  markGameComplete: (gameId: string, score?: number, durationMs?: number) => void
   recordReflection: (topicId: TopicId, summary: { turns: number; insight: boolean }) => void
   getTopicProgress: (topicId: TopicId) => TopicProgress
   refreshProgress: () => void
@@ -54,7 +54,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [readProgress])
 
   const markGameComplete = useCallback(
-    (gameId: string, score?: number) => {
+    (gameId: string, score?: number, durationMs?: number) => {
       try {
         const userCookie = Cookies.get("user")
         if (!userCookie) return
@@ -65,8 +65,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         if (!parsed) return
         const { topicId, mode } = parsed
 
-        const users = getUsers()
-        if (!users[sid]) return
+        // ensureUser, not getUsers + bail: see lib/user-store.ts. The bail is what
+        // silently dropped every game completion since 2026-06-23.
+        const users = ensureUser(sid)
 
         const existing: AllTopicProgress = users[sid].topicProgress ?? {}
         const current: TopicProgress = existing[topicId] ?? getDefaultTopicProgress()
@@ -98,6 +99,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         logResearchEvent({
           event_type: mode === "understanding" ? "understanding_complete" : "assessment_complete",
           topic_id: topicId,
+          // WALL CLOCK, idle time included. Trimming is an analysis decision --
+          // see lib/game-clock.ts and backend/measures.py.
+          duration_ms: durationMs,
           mode,
           score: mode === "assessment" ? score : undefined,
           played_understanding_first:
@@ -121,8 +125,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         const { sid } = JSON.parse(userCookie)
         if (!sid) return
 
-        const users = getUsers()
-        if (!users[sid]) return
+        // ensureUser, not getUsers + bail: see lib/user-store.ts. The bail is what
+        // silently dropped every game completion since 2026-06-23.
+        const users = ensureUser(sid)
 
         const existing: AllTopicProgress = users[sid].topicProgress ?? {}
         const current: TopicProgress = existing[topicId] ?? getDefaultTopicProgress()

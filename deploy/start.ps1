@@ -64,6 +64,12 @@ if (-not (Test-Path (Join-Path $Frontend ".next\BUILD_ID"))) {
 
 Kill-Port 8080
 Write-Host "starting API on 127.0.0.1:8080 (loopback)" -ForegroundColor Cyan
+# Force UTF-8 for Python I/O. rag_api.py prints emoji in its startup/log lines, and on
+# a cp1252 Windows console that raises UnicodeEncodeError -- the fuzz sweep flagged one
+# print of unvalidated student text as one codepage away from crashing that request
+# path. PYTHONUTF8=1 makes stdout/stderr UTF-8 for the child process below. ASCII only,
+# so a BOM-less-ANSI parse cannot break on it.
+$env:PYTHONUTF8 = "1"
 Start-Process -FilePath $Py `
     -ArgumentList "-m", "uvicorn", "rag_api:app", "--host", "127.0.0.1", "--port", "8080" `
     -WorkingDirectory $Backend -WindowStyle Hidden `

@@ -49,6 +49,9 @@ import re
 # Configuration
 DB_DIR = "./hci_chroma_db_local"
 OLLAMA_LLM = "gemma4:e4b"
+# Hard HTTP-call ceiling so a wedged Ollama frees its concurrency slot instead of
+# hanging forever (chaos sweep, 2026-08-30). Overridable for a slower box.
+OLLAMA_TIMEOUT_S = float(os.environ.get("OLLAMA_TIMEOUT_S", "90"))
 OLLAMA_EMBEDDING = "nomic-embed-text" 
 
 app = FastAPI(title="HCI RAG API")
@@ -92,6 +95,12 @@ app.include_router(research_router)
 # Teacher surface. Its own router with its own allowlist file -- see admin_api.py for
 # why it could not exist before passwords did.
 app.include_router(admin_router)
+
+# H2/H3/H4 had no way into the app at all until 2026-08-30 -- three of the four
+# co-equal constructs existed only as paper forms. OFF unless QUESTIONNAIRES_ENABLED=1,
+# which is an ethics decision (docs/ethics-amendment-stage2.md), not a merge.
+from questionnaire_api import router as questionnaire_router  # noqa: E402
+app.include_router(questionnaire_router)
 # Grading is offline by design (docs/revamp.md Part 8.2); this router exists so the
 # batch and the occasional spot check can reach the model. It fails CLOSED -- with
 # GRADE_TOKEN unset every route 503s, so mounting it does not expose anything.
@@ -173,6 +182,20 @@ class SocraticRequest(BaseModel):
     # Each item: {"role": "human"|"assistant", "content": str}. The opener the
     # frontend showed the student is included as the first "assistant" turn.
     history: list[dict]
+
+    def trimmed_history(self) -> list[dict]:
+        """Bound the history the model sees. The fuzz sweep sent a 500-turn history
+        of 1000-char messages and /api/socratic stalled 32.6s (4x baseline), one
+        request able to occupy a scarce GPU slot for that long. A real reflection is
+        a handful of short turns; keep the most recent ones and cap each message. The
+        opener (first assistant turn, which anchors retrieval) is always preserved."""
+        MAX_TURNS, MAX_CHARS = 24, 4000
+        hist = self.history or []
+        opener = next((m for m in hist if m.get("role") == "assistant"), None)
+        tail = hist[-MAX_TURNS:]
+        if opener is not None and opener not in tail:
+            tail = [opener] + tail
+        return [{**m, "content": str(m.get("content", ""))[:MAX_CHARS]} for m in tail]
 
 
 # ResearchEvent model now lives in research_api.py alongside its endpoint.
@@ -262,7 +285,8 @@ def get_rag_components():
     recent conversation deterministically — no fragile LLM rephrase step."""
     print(f"🔌 Initializing database and Ollama '{OLLAMA_LLM}' model...")
     vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING))
-    llm = ChatOllama(model=OLLAMA_LLM, temperature=0)
+    llm = ChatOllama(model=OLLAMA_LLM, temperature=0,
+                     client_kwargs={"timeout": OLLAMA_TIMEOUT_S})
     retriever = build_retriever(vectorstore)
     return llm, retriever
 
@@ -327,7 +351,8 @@ def get_socratic_chain():
     # valid-JSON grammar so the envelope is ALWAYS parseable (no more truncated
     # `{"response": "...` leaking into the chat); num_predict gives one Socratic
     # turn enough headroom to finish the object naturally before any cap.
-    llm = ChatOllama(model=OLLAMA_LLM, temperature=0.4, format="json", num_predict=512)
+    llm = ChatOllama(model=OLLAMA_LLM, temperature=0.4, format="json", num_predict=512,
+                     client_kwargs={"timeout": OLLAMA_TIMEOUT_S})
     retriever = build_retriever(vectorstore)
     return llm, retriever
 
@@ -452,8 +477,10 @@ async def ask_question(req: QuestionRequest, request: Request):
             "answer": _scrub_identity(result.content),
             "sources": sources,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except (ops.Saturated, HTTPException):
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="tutor_unavailable")
 
 
 # A reply that is empty, a bare literal, or still a JSON envelope must NEVER reach
@@ -622,13 +649,14 @@ async def socratic_reflection(req: SocraticRequest, request: Request):
         raise HTTPException(status_code=500, detail="Socratic tutor is not initialized yet.")
 
     try:
+        history = req.trimmed_history()   # bounded: see SocraticRequest.trimmed_history
         # Anchor retrieval on the topic + the ORIGINAL reflection question (the
         # first assistant turn the frontend seeded), NOT the latest student
         # message. Adversarial/off-topic input ("who made you", "shut up") was
         # polluting the query and dragging the tutor off the topic. The LLM still
         # sees the full history below for steering; only retrieval is anchored.
         opener = next(
-            (m.get("content", "") for m in req.history if m.get("role") == "assistant"),
+            (m.get("content", "") for m in history if m.get("role") == "assistant"),
             "",
         )
         query = f"{req.topic}. {opener}".strip()
@@ -636,7 +664,7 @@ async def socratic_reflection(req: SocraticRequest, request: Request):
         context = "\n\n".join(d.page_content for d in docs)
 
         messages = [SystemMessage(content=SOCRATIC_SYSTEM_PROMPT.format(topic=req.topic, context=context))]
-        for m in req.history:
+        for m in history:
             content = m.get("content", "")
             if m.get("role") == "human":
                 messages.append(HumanMessage(content=content))
@@ -644,7 +672,7 @@ async def socratic_reflection(req: SocraticRequest, request: Request):
                 messages.append(AIMessage(content=content))
 
         last_human = next(
-            (m.get("content", "") for m in reversed(req.history) if m.get("role") == "human"),
+            (m.get("content", "") for m in reversed(history) if m.get("role") == "human"),
             "",
         )
         # Forceful LAST-position nudge when the student asks for an example or is
@@ -681,8 +709,13 @@ async def socratic_reflection(req: SocraticRequest, request: Request):
             for d in docs if d.metadata.get("source")
         })
         return {"response": response, "sources": sources, "understood": understood, "counts": counts}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except (ops.Saturated, HTTPException):
+        # Let the dedicated Saturated handler return its 503 + Retry-After, and let
+        # an already-shaped HTTPException through unchanged. The blanket catch below
+        # was swallowing both into an indistinguishable 500.
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="tutor_unavailable")
 
 # ── Flip-learning research data sink ──────────────────────────────────────────
 # Moved to research_api.py (included above). It holds the study's entire dataset

@@ -108,6 +108,43 @@ try {
 '@ | Set-Content -Path $heartbeat -Encoding utf8
 Ok "wrote deploy\heartbeat.ps1"
 
+
+# --------------------------------------------------------------- daily checks
+# The controls only work if something runs them. Every silent failure this project
+# has had was invisible because nobody looked, not because nobody could -- so the
+# looking is a scheduled task, and the RESULT is written where a human already
+# reads: generate_tutorial_report.py prints a warning when this file says FAIL or
+# has gone stale.
+#
+# Deliberately does NOT touch the heartbeat. The dead-man's switch means "the box
+# is off"; a stale corpus is a different problem with a different fix, and folding
+# them together trains people to ignore both.
+$checks = Join-Path $Root "deploy\daily-checks.ps1"
+@'
+$ErrorActionPreference = "Continue"
+$root = Split-Path -Parent $PSScriptRoot
+$be = Join-Path $root "backend"
+$out = Join-Path $PSScriptRoot "last-check.txt"
+$fails = @()
+foreach ($c in @(
+    @{ n = "measurement"; a = @("check_measurement_coverage.py", "--quiet") },
+    @{ n = "corpus";      a = @("check_corpus_coverage.py", "--quiet") },
+    @{ n = "schedule";    a = @("schedule.py", "--validate") })) {
+    Push-Location $be
+    & python $c.a 2>&1 | Out-Null
+    $code = $LASTEXITCODE
+    Pop-Location
+    if ($code -ne 0) { $fails += $c.n }
+}
+$stamp = (Get-Date).ToUniversalTime().ToString("s") + "Z"
+if ($fails.Count -eq 0) {
+    "PASS $stamp" | Set-Content -Path $out -Encoding utf8
+} else {
+    "FAIL $stamp " + ($fails -join ",") | Set-Content -Path $out -Encoding utf8
+}
+'@ | Set-Content -Path $checks -Encoding utf8
+Ok "wrote deploy\daily-checks.ps1"
+
 # ------------------------------------------------------------------ register
 function Register($name, $script, $trigger) {
     if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
@@ -135,6 +172,10 @@ $every5 = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
 Register "COMPGame-Boot"      $Start     $bootTrigger
 Register "COMPGame-Watchdog"  $watchdog  $every5
 Register "COMPGame-Heartbeat" $heartbeat $every5
+
+# Daily, early, so a failure is on the file before anyone opens a brief.
+$daily = New-ScheduledTaskTrigger -Daily -At 6am
+Register "COMPGame-Checks"    $checks    $daily
 
 # ------------------------------------------------------------------- tunnel
 Write-Host ""

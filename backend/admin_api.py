@@ -46,14 +46,25 @@ load-bearing -- with the hash inside it, threads would just queue on the lock ag
 """
 
 import asyncio
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel
 
 import auth_store
+import ops
 import schedule
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+class GenerateReport(BaseModel):
+    topic: str
+    section: str
 
 
 class SessionDate(BaseModel):
@@ -219,3 +230,158 @@ async def set_schedule(body: SessionDate, response: Response,
                          f"session {body.session} section {body.section}: "
                          f"{result['old']} -> {result['new']}")
     return result
+
+
+# ── the tutorial brief, reachable ─────────────────────────────────────────────
+#
+# The brief is the teacher's ACTUAL weekly job and until now the only way to it was:
+# ssh onto the box, run generate_tutorial_report.py, open a .md in an editor. The
+# persona the report was written for -- reads one page, standing up, thirty minutes
+# before the tutorial -- had no way to reach that page. The report was good and
+# undeliverable, which is the same as not existing.
+#
+# THE `-research` COPY IS NOT LISTED HERE. It is the only one that names arms and
+# sequence, and a lecturer who learns the manipulation exists can teach to compensate
+# -- differential instruction by condition, a confound that lands on H1 and cannot be
+# removed afterwards. It stays a file on the box, for Wilson.
+
+REPORTS_DIR = os.environ.get(
+    "REPORTS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reports"))
+
+_SAFE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+@router.get("/reports")
+async def list_reports(response: Response, session: str | None = Cookie(default=None)):
+    """Every brief generated so far, newest first. Never the -research copies."""
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    out = []
+    for root, _dirs, files in os.walk(REPORTS_DIR):
+        for fn in sorted(files):
+            # ALLOWLIST, not a denylist (findings S4 + L7). generate_tutorial_report.py
+            # writes exactly three files per (topic, section): `<t>-<date>-teacher.md`,
+            # `-discussion.md`, and `-research.md`. The research copy is the ONLY one
+            # that names each student's FLIP/CONTROL order and must never be listed or
+            # served. A denylist on the literal "-research.md" was defeated by any
+            # ordinary copy of that content — a "-research.md.bak", a Windows
+            # "-research (1).md" duplicate, an editor autosave, a OneDrive conflict copy
+            # — each of which still names the conditions. So list ONLY the two
+            # known-safe suffixes; every other file, including any rename of the
+            # research copy, is invisible by construction.
+            low = fn.lower()
+            if not low.endswith(("-teacher.md", "-discussion.md")):
+                continue
+            full = os.path.join(root, fn)
+            rel = os.path.relpath(full, REPORTS_DIR).replace(os.sep, "/")
+            out.append({
+                "path": rel,
+                "name": fn[:-3],
+                # A lecturer needs to know which one is safe to project BEFORE they
+                # open it in front of a room, not after. Case-folded like the rest.
+                "projectable": fn.lower().endswith("-discussion.md"),
+                "bytes": os.path.getsize(full),
+                "modified": datetime.fromtimestamp(
+                    os.path.getmtime(full), timezone.utc).isoformat(),
+            })
+    out.sort(key=lambda r: r["modified"], reverse=True)
+    return {"reports": out[:200]}
+
+
+@router.get("/reports/file")
+async def read_report(path: str, response: Response,
+                      session: str | None = Cookie(default=None)):
+    """One brief, as markdown text."""
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    # Every segment validated against an allowlist and the result re-checked against
+    # the root. `..` in a query parameter reaching os.path.join is the oldest file
+    # -read bug there is, and this endpoint sits next to a directory of files with
+    # student SIDs in them.
+    parts = [p for p in path.split("/") if p]
+    # `..` is all dots, so _SAFE (`[A-Za-z0-9._-]+`) lets it through -- the abspath
+    # containment check below is what actually stops traversal, but reject `..`
+    # here too so the regex is not the only thing standing between a query param and
+    # the filesystem.
+    if not parts or any(not _SAFE.match(p) or p in ("..", ".") for p in parts):
+        response.status_code = 400
+        return {"error": "bad_path"}
+    # ALLOWLIST, not a denylist (findings S4 + L7). Serve ONLY the two safe report
+    # copies; the research copy — which names each student's FLIP/CONTROL order — and
+    # ANY rename of it (a "-research.md.bak", a "-research (1).md", an autosave) are
+    # never servable. A denylist on the literal "-research.md" was defeated by exactly
+    # those ordinary copies, and by case tricks an NTFS filesystem resolves loosely.
+    # Requiring a -teacher.md / -discussion.md suffix removes the "-research.md" string
+    # to case-trick around entirely, and fails closed for anything unexpected.
+    _SERVABLE = ("-teacher.md", "-discussion.md")
+    if not parts[-1].lower().endswith(_SERVABLE):
+        response.status_code = 403
+        return {"error": "not_for_this_page",
+                "message": "That copy names the study conditions and stays on the box."}
+    full = os.path.abspath(os.path.join(REPORTS_DIR, *parts))
+    if not full.startswith(os.path.abspath(REPORTS_DIR)) or not os.path.isfile(full):
+        response.status_code = 404
+        return {"error": "no_such_report"}
+    # Last-line defence: whatever the query string cased, verify the file the OS
+    # ACTUALLY opened is one of the two servable copies. `os.path.realpath` gives the
+    # true on-disk name (case-corrected, trailing dots/spaces stripped by the OS).
+    if not os.path.basename(os.path.realpath(full)).lower().endswith(_SERVABLE):
+        response.status_code = 403
+        return {"error": "not_for_this_page",
+                "message": "That copy names the study conditions and stays on the box."}
+    with open(full, encoding="utf-8") as fh:
+        return {"path": "/".join(parts), "markdown": fh.read()}
+
+
+@router.post("/reports/generate")
+async def generate_report(body: GenerateReport, response: Response,
+                          session: str | None = Cookie(default=None)):
+    """Generate this week's tutorial brief from the browser — the affordance the
+    sweep found missing (Defect 3 was only half-closed: a teacher could READ a brief
+    but not PRODUCE one without shell access, so the empty state handed a
+    non-technical lecturer a raw CLI command).
+
+    Runs the SAME generator as the CLI, in a subprocess with --no-llm so it never
+    blocks on Ollama and always returns the numeric report the teacher needs. The
+    three files (teacher / discussion / research) are written as always; the
+    -research copy is still never served to the browser. Audited like every mutation.
+    """
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    topic = (body.topic or "").strip()
+    section = (body.section or "").strip().upper()
+    # Validate against the real lists BEFORE shelling out — never pass unchecked
+    # strings to a subprocess argv.
+    if topic not in schedule.session_grid_topics():
+        response.status_code = 400
+        return {"error": "unknown_topic"}
+    if section not in schedule.sections():
+        response.status_code = 400
+        return {"error": "unknown_section"}
+
+    # RATE-LIMIT + BOUND (finding S3). The generator can run up to 120 s and holds a
+    # shared threadpool worker for its whole duration, so an unbounded burst of admin
+    # clicks could starve the pool that sign-in, record_event and session reads share.
+    # A per-admin token bucket stops one teacher hammering it; ops.run_report_job keeps
+    # it serial and off the event loop regardless of who calls.
+    if not ops.allow(f"report:{sid}", per_minute=6, burst=3):
+        response.status_code = 429
+        return {"error": "too_many_requests",
+                "message": "A report is already being generated — give it a moment and try again."}
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    proc = await ops.run_report_job(
+        subprocess.run,
+        [sys.executable, os.path.join(here, "generate_tutorial_report.py"),
+         "--topic", topic, "--section", section, "--no-llm"],
+        capture_output=True, text=True, cwd=here, timeout=120,
+    )
+    if proc.returncode != 0:
+        response.status_code = 500
+        return {"error": "generate_failed",
+                "message": (proc.stderr or proc.stdout or "").strip()[-300:]}
+    auth_store.audit(sid, "generate_report", None, f"{topic}/{section}")
+    return {"ok": True, "topic": topic, "section": section}

@@ -47,6 +47,36 @@ export function getUsers(): UsersMap {
 }
 
 /** Persist the users map to localStorage and remove any legacy cookie copy. */
+/**
+ * The users map, with `sid` guaranteed to HAVE a record.
+ *
+ * WHY THIS EXISTS -- the bug it closes was a silent, ten-week loss of the
+ * behavioural half of the dataset. `markGameComplete`, `recordReflection` and
+ * `addBadge` all did `const users = getUsers(); if (!users[sid]) return`, and
+ * nothing created that record: both onboarding writes are guarded
+ * `if (users[sid])` and only ever UPDATE one. That was harmless while accounts
+ * lived in this blob and signup wrote it here. Since accounts moved server-side
+ * (2026-08-16) a student's record is simply never created, so every one of those
+ * writes hit the guard and returned.
+ *
+ * The sink shows it exactly: `understanding_complete` and `assessment_complete`
+ * both stop dead on 2026-06-23, while `topic_pretest`, `topic_probe` and
+ * `topic_complete` run to the present day. Units were completing with no recorded
+ * gameplay at all -- which also means `game_done`, `assess_done` and
+ * `played_understanding_first`, the independent variable, were never written.
+ *
+ * It stayed invisible because the unit's activity step carried a self-declared
+ * "I've finished it -- continue": students went past regardless, and nothing on
+ * screen depended on the observed twin. Removing that button is what surfaced it.
+ *
+ * A missing per-device cache entry is not a reason to drop a write. Initialise it.
+ */
+export function ensureUser(sid: string): UsersMap {
+  const users = getUsers()
+  if (!users[sid]) users[sid] = {}
+  return users
+}
+
 export function setUsers(users: UsersMap): void {
   if (typeof window === "undefined") return
   try {

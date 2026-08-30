@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Maximize2, Minimize2 } from "lucide-react"
 import Cookies from "js-cookie"
+import { auth } from "@/lib/api"
 import PreservedLink from "./preserved-link"
 
 interface GameControl {
@@ -56,7 +57,8 @@ export default function GameLayout({ children, title, controls, className }: Gam
     }
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try { await auth.logout() } catch { /* sign out locally regardless */ }
     Cookies.remove("user")
     router.push("/")
   }
@@ -170,11 +172,18 @@ export default function GameLayout({ children, title, controls, className }: Gam
         <div className="w-full max-w-4xl mx-auto mb-8 relative">
           <div
             id="game-container"
-            className="relative bg-[#1e293b] overflow-hidden flex items-center justify-center"
+            className="relative bg-[#1e293b] flex items-center justify-center"
             style={{
               width: "100%",
-              height: "500px", // Fixed height to ensure content exceeds viewport
-              minHeight: "400px",
+              // Was height:500px + overflow:hidden, which CLIPPED any game taller
+              // than 500px — gestalt-understanding's menu is 919px, so its "✓ I've
+              // learned these" completion CTA was physically unreachable by a real
+              // mouse, forcing every gestalt student onto the unit's escape hatch
+              // (sweep finding H3). Grow to fit the content and let the wheel reach
+              // what a small viewport can't show.
+              minHeight: "500px",
+              maxHeight: "none",
+              overflowY: "auto",
               margin: "0 auto",
             }}
           >

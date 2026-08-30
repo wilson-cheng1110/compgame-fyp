@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import Cookies from "js-cookie"
-import { getUsers, setUsers } from "@/lib/user-store"
+import { getUsers, setUsers, ensureUser } from "@/lib/user-store"
 import { getTopicFromGameId, getDefaultTopicProgress } from "@/lib/topic-definitions"
 import type { AllTopicProgress } from "@/lib/topic-definitions"
 
@@ -62,7 +62,11 @@ export function BadgeProvider({ children }: { children: ReactNode }) {
         if (!userCookie) return false
 
         const userData = JSON.parse(userCookie)
-        const users = getUsers()
+        // ensureUser, not getUsers: the `if (users[sid])` below would otherwise
+        // drop every badge for a student whose local record was never created --
+        // which, since accounts moved server-side, is every student. Same bug as
+        // markGameComplete; see lib/user-store.ts.
+        const users = ensureUser(userData.sid)
 
         // Also update topic progress whenever a badge is awarded
         const updateTopicProgress = (usersObj: any) => {

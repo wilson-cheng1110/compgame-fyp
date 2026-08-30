@@ -130,6 +130,7 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
         <button
           onClick={onDone}
           className="u-btn u-btn-primary"
+          data-testid="probe-continue"
         >
           Continue →
         </button>
@@ -169,13 +170,20 @@ export default function TopicProbe({ topicId, form, telemetryEnabled, onDone, da
             ? `${words} word${words === 1 ? "" : "s"} — a bit more and it'll be easier to read.`
             : `${words} words`}
         </p>
+        {/* EMPTY IS NOT A SHORT ANSWER. No MINIMUM LENGTH is enforced -- that is
+            deliberate and stays, because a two-word answer is a real datum. But
+            Submit used to be live with the box untouched, so one click skipped the
+            step, and since the server allows ONE submission per probe that click
+            permanently spent the only chance to answer it. Requiring a character
+            costs an honest short answer nothing and costs an accidental empty
+            submission everything it was about to lose. */}
         <button
           onClick={submit}
-          disabled={busy}
+          disabled={busy || words === 0}
           data-testid="probe-submit"
           className="u-btn u-btn-primary"
         >
-          {busy ? "Saving…" : "Submit"}
+          {busy ? "Saving…" : words === 0 ? "Write something to continue" : "Submit"}
         </button>
       </div>
 

@@ -20,7 +20,14 @@ body {
 
   html,
   body {
-    @apply h-full w-full p-0 m-0 overflow-hidden;
+    /* overflow-hidden clipped the "✓ I've learned these" completion CTA below a
+       500px fold with 919px of content — a real mouse could not scroll to it, so
+       every gestalt student was forced onto the unit's escape hatch and the topic
+       recorded no real understanding data (sweep finding H3). overflow-y auto lets
+       the wheel/scrollbar reach it, matching the sibling games that already work. */
+    @apply h-full w-full p-0 m-0;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 }
 

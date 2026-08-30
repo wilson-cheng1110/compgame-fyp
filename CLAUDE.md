@@ -94,7 +94,19 @@ FYP_Submission/
       dashboard/         # Game launcher (HCI + OS categories)
       games/
         [gameId]/        # Dynamic route — wrappers per game
-      topics/[topicId]/  # The topic unit. page.tsx is a SERVER COMPONENT and must stay
+      topics/[topicId]/  # NO STEP IS SELF-DECLARED any more (2026-08-30): the activity,
+                         #   assessment and tutor steps show Continue only once the thing has
+                         #   RECORDED, and offer a LOGGED escape (activity_not_recorded etc.)
+                         #   to someone who opened it and was let down. That escape is part of
+                         #   the design, not a softness in it: in FLIP the activity sits
+                         #   BETWEEN the two checks, so a hard gate would cost stuck FLIP
+                         #   students their post-check and cost CONTROL nothing --
+                         #   differential attrition by condition. The close screen now REPLAYS
+                         #   both games (free play, no ?unit=), because "you have to do it" is
+                         #   only fair beside "and you can do it again".
+                         #   The old "I've finished it - continue" was masking a ten-week data
+                         #   loss: docs/incident-2026-08-30-completion-events-lost.md.
+                         #   The topic unit. page.tsx is a SERVER COMPONENT and must stay
                          #   one: it renders the unit's content (and the locked panel)
                          #   before any JS runs. When it was a client component, any
                          #   hydration failure showed "Loading…" forever, silently.
@@ -238,7 +250,9 @@ URL, because server-side `fetch` has no document and so no origin to resolve aga
   `understood`/`counts` flags come ONLY from the model's parsed output, never from student
   input — a student typing JSON can't self-award insight or advance the floor (no injection
   vector). (Wilson 2026-06-24.)
-- CORS allows all origins (demo/dev setting — acceptable for FYP)
+- CORS is an explicit allowlist (`ALLOWED_ORIGINS`, default localhost:3000), NOT a wildcard —
+  corrected once the session cookie became credentialed (rag_api.py). The old "allows all origins"
+  note was stale; the sweep confirmed the live code is restrictive.
 - The prebuilt vector DB (`hci_chroma_db_local/`) **and** the COMP3423 lecture PDFs are
   **committed to the repo** (intentional, Wilson 2026-06-18) so a fresh clone runs RAG with no
   out-of-band files. They are NOT gitignored. If the DB goes empty/missing, restore with
@@ -290,6 +304,13 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
 - Game isolation: no shared narrative thread, no "journey" feel
 - RAG widget: floating chatbot feels bolted-on, not integrated into game flow
 - No progress visualization (e.g., skill tree or journey map)
+- **`markGameComplete` recorded NOTHING from 2026-06-23 to 2026-08-30** — `if (!users[sid])
+  return` over a local record that nothing created once accounts moved server-side. So
+  `game_done`, `assess_done` and `played_understanding_first` were never written from
+  gameplay, and badges were dropped the same way. Fixed with `ensureUser()` in
+  `lib/user-store.ts`. Evidence and the data consequences:
+  `docs/incident-2026-08-30-completion-events-lost.md` — **two open questions for Wilson at
+  its foot**, one an ethics wording issue on `TELEMETRY_ENABLED`.
 - Experiment instrumentation: pre-test-at-signup ✅, research sink ✅ (`backend/research_store.py`), per-topic `played_understanding_first` ✅.
   - Per-topic pre/post gates ✅ · short-answer probe ✅ (`topic_probe`/`topic_probe_post`,
     fixed per topic — a per-student generated probe is a different instrument per student).

@@ -189,7 +189,7 @@
 **A3.** You perceive a complete circle even though its outline is dashed with gaps.
 **A4.** Two crossing lines are seen as each flowing smoothly *through* the intersection, not as four separate segments.
 **A5.** Two mirror-image shapes are perceived as one unified, balanced object.
-**A6.** *(Apply it.)* You want a form's related fields (a label and its input) to read as belonging together, with clear space separating unrelated fields. Which principle would you rely on?
+**A6.** *(Apply it.)* You are designing a settings screen with many options. Without using colour, borders, or boxes, you want users to instantly see which options belong together. Which principle would you rely on?
 
 ## Form B (post — after the Gestalt assessment)
 
@@ -198,7 +198,7 @@
 **B3.** The IBM logo's horizontally-striped letters are still readable as letters despite the gaps.
 **B4.** Dots arranged along a gentle curve are perceived as a single flowing path.
 **B5.** A logo with a clear left–right mirror axis is perceived as a single balanced whole.
-**B6.** *(Apply it.)* You want a toolbar's related tools to read as one group, set apart from other tools. Which principle would you use by spacing the related tools close together with gaps between groups?
+**B6.** *(Apply it.)* You are laying out a navigation menu with many links. Without using colour or boxes, you want links on the same topic to read as one group. Which principle would you use?
 
 ---
 

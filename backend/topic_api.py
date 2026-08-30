@@ -14,12 +14,14 @@ flip-learning claim unfalsifiable.
 """
 
 import os
+import asyncio
 
 from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel
 
 import auth_store
 import checks
+import questionnaire_api
 import grade
 import research_store
 import schedule
@@ -42,19 +44,25 @@ class Submission(BaseModel):
     telemetry: dict | None = None
 
 
-def _me(session: str | None):
-    return auth_store.resolve_session(session or "")
+async def _me(session: str | None):
+    # OFF THE EVENT LOOP (finding C2). resolve_session takes auth_store._lock, which a
+    # background write running in the threadpool (asyncio.to_thread) can be holding;
+    # a synchronous call here would block the WHOLE loop on that lock. This is the
+    # hottest read in the app — every page load resolves a session — so it is the one
+    # most worth keeping off the loop. Awaited by every handler below.
+    return await asyncio.to_thread(auth_store.resolve_session, session or "")
 
 
-def _consented(sid: str) -> bool:
+async def _consented(sid: str) -> bool:
     # Indexed lookup, not a scan of the whole sink — see research_store.has_event.
-    return research_store.has_event(sid, "consent_recorded")
+    # Off the loop for the same reason as _me (C2).
+    return await asyncio.to_thread(research_store.has_event, sid, "consent_recorded")
 
 
 @router.get("")
 async def journey(response: Response, session: str | None = Cookie(default=None)):
     """The dashboard's whole data source: 13 topics in lecture order with state."""
-    user = _me(session)
+    user = await _me(session)
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -64,7 +72,8 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
     # so the client can say WHEN a topic was finished without a second query. The
     # `in done` membership tests below are unchanged by this.
     done, scores = {}, {}
-    for r in research_store.fetch_for_participant(user["sid"]):
+    rows = await asyncio.to_thread(research_store.fetch_for_participant, user["sid"])
+    for r in rows:
         key = (r.get("topic_id"), r.get("event_type"))
         done[key] = r.get("server_ts")
         if r.get("score") is not None:
@@ -98,6 +107,14 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
         # step is self-reported ("I have finished it"); this is the observed twin.
         st["game_done"] = (st["topic_id"], "understanding_complete") in done
         st["assess_done"] = (st["topic_id"], "assessment_complete") in done
+        # The tutor's twin. Needed because the unit's tutor step now WAITS for a
+        # reflection, and the only other signal is the student's own device --
+        # which would re-gate the step for anyone who reflected on their laptop and
+        # came back on a phone. Cross-device resume is one of the reasons accounts
+        # moved server-side in the first place, so the flag belongs here too.
+        # Deliberately NOT satisfied by "reflection_skipped": leaving the dialog is
+        # not talking it through, and the unit offers its own logged way past.
+        st["reflection_done"] = (st["topic_id"], "reflection_complete") in done
         st["assess_score"] = scores.get((st["topic_id"], "assessment_complete"))
         # The pre->post change, as counts rather than the percentage the sink
         # stores. "2 of 6" is a thing a student recognises; "33.3" is not. The
@@ -121,13 +138,19 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
     # part of "when does my work open".
     section_day = (schedule.sections().get(user["section"]) or {}).get("day")
     return {"section": user["section"], "section_day": section_day,
-            "telemetry_enabled": TELEMETRY_ENABLED, "topics": states}
+            "telemetry_enabled": TELEMETRY_ENABLED,
+            # So the dashboard can tell a student how long a unit ACTUALLY takes.
+            # With the battery on, a 12-minute unit gains 29 Likert items and roughly
+            # doubles; promising 12 either way means the study opens by breaking a
+            # promise, and the shell was rebuilt precisely to stop doing that.
+            "questionnaires_enabled": questionnaire_api.ENABLED,
+            "topics": states}
 
 
 @router.get("/{topic_id}")
 async def topic_detail(topic_id: str, response: Response,
                        session: str | None = Cookie(default=None)):
-    user = _me(session)
+    user = await _me(session)
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -151,7 +174,7 @@ async def topic_detail(topic_id: str, response: Response,
 async def get_check(topic_id: str, form: str, response: Response,
                     session: str | None = Cookie(default=None)):
     """Items for the pre- or post-check. NEVER carries the answer key (Part 8.5)."""
-    user = _me(session)
+    user = await _me(session)
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -170,7 +193,7 @@ async def get_check(topic_id: str, form: str, response: Response,
         response.status_code = 404
         return {"error": "no_bank", "message": "This topic has no question set yet."}
 
-    if research_store.has_event(user["sid"], _EVENT[form], topic_id):
+    if await asyncio.to_thread(research_store.has_event, user["sid"], _EVENT[form], topic_id):
         response.status_code = 409
         return {"error": "already_submitted",
                 "message": "You've already submitted this one — it can only be answered once."}
@@ -182,7 +205,7 @@ async def get_check(topic_id: str, form: str, response: Response,
 @router.post("/{topic_id}/check/{form}")
 async def submit_check(topic_id: str, form: str, body: Submission, response: Response,
                        session: str | None = Cookie(default=None)):
-    user = _me(session)
+    user = await _me(session)
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -192,7 +215,7 @@ async def submit_check(topic_id: str, form: str, body: Submission, response: Res
         response.status_code = 400
         return {"error": "bad_form"}
 
-    if not _consented(user["sid"]):
+    if not await _consented(user["sid"]):
         response.status_code = 403
         return {"error": "no_consent",
                 "message": "Consent has to be recorded before anything is saved."}
@@ -205,10 +228,34 @@ async def submit_check(topic_id: str, form: str, body: Submission, response: Res
     # One indexed question, not a scan of the whole sink. This was the same
     # fetch_all() pattern journey() had: measured at 7 s wall for 100 concurrent
     # loads on a full-term sink, because fetch_all holds the module lock.
-    if research_store.has_event(user["sid"], _EVENT[form], topic_id):
+    if await asyncio.to_thread(research_store.has_event, user["sid"], _EVENT[form], topic_id):
         response.status_code = 409
         return {"error": "already_submitted",
                 "message": "You've already submitted this one — it can only be answered once."}
+
+    # ORDERING: the post-check cannot precede the pre-check. The adversarial sweep
+    # submitted form B before form A had ever been recorded and both succeeded,
+    # yielding pre_done:true/post_done:true/complete:true — a run indistinguishable
+    # from a real one, on a DV that is literally post − pre. measures.py derives
+    # order from timestamps and was not fooled, but the raw pre/post the close screen
+    # shows a student comes straight from these submissions, so the gate belongs here
+    # too. An empty-bank topic has no pre-check, so this only fires when a pre-check
+    # actually exists to have been skipped.
+    if form == POST and not await asyncio.to_thread(research_store.has_event, user["sid"], _EVENT[PRE], topic_id):
+        response.status_code = 409
+        return {"error": "pre_check_first",
+                "message": "The first check comes before the second one."}
+
+    # NOT AN EMPTY SUBMISSION. The client disables its submit button until every item
+    # is answered, but the sweep bypassed that with a raw POST of {"answers": {}} —
+    # accepted as recorded:0, permanently spending the one allowed attempt at a score
+    # of zero. The probe endpoint already refuses empty; the check must too. This is
+    # NOT a minimum-quality gate (a wrong answer is a real datum) — only "you must
+    # have answered something", which the UI already requires of an honest client.
+    if not body.answers:
+        response.status_code = 400
+        return {"error": "empty",
+                "message": "Answer the questions before submitting."}
 
     try:
         graded = checks.grade_submission(topic_id, form, body.answers, reveal=(form == POST))
@@ -231,7 +278,7 @@ async def submit_check(topic_id: str, form: str, body: Submission, response: Res
     if TELEMETRY_ENABLED and body.telemetry:
         meta["telemetry"] = body.telemetry
 
-    research_store.record_event({
+    _row_id, created = await asyncio.to_thread(research_store.record_event_status, {
         "participant_id": user["sid"],
         "event_type": _EVENT[form],
         "topic_id": topic_id,
@@ -240,6 +287,15 @@ async def submit_check(topic_id: str, form: str, body: Submission, response: Res
         "duration_ms": body.duration_ms,
         "meta": meta,
     })
+    if not created:
+        # Lost the one-submission race (finding C1). has_event() above passed for two
+        # near-simultaneous POSTs; the partial unique index let ONE row win, and this
+        # is the loser. Its answers were NOT persisted, so returning the reveal it just
+        # graded would show the student a POST answer key for a submission that never
+        # landed. 409 already_submitted — topic-check.tsx maps it to "done".
+        response.status_code = 409
+        return {"error": "already_submitted",
+                "message": "You've already submitted this one — it can only be answered once."}
 
     if form == PRE:
         # Nothing but acknowledgement. A pre-check that returns its score lets a
@@ -270,7 +326,7 @@ async def get_probe(topic_id: str, form: str, response: Response,
     Unlike the MC items there is no key to protect -- the probe is the question, and
     the answer is prose. It is safe to serve in full.
     """
-    user = _me(session)
+    user = await _me(session)
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -290,7 +346,7 @@ async def get_probe(topic_id: str, form: str, response: Response,
         return {"error": "no_probe",
                 "message": "This topic has no short-answer probe yet."}
 
-    if research_store.has_event(user["sid"], _PROBE_EVENT[form], topic_id):
+    if await asyncio.to_thread(research_store.has_event, user["sid"], _PROBE_EVENT[form], topic_id):
         response.status_code = 409
         return {"error": "already_submitted"}
 
@@ -309,7 +365,7 @@ async def submit_probe(topic_id: str, form: str, body: ProbeAnswer, response: Re
     the intervention. The post-check's feedback is the Socratic turn, which is
     formative and deliberately not a grade.
     """
-    user = _me(session)
+    user = await _me(session)
     if user is None:
         response.status_code = 401
         return {"error": "no_session"}
@@ -319,7 +375,7 @@ async def submit_probe(topic_id: str, form: str, body: ProbeAnswer, response: Re
         response.status_code = 400
         return {"error": "bad_form"}
 
-    if not _consented(user["sid"]):
+    if not await _consented(user["sid"]):
         response.status_code = 403
         return {"error": "no_consent"}
 
@@ -328,7 +384,7 @@ async def submit_probe(topic_id: str, form: str, body: ProbeAnswer, response: Re
         response.status_code = 403
         return {"error": "not_open"}
 
-    if research_store.has_event(user["sid"], _PROBE_EVENT[form], topic_id):
+    if await asyncio.to_thread(research_store.has_event, user["sid"], _PROBE_EVENT[form], topic_id):
         response.status_code = 409
         return {"error": "already_submitted"}
 
@@ -350,7 +406,7 @@ async def submit_probe(topic_id: str, form: str, body: ProbeAnswer, response: Re
     if TELEMETRY_ENABLED and body.telemetry:
         meta["telemetry"] = body.telemetry
 
-    research_store.record_event({
+    _row_id, created = await asyncio.to_thread(research_store.record_event_status, {
         "participant_id": user["sid"],
         "event_type": _PROBE_EVENT[form],
         "topic_id": topic_id,
@@ -358,5 +414,11 @@ async def submit_probe(topic_id: str, form: str, body: ProbeAnswer, response: Re
         "duration_ms": body.duration_ms,
         "meta": meta,
     })
+    if not created:
+        # Lost the one-submission race (C1). The winning row holds a probe answer;
+        # this request's did not land, so acknowledge it as already-submitted rather
+        # than confirm a write that never happened.
+        response.status_code = 409
+        return {"error": "already_submitted"}
 
     return {"ok": True, "recorded": True}

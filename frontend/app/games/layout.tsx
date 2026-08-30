@@ -1,9 +1,11 @@
 "use client"
 
-import { Suspense, type ReactNode } from "react"
+import { Suspense, useEffect, type ReactNode } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useUnitId, useUnitStep } from "@/lib/unit-link"
 import { GamePhaseProvider, useDeclaredPhase } from "@/lib/game-phase"
+import { startGameClock } from "@/lib/game-clock"
 import { TOPICS } from "@/lib/topic-definitions"
 
 // Shared chrome for every game route.
@@ -12,7 +14,7 @@ import { TOPICS } from "@/lib/topic-definitions"
 // routes the only shared chrome was a single corner Exit link -- no topic, no step,
 // no progress -- and `components/game-layout.tsx`, the richer wrapper with a title
 // and controls, is imported by exactly zero games. Inside the games it is no better:
-// they are state machines (learn -> compare -> debrief) and only 4 of 24 tell the
+// they are state machines (learn -> compare -> debrief); the strip's phase line now
 // player where they are in one.
 //
 // So a student mid-unit went:
@@ -77,13 +79,56 @@ function PhaseLine() {
   )
 }
 
+// The clock starts where the student does. This layout wraps every /games/* route
+// and is the only place that sees the entry for all 26 without touching a game file.
+function GameClock() {
+  const pathname = usePathname()
+  const gameId = pathname?.split("/")[2] ?? ""
+  useEffect(() => {
+    startGameClock(gameId)
+    // FE1: mark the unit's step "tried" from the GAME side, on mount — so the unit's
+    // "it didn't record" escape only unlocks once the activity actually LOADED, not on
+    // the launch-link click. The click could be beaten with open-then-immediate-Back in
+    // ~1 s, about as fast as the "I've finished it" button this whole flow replaced.
+    // The unit reads this key back on return. Per-device, clearable, NOT a security
+    // boundary — the same localStorage key unit-client.tsx writes and reads.
+    try {
+      const unit = new URLSearchParams(window.location.search).get("unit")
+      if (unit) {
+        const key = gameId.endsWith("-assessment")
+          ? "assess"
+          : gameId.endsWith("-understanding")
+            ? "game"
+            : null
+        if (key) localStorage.setItem(`compgame:unit:${unit}:tried:${key}`, "1")
+      }
+    } catch {
+      /* private mode / no storage: the escape simply won't pre-unlock */
+    }
+  }, [gameId])
+  return null
+}
+
 function Chrome() {
+  const pathname = usePathname()
   const unit = useUnitId()
   const { step, of } = useUnitStep()
   const topic = unit ? TOPICS.find((t: { id: string }) => t.id === unit) : null
 
+  // gestalt-assessment renders the game in an IFRAME whose src is ALSO a /games/*
+  // route, so this layout — and this strip — mount a SECOND time inside the frame,
+  // duplicating the outer one. Suppress the inner copy. Keyed on the ROUTE, not on
+  // "am I inside any iframe" (findings FE2/FE3): the inner document is always
+  // /games/gestalt-assessment/app*, so this is precise — the whole app embedded in an
+  // external LMS iframe no longer blanks every game's chrome — and it is known at SSR,
+  // so there is no one-frame flash of a duplicate strip and no client-only framed
+  // state to hydrate. The outer route (/games/gestalt-assessment) is untouched.
+  const suppress = pathname?.includes("/gestalt-assessment/app") ?? false
+
   // Free play: no unit, so no sequence to be at position 3 of. Just the way out.
   const href = unit ? `/topics/${unit}` : "/dashboard"
+
+  if (suppress) return null
 
   return (
     <div className="shell fixed top-3 left-3 z-[100]">
@@ -144,6 +189,7 @@ export default function GamesLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <GamePhaseProvider>
+        <GameClock />
         {/* useSearchParams opts its subtree out of static prerendering, so it needs a
             Suspense boundary or the whole route becomes dynamic. */}
         <Suspense fallback={null}>

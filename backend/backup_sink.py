@@ -77,6 +77,12 @@ def prune(dest_dir: str, keep: int) -> int:
     return removed
 
 
+# Written on every successful run, read by check_measurement_coverage.py.
+HEARTBEAT = os.environ.get(
+    "BACKUP_HEARTBEAT",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".last-backup"))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dest", default=os.environ.get("BACKUP_DIR", os.path.join(HERE, "..", "backups")))
@@ -113,6 +119,17 @@ def main() -> int:
     pruned = prune(dest, args.keep)
     free = shutil.disk_usage(dest).free // (1024 * 1024)
     print(f"[backup] {total} snapshot(s) in {dest}; pruned {pruned}; {free} MB free")
+
+    # HEARTBEAT. A backup that stops running is the definition of a silent failure:
+    # nothing changes, nothing errors, and you find out on the day you need it. The
+    # scheduled task cannot report its own absence, so success leaves a dated stamp
+    # and check_measurement_coverage.py fails when the stamp goes stale.
+    if total:
+        try:
+            with open(HEARTBEAT, "w", encoding="utf-8") as fh:
+                fh.write(datetime.now(timezone.utc).isoformat())
+        except OSError as e:
+            print(f"[backup] WARNING could not write heartbeat {HEARTBEAT}: {e}")
 
     if os.path.exists(SECRET_REMINDER):
         print("[backup] NOTE: .participant_secret is deliberately NOT copied here. "

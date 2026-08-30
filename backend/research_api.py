@@ -20,6 +20,7 @@ The two fixes (docs/revamp.md Part 13, stage2-deployment-plan.md §D4):
 import csv
 import io
 import os
+import asyncio
 import secrets
 from typing import Any, Optional
 
@@ -31,6 +32,16 @@ import auth_store
 import research_store
 
 router = APIRouter(prefix="/api/research", tags=["research"])
+
+
+def _known_topics() -> set:
+    """The real topic ids, for validating a client-posted topic_id. Lazy import so
+    research_api stays importable with no schedule config (like research_store)."""
+    try:
+        import schedule
+        return {t["id"] for t in schedule._load()["topics"]}
+    except Exception:
+        return set()
 
 EXPORT_COLUMNS = [
     "id", "participant_id", "event_type", "topic_id", "mode", "score",
@@ -55,18 +66,41 @@ class ResearchEvent(BaseModel):
 
 @router.post("/event")
 async def research_event(event: ResearchEvent, session: Optional[str] = Cookie(default=None)):
-    user = auth_store.resolve_session(session or "")
+    # resolve_session off the event loop — see topic_api._me (finding C2).
+    user = await asyncio.to_thread(auth_store.resolve_session, session or "")
     if user is None:
         # Refuse rather than record an unattributable row. A silently anonymous
         # event is worse than a missing one — it pollutes the denominator.
         raise HTTPException(status_code=401, detail="no_session")
 
+    # CONSENT GATE. Found by the sweep: this endpoint checked only the session, so
+    # understanding_complete / assessment_complete / topic_complete recorded on an
+    # unconsented account — contradicting the study's "nothing recorded before
+    # consent" claim, which topic_api's check/probe endpoints DO enforce. An ethics
+    # precondition cannot live on only some of the write paths. Staff are dropped in
+    # record_event and never get a consent event, so this refuses a teacher too.
+    if not await asyncio.to_thread(research_store.has_event, user["sid"], "consent_recorded"):
+        raise HTTPException(status_code=403, detail="no_consent")
+
+    # A topic_id that is not a real topic is rejected rather than stored. The sweep
+    # posted topic_id="totally-fake-topic-xyz" and it was accepted, silently
+    # inflating the participant×topic denominator. None stays allowed (some events
+    # are not topic-scoped). Fail OPEN if the schedule can't load — an empty known
+    # set must not reject every write.
+    known = _known_topics()
+    if event.topic_id is not None and known and event.topic_id not in known:
+        raise HTTPException(status_code=400, detail="unknown_topic")
+
     payload = event.model_dump()
     payload["participant_id"] = user["sid"]   # overwrite whatever the client claimed
     try:
-        return {"ok": True, "id": research_store.record_event(payload)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"ok": True, "id": await asyncio.to_thread(research_store.record_event, payload)}
+    except Exception:
+        # Generic body, never str(e): the fuzz sweep showed this handler echoing the
+        # raw Python exception text to the client. record_event now sanitises its
+        # inputs, so a 500 here is a real server fault — and its internals are not
+        # the client's business.
+        raise HTTPException(status_code=500, detail="record_failed")
 
 
 @router.get("/summary")
@@ -100,10 +134,19 @@ async def research_export(format: str = "json",
     if not x_export_token or not secrets.compare_digest(x_export_token, expected):
         raise HTTPException(status_code=401, detail="bad_export_token")
 
+    # EXCLUDE WITHDRAWN PARTICIPANTS. Withdrawal tombstones the account and kills
+    # sessions, but the append-only sink is purged only by a manual operator CLI
+    # (research_store.py --forget), so between a withdrawal and that purge the export
+    # would still ship the person's rows — breaking the consent-form promise if
+    # nobody remembers to run it per SID. Filter here so the export honours the
+    # promise by default; the CLI purge remains for hard erasure from disk.
+    withdrawn = auth_store.withdrawn_sids()
     rows = []
     for r in research_store.fetch_all():
         row = dict(r)
         sid = row.get("participant_id")
+        if sid in withdrawn:
+            continue
         row["participant_id"] = auth_store.pseudonym(sid) if sid else None
         rows.append(row)
 

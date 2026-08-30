@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { readGameClock, clearGameClock } from "@/lib/game-clock"
 import { useProgress } from "@/lib/progress-context"
 import { useBadges } from "@/lib/badge-context"
 import { getTopicFromGameId } from "@/lib/topic-definitions"
@@ -288,7 +289,12 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
   useEffect(() => {
     if (recordedRef.current || !content) return
     recordedRef.current = true
-    markGameComplete(gameId, score)
+    // How long it took, not just that it happened. Read once, then cleared so a
+    // replay from the close screen times itself rather than reporting the original
+    // session plus everything since.
+    const durationMs = readGameClock(gameId)
+    markGameComplete(gameId, score, durationMs)
+    clearGameClock(gameId)
     if (isAssessment) {
       const stars = score === undefined ? 3 : score >= 85 ? 5 : score >= 70 ? 4 : score >= 50 ? 3 : 2
       const name = `${content.topicTitle} (${"★".repeat(stars)}${"☆".repeat(5 - stars)})`

@@ -34,11 +34,23 @@ _config_mtime: float | None = None
 
 def _load() -> dict:
     global _config, _config_mtime
-    mtime = os.path.getmtime(CONFIG_PATH)
-    if _config is None or mtime != _config_mtime:
-        with open(CONFIG_PATH, encoding="utf-8") as fh:
-            _config = json.load(fh)
-        _config_mtime = mtime
+    try:
+        mtime = os.path.getmtime(CONFIG_PATH)
+        if _config is None or mtime != _config_mtime:
+            with open(CONFIG_PATH, encoding="utf-8") as fh:
+                _config = json.load(fh)
+            _config_mtime = mtime
+    except (OSError, ValueError):
+        # The chaos sweep deleted topic_schedule.json while the server ran, and
+        # /api/auth/sections crashed with an unhandled 500 (getmtime on a missing
+        # file). Degrade instead: serve the LAST GOOD config if we have one — the
+        # same "last known good" resilience the enrolment list already has — and only
+        # if we never loaded one does an empty config propagate (callers already
+        # handle a topic with no window as "unscheduled"). A missing schedule file is
+        # an ops problem to fix, not a reason to take the whole app down.
+        if _config is None:
+            _config = {"sections": {}, "sessions": {}, "topics": [],
+                       "window": {"opens_days_before": 7, "closes_hours_before": 48}}
     return _config
 
 
@@ -94,6 +106,11 @@ def _window_for(cfg: dict, topic: dict, section: str):
         hour=cfg.get("session_hour", 9), minute=0)
     closes = start - timedelta(hours=cfg["window"]["closes_hours_before"])
     return opens, closes, start
+
+
+def session_grid_topics() -> set:
+    """The real topic ids, for validating a report-generation request."""
+    return {t["id"] for t in _load().get("topics", [])}
 
 
 def sections() -> dict[str, dict]:

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import ReportsPanel from "./reports-panel"
 import SchedulePanel from "./schedule-panel"
 import Image from "next/image"
 import Link from "next/link"
@@ -306,6 +307,9 @@ export default function AdminPage() {
             the widest blast radius, so it sits below the everyday ones rather than
             competing with them. `refresh` pulls the audit log back so a date change
             shows up in the same log as a section change, which is the point. */}
+        {/* The weekly job first; lecture dates are the rare one. */}
+        <ReportsPanel />
+
         <SchedulePanel onDone={() => void load()} />
       </div>
     </main>

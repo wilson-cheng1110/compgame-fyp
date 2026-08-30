@@ -154,6 +154,8 @@ export interface JourneyTopic {
    *  level reflects what happened rather than what the student ticked. */
   game_done?: boolean
   assess_done?: boolean
+  /** A real reflection, not a dismissed dialog. */
+  reflection_done?: boolean
   assess_score?: number | null
 }
 
@@ -164,6 +166,8 @@ export interface Journey {
    *  showing a bare date. Optional: a section with no configured day is possible. */
   section_day?: string | null
   telemetry_enabled: boolean
+  /** With the battery on a unit roughly doubles; the copy has to say so. */
+  questionnaires_enabled?: boolean
   topics: JourneyTopic[]
 }
 
@@ -283,10 +287,27 @@ export const admin = {
     }),
   audit: () => api.get<{ entries: AuditEntry[] }>("/api/admin/audit"),
 
+  reports: () => api.get<{ reports: ReportRow[] }>("/api/admin/reports"),
+  report: (path: string) =>
+    api.get<{ path: string; markdown: string }>(
+      `/api/admin/reports/file?path=${encodeURIComponent(path)}`),
+  generateReport: (topic: string, section: string) =>
+    api.post<{ ok: true; topic: string; section: string }>(
+      "/api/admin/reports/generate", { topic, section }),
+
   schedule: () => api.get<ScheduleGrid>("/api/admin/schedule"),
   /** `commit: false` previews and writes nothing -- see SessionDateResult. */
   setSessionDate: (session: number, section: string, date: string, commit = false) =>
     api.post<SessionDateResult>("/api/admin/schedule", { session, section, date, commit }),
+}
+
+export interface ReportRow {
+  path: string
+  name: string
+  /** Safe to put on a projector: the anonymised copy. */
+  projectable: boolean
+  bytes: number
+  modified: string
 }
 
 export interface ScheduleGrid {

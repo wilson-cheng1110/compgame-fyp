@@ -81,6 +81,15 @@ APP_VERSION = _app_version()
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    # WAIT for the file lock rather than raise "database is locked" immediately. This is
+    # NOT merely hypothetical insurance: the report generator (generate_tutorial_report.py)
+    # runs as a SEPARATE OS PROCESS via subprocess.run, opens its own connection and does
+    # a full `fetch_all()` scan — and the in-process _lock cannot serialise across
+    # processes, so a live write here and that scan can genuinely collide on the real
+    # sqlite file lock. busy_timeout is what turns that collision into a brief wait instead
+    # of an error surfaced to a student mid-submit. It also covers the case where _lock is
+    # ever relaxed. The lock is released long before 5 s, so this never actually stalls.
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
@@ -110,17 +119,111 @@ def init_db() -> None:
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_events_participant ON events(participant_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_events_topic ON events(topic_id)")
+            # ONE-SUBMISSION, ENFORCED BY THE DB — not just by luck of scheduling.
+            # The load and adversarial sweeps both noted that "exactly one submission
+            # per check" held ONLY because record_event runs synchronously with no
+            # await between the has_event() check and the INSERT, so single-process
+            # asyncio never interleaves two requests inside that window. That is
+            # incidental: it silently reopens the moment record_event moves off the
+            # event loop (which it now does, to fix the lock-contention freeze) or the
+            # server runs multiple workers. A PARTIAL unique index is the real
+            # backstop. It covers ONLY the once-per-(student,topic) events — the
+            # checks, probes, baseline, consent, unit completion, and questionnaires —
+            # and deliberately NOT understanding_complete / assessment_complete /
+            # reflection_*, which legitimately repeat when a student replays a game
+            # from the close screen. COALESCE(topic_id,'') because two NULLs are not
+            # equal in SQL, so a non-topic once-only event (pre_test_complete) would
+            # otherwise slip the constraint.
+            # SELF-HEALING NAME (findings C3 + L8). CREATE UNIQUE INDEX IF NOT EXISTS
+            # matches on index NAME only -- it will NOT re-derive an index that already
+            # exists under the same name with an OLDER predicate. So when this predicate
+            # grows (here: consent_withdrawn, added 2026-08-30), a database created
+            # before the change would silently keep the stale index and never gain the
+            # new coverage -- and the go-live plan initialises the deployment box's DB
+            # during a pre-launch test, exactly when that could bite, with no error.
+            # Bumping the NAME (_v2) sidesteps it: a fresh DB gets only v2; an older DB
+            # keeps its idx_events_once (still enforcing the original events, harmless)
+            # AND gains v2, so consent_withdrawn becomes covered everywhere. Verified
+            # across fresh / stale / pre-duplicate DBs before shipping.
+            #
+            # GUARDED so it can never brick startup. The only way this UNIQUE create can
+            # fail is a pre-existing duplicate in a newly-covered event_type -- reachable
+            # in principle only by a pre-C3 concurrent /withdraw (two consent_withdrawn
+            # rows) and harmless. On that failure skip v2 and keep the prior index; do
+            # NOT rollback (the tables and other indexes share this transaction and must
+            # survive) -- the final commit persists them.
+            try:
+                conn.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_events_once_v2
+                    ON events(participant_id, event_type, COALESCE(topic_id, ''))
+                    WHERE event_type IN (
+                        'topic_pretest', 'topic_posttest', 'topic_probe', 'topic_probe_post',
+                        'pre_test_complete', 'consent_recorded', 'consent_withdrawn',
+                        'topic_complete'
+                    ) OR event_type LIKE 'questionnaire_%'
+                    """
+                )
+            except sqlite3.IntegrityError:
+                pass
             conn.commit()
         finally:
             conn.close()
 
 
+def is_staff(sid: str) -> bool:
+    """Is this SID a member of the course team rather than a participant?
+
+    Imported lazily: research_store must stay importable with no auth stack, which
+    is what lets the offline analysis scripts read the sink on any machine.
+    """
+    try:
+        import auth_store
+        return auth_store.is_admin(sid or "")
+    except Exception:
+        return False
+
+
 def record_event(payload: dict) -> int:
-    """Insert one event. Returns the new row id. Unknown keys go into meta."""
+    """Insert one event, returning the new row id. See record_event_status when the
+    caller must know whether IT wrote the row or lost a once-only race."""
+    return record_event_status(payload)[0]
+
+
+def record_event_status(payload: dict) -> tuple[int, bool]:
+    """Insert one event. Returns (row_id, created). Unknown keys go into meta.
+
+    `created` is True when THIS call wrote the row, and False only when a once-only
+    duplicate lost the race to an already-persisted row (the partial unique index
+    fired). A caller that shows the student a graded result must gate that reveal on
+    `created` — the loser of the race has NOT written the answers it just graded, so
+    returning its reveal would show a score that never reached the sink (finding C1).
+
+    STAFF EVENTS ARE DROPPED. `is_admin` was never consulted anywhere in the request
+    path, so a teacher signing in hit the identical gate chain as a student -- agree
+    to a PARTICIPANT information sheet, pick an avatar, sit the prior-knowledge
+    pre-test -- and every one of those landed in the sink looking exactly like a
+    student's. Measured 2026-08-30: the admin account 22074221D held three completed
+    topics with pre-checks, post-checks and probes, indistinguishable from a
+    participant, and `enrolled_only()` could not filter them because a teacher has to
+    be on the roster to sign up at all.
+
+    Dropped HERE rather than in the UI on purpose. This is the single place every
+    event passes through, so it holds whatever a page, a game or a future route
+    does -- and the failure it prevents is silent, which is the kind this project
+    keeps having.
+    """
     known = {
         "participant_id", "event_type", "topic_id", "mode", "score",
         "played_understanding_first", "duration_ms", "client_ts", "meta",
     }
+    if is_staff(payload.get("participant_id") or ""):
+        # Not an error and not worth a 4xx: the teacher did nothing wrong, their
+        # data simply is not study data. Returning 0 keeps every caller's
+        # fire-and-forget contract intact. created=True: there is no competing row
+        # and no race, so a caller gating a reveal on `created` proceeds normally.
+        return 0, True
+
     extra = {k: v for k, v in payload.items() if k not in known}
     meta = payload.get("meta")
     if extra:
@@ -144,7 +247,39 @@ def record_event(payload: dict) -> int:
     puf = payload.get("played_understanding_first")
     puf_int = None if puf is None else (1 if puf else 0)
 
+    # SANITISE THE NUMERIC COLUMNS before they reach SQLite. The fuzz sweep crashed
+    # five endpoints with an unhandled OverflowError: duration_ms >= 2**63 does not
+    # fit SQLite's signed-64-bit INTEGER, and record_event bound the raw int. A
+    # buggy client-side timer -- not even an attacker -- could emit an absurd value
+    # and 500 the pre/post-test write for a real student. This is the LAST line of
+    # defence and holds whatever any caller (research_api, topic_api, questionnaire_api)
+    # does, so no endpoint has to remember it.
+    #
+    # A value out of range is set to NULL (missing), never clamped to a plausible
+    # number: a fabricated-looking datum in the study set is worse than a gap.
+    duration = payload.get("duration_ms")
+    try:
+        duration = int(duration) if duration is not None else None
+        if duration is not None and not (0 <= duration < 2**63):
+            duration = None            # negative or overflow -> missing
+    except (TypeError, ValueError):
+        duration = None
+
+    score = payload.get("score")
+    try:
+        score = float(score) if score is not None else None
+        # All scores in this system are percentages/counts in [0, 100]. 250 and -999
+        # were forged in the adversarial sweep; a NaN/inf would also poison analysis.
+        if score is not None and not (0.0 <= score <= 100.0):
+            score = None
+    except (TypeError, ValueError):
+        score = None
+
     server_ts = datetime.now(timezone.utc).isoformat()
+
+    pid = str(payload.get("participant_id", "anonymous"))
+    etype = str(payload.get("event_type", "unknown"))
+    tid = payload.get("topic_id")
 
     with _lock:
         conn = _connect()
@@ -156,21 +291,23 @@ def record_event(payload: dict) -> int:
                     played_understanding_first, duration_ms, client_ts, server_ts, meta
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    str(payload.get("participant_id", "anonymous")),
-                    str(payload.get("event_type", "unknown")),
-                    payload.get("topic_id"),
-                    payload.get("mode"),
-                    payload.get("score"),
-                    puf_int,
-                    payload.get("duration_ms"),
-                    payload.get("client_ts"),
-                    server_ts,
-                    meta_str,
-                ),
+                (pid, etype, tid, payload.get("mode"), score, puf_int, duration,
+                 payload.get("client_ts"), server_ts, meta_str),
             )
             conn.commit()
-            return cur.lastrowid
+            return cur.lastrowid, True
+        except sqlite3.IntegrityError:
+            # The partial unique index rejected a once-only duplicate. Under a real
+            # race two requests both pass the endpoint's has_event() check and both
+            # try to insert; one wins, and this is the loser. Treat it as the no-op
+            # it is — return the winner's id instead of a 500, so the caller's "one
+            # submission" contract holds even when this runs off the event loop.
+            row = conn.execute(
+                "SELECT id FROM events WHERE participant_id=? AND event_type=?"
+                " AND COALESCE(topic_id,'')=COALESCE(?,'') ORDER BY id LIMIT 1",
+                (pid, etype, tid),
+            ).fetchone()
+            return (row[0] if row else 0), False
         finally:
             conn.close()
 
