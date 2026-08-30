@@ -16,8 +16,13 @@ student, and that the box survives without you afterwards.
 > the same thing, unrolled.
 
 ## 0. On the box already
-- [ ] **Python 3.11+**, **Node 18+**, **Ollama** installed (setup.ps1 checks and stops with a link if not). An NVIDIA GPU to *run* the tutor at a usable speed.
-- [ ] The repo pulled to the current branch HEAD (`git pull`). The tree **builds from a clean clone** — verified — so a pull is enough; you do not hand-copy source.
+- [ ] **Git** (to clone): `winget install -e --id Git.Git --accept-package-agreements --accept-source-agreements`. An NVIDIA GPU + drivers to *run* the tutor at a usable speed.
+- [ ] The repo pulled to the current branch HEAD (`git pull` / clone). The tree **builds from a clean clone** — verified — so a pull is enough; you do not hand-copy source.
+- [ ] **Python + Node + Ollama + cloudflared, in one command** (after cloning, from the repo root):
+      ```powershell
+      winget import -i deploy\winget-packages.json --accept-package-agreements --accept-source-agreements
+      ```
+      Then open a **new** PowerShell so PATH picks them up. (`setup.ps1` re-checks Python/Node/Ollama and stops with a link if one is still missing.)
 
 ## 1. Carry across the files git does NOT bring (all gitignored — they hold real people)
 git will not deliver these. Put them in place **before** `start.ps1`.
