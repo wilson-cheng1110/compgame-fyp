@@ -94,3 +94,8 @@ frontend/.b
 # Grading output and teacher reports. BOTH CONTAIN VERBATIM STUDENT ANSWERS and
 # the teacher version carries real SIDs (docs/revamp.md Part 12). Never tracked.
 reports/
+
+# deploy runtime — logs and machine-local settings, never the repo
+deploy/logs/
+deploy/.env.local
+data/

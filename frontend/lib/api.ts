@@ -12,8 +12,26 @@
 // NOTE the CORS pairing: the backend must list this app's origin explicitly —
 // `allow_origins=["*"]` cannot carry credentials.
 
+// EMPTY BY DEFAULT, AND THAT IS THE POINT. Every call below becomes a RELATIVE
+// `/api/...`, which `next.config.mjs` rewrites to the API on loopback. Three things
+// fall out of that and each one was a real hazard:
+//
+//   * the build stops being environment-specific. This value is inlined at BUILD
+//     time, so a bundle built with an absolute `http://localhost:8080` loads
+//     perfectly on a deployed box and then does nothing -- 200s everywhere, no data,
+//     no error anyone would look at. That was the single most likely deploy failure
+//     and it is now impossible to make by omission rather than documented.
+//   * no CORS. Same-origin requests do not preflight, so ALLOWED_ORIGINS stops
+//     mattering for the browser at all.
+//   * the session cookie stays FIRST-PARTY (SameSite=Lax). A split origin would
+//     force SameSite=None, which Safari's ITP and Chrome's third-party-cookie
+//     deprecation block by default -- silent sign-in failure for the students on
+//     iPhones, which is a lot of them.
+//
+// Set NEXT_PUBLIC_API_BASE only to point a build at some OTHER host on purpose.
+// `e2e/happy-path.mjs` asserts the built bundle contains no absolute API origin.
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "http://localhost:8080"
+  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? ""
 
 export interface ApiResult<T> {
   ok: boolean

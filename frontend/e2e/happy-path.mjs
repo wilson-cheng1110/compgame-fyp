@@ -759,6 +759,25 @@ test("no game asset is fetched from a third party any more", async (page, t) => 
   t.check("the built bundle names no external asset host", hits.length === 0, hits.slice(0, 3))
 })
 
+test("the built bundle hardcodes no API origin", async (page, t) => {
+  // THE DEPLOY FOOTGUN, made impossible to fire by omission. NEXT_PUBLIC_API_BASE is
+  // inlined at BUILD time. A bundle built with an absolute `http://localhost:8080`
+  // deploys to a real host, serves every page with a 200, and then does nothing at
+  // all -- no data, no error, nothing in any log. It is the failure most likely to
+  // survive a smoke test and reach students.
+  //
+  // The browser now calls a RELATIVE /api/... which next.config.mjs rewrites to
+  // loopback, so the shipped bundle should name no origin whatsoever. Server-side
+  // callers (app/topics/[topicId]/page.tsx, app/api/export-data/route.ts) still use an
+  // absolute loopback URL and are correct to -- they run on the server, where a
+  // relative URL has no origin to resolve against -- but they are not in the client
+  // bundle, which is what grepBuild reads.
+  for (const origin of ["localhost:8080", "127.0.0.1:8080"]) {
+    const hits = await grepBuild(origin)
+    t.check(`the client bundle names no ${origin}`, hits.length === 0, hits.slice(0, 3))
+  }
+})
+
 test("onboarding counts to the number of screens it actually has", async (page, t) => {
   await signIn(page, freshSid())
   await giveConsent(page)

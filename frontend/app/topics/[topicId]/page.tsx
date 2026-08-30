@@ -29,8 +29,12 @@ import TopicUnitClient from "./unit-client"
 
 export const dynamic = "force-dynamic" // per-student, gated on a session cookie
 
-const API =
-  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "http://localhost:8080"
+// ABSOLUTE, and deliberately NOT the browser's relative API_BASE. This file is a
+// SERVER component (see the note above -- it must stay one). Server-side `fetch()`
+// has no document and therefore no origin, so `fetch("/api/...")` throws rather than
+// resolving. It talks to the API directly over loopback and never crosses the
+// network, so it does not want the rewrite either.
+const API = (process.env.API_ORIGIN ?? "http://127.0.0.1:8080").replace(/\/$/, "")
 
 type Loaded =
   | { kind: "ok"; topic: JourneyTopic; telemetryEnabled: boolean }

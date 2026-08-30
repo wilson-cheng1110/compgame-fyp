@@ -5,12 +5,18 @@ import { NextResponse } from "next/server"
 // Usage:
 //   GET /api/export-data          → JSON (all participant events)
 //   GET /api/export-data?format=csv → CSV download
+// Absolute loopback for the same reason as app/topics/[topicId]/page.tsx: this is a
+// route HANDLER, so it runs on the server and a relative URL has nothing to resolve
+// against. It used to hardcode the origin outright, with no environment variable at
+// all, which meant this one route ignored every deployment setting.
+const API = (process.env.API_ORIGIN ?? "http://127.0.0.1:8080").replace(/\/$/, "")
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const format = searchParams.get("format") ?? "json"
 
   try {
-    const res = await fetch(`http://localhost:8080/api/research/export?format=${encodeURIComponent(format)}`)
+    const res = await fetch(`${API}/api/research/export?format=${encodeURIComponent(format)}`)
     if (!res.ok) {
       return NextResponse.json({ error: "Research backend unavailable" }, { status: 502 })
     }

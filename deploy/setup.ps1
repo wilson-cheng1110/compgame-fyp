@@ -1,0 +1,205 @@
+﻿<#
+    COMPGame -- one command to take a fresh Windows box to a running study server.
+
+        powershell -ExecutionPolicy Bypass -File deploy\setup.ps1
+
+    Re-runnable. Every phase checks before it acts, so running it twice is a no-op
+    and running it after a failure resumes rather than starting over. It never
+    overwrites a secret, a database, or an existing .env.
+
+    What it will NOT do, on purpose:
+      * open a public tunnel while any gate is red (deploy\publish.ps1 does that,
+        and it refuses too)
+      * generate a participant key if one is missing -- that key is the join between
+        a student's pre and post rows, and a silently-minted new one is how a study
+        loses its primary measure without anyone noticing. It stops and tells you.
+#>
+[CmdletBinding()]
+param(
+    [switch]$SkipBuild,      # deps + config only
+    [switch]$SkipModels,     # do not pull Ollama models (they are ~8 GB)
+    [switch]$Start           # start the services when the gates pass
+)
+
+$ErrorActionPreference = "Stop"
+$Root = Split-Path -Parent $PSScriptRoot
+$Backend = Join-Path $Root "backend"
+$Frontend = Join-Path $Root "frontend"
+$fail = 0
+
+function Say($m)  { Write-Host "  $m" }
+function Head($m) { Write-Host ""; Write-Host "== $m" -ForegroundColor Cyan }
+function Ok($m)   { Write-Host "  [ok]   $m" -ForegroundColor Green }
+function Warn($m) { Write-Host "  [warn] $m" -ForegroundColor Yellow }
+function Bad($m)  { Write-Host "  [FAIL] $m" -ForegroundColor Red; $script:fail++ }
+
+function Have($exe) { return [bool](Get-Command $exe -ErrorAction SilentlyContinue) }
+
+# ----------------------------------------------------------- 0. prerequisites
+Head "0. Prerequisites"
+
+if (Have python) {
+    $pv = (python --version 2>&1) -replace '[^0-9.]', ''
+    if ([version]($pv.Split('.')[0..1] -join '.') -ge [version]"3.11") { Ok "Python $pv" }
+    else { Bad "Python $pv -- need 3.11 or newer (python.org)" }
+} else { Bad "Python not found -- install 3.11+ from python.org, tick 'Add to PATH'" }
+
+if (Have node) {
+    $nv = (node --version) -replace 'v', ''
+    if ([int]$nv.Split('.')[0] -ge 18) { Ok "Node $nv" }
+    else { Bad "Node $nv -- need 18 or newer (nodejs.org)" }
+} else { Bad "Node not found -- install LTS from nodejs.org" }
+
+if (Have ollama) { Ok "Ollama present" }
+else { Bad "Ollama not found -- install from ollama.com. The tutor cannot run without it." }
+
+$gpu = $null
+try { $gpu = (nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>$null) } catch {}
+if ($gpu) { Ok "GPU: $gpu" }
+else { Warn "No NVIDIA GPU detected. The app runs; the tutor will be very slow on CPU." }
+
+$freeGB = [math]::Round((Get-PSDrive -Name ($Root.Substring(0,1))).Free / 1GB, 1)
+if ($freeGB -ge 20) { Ok "Disk free: $freeGB GB" } else { Warn "Only $freeGB GB free -- models need ~8 GB" }
+
+if ($fail) { Write-Host ""; Write-Host "Fix the [FAIL] lines above, then run this again." -ForegroundColor Red; exit 1 }
+
+# ----------------------------------------------------------- 1. dependencies
+Head "1. Dependencies"
+
+Push-Location $Backend
+if (-not (Test-Path (Join-Path $Backend ".venv"))) {
+    Say "creating backend\.venv"
+    python -m venv .venv
+}
+$Py = Join-Path $Backend ".venv\Scripts\python.exe"
+Say "installing Python packages (quiet; a few minutes on a cold cache)"
+& $Py -m pip install --upgrade pip --quiet
+& $Py -m pip install -r requirements.txt --quiet
+if ($LASTEXITCODE -ne 0) { Bad "pip install failed"; Pop-Location; exit 1 }
+Ok "Python packages installed"
+Pop-Location
+
+Push-Location $Frontend
+if (Test-Path (Join-Path $Frontend "node_modules")) { Ok "node_modules present (delete it to force a clean install)" }
+else {
+    Say "installing Node packages"
+    if (Test-Path (Join-Path $Frontend "package-lock.json")) { npm ci --silent } else { npm install --silent }
+    if ($LASTEXITCODE -ne 0) { Bad "npm install failed"; Pop-Location; exit 1 }
+    Ok "Node packages installed"
+}
+Pop-Location
+
+# ----------------------------------------------------------- 2. models
+Head "2. Ollama models"
+if ($SkipModels) { Warn "skipped (-SkipModels)" }
+else {
+    $have = (ollama list 2>$null | Out-String)
+    foreach ($m in @("gemma4:e4b", "nomic-embed-text")) {
+        if ($have -match [regex]::Escape($m.Split(':')[0])) { Ok "$m already pulled" }
+        else { Say "pulling $m"; ollama pull $m }
+    }
+    # Must match ops.MAX_CONCURRENT. Two numbers, one meaning: if they drift, the
+    # queue moves inside Ollama where it cannot be measured or reported.
+    [Environment]::SetEnvironmentVariable("OLLAMA_NUM_PARALLEL", "4", "User")
+    Ok "OLLAMA_NUM_PARALLEL=4 (matches ops.MAX_CONCURRENT)"
+}
+
+# ----------------------------------------------------------- 3. configuration
+Head "3. Configuration"
+$envFile = Join-Path $Root "deploy\.env.local"
+if (Test-Path $envFile) { Ok ".env.local exists -- left untouched" }
+else {
+@"
+# COMPGame deployment settings. Generated by deploy\setup.ps1; edit freely.
+# Anything already set in the real environment wins over these.
+
+COOKIE_SECURE=1
+API_ORIGIN=http://127.0.0.1:8080
+
+# Where the study's data lives. Keep these OFF the repo so a git clean cannot
+# delete a cohort's answers.
+AUTH_DB_PATH=$($Root -replace '\\','/')/data/auth.db
+RESEARCH_DB_PATH=$($Root -replace '\\','/')/data/research.db
+
+# Optional. With a class list, sign-up is restricted and the section is
+# authoritative; without one, sign-up is open and the student picks their section.
+# ENROLMENT_PATH=$($Root -replace '\\','/')/backend/enrolled_sids.txt
+"@ | Set-Content -Path $envFile -Encoding utf8
+    Ok "wrote deploy\.env.local"
+}
+New-Item -ItemType Directory -Force -Path (Join-Path $Root "data") | Out-Null
+
+# ----------------------------------- 4. the participant key -- never auto-minted
+Head "4. Participant key"
+$secret = Join-Path $Backend ".participant_secret"
+if (Test-Path $secret) {
+    $fp = (Get-FileHash $secret -Algorithm SHA256).Hash.ToLower()
+    Ok "present -- fingerprint $($fp.Substring(0,16))..."
+    Say "check this against your off-machine backup before you trust it"
+} else {
+    Warn "MISSING -- and this script will not create one."
+    Say ""
+    Say "  This key turns a student ID into the pseudonym used in every export. It is"
+    Say "  what joins a participant's pre-test row to their post-test row. The code"
+    Say "  will happily mint a new one on first use, and if it does so HERE while a"
+    Say "  different key exists elsewhere, the two sets of exports can never be"
+    Say "  joined again -- silently, with no error, and not fixable afterwards."
+    Say ""
+    Say "  Copy your backed-up key to:  $secret"
+    Say "  Then verify:  (Get-FileHash '$secret' -Algorithm SHA256).Hash"
+    Say ""
+    Bad "participant key missing"
+}
+
+# ----------------------------------------------------------- 5. build
+Head "5. Frontend build"
+if ($SkipBuild) { Warn "skipped (-SkipBuild)" }
+else {
+    Push-Location $Frontend
+    # NEXT_PUBLIC_API_BASE is deliberately NOT set. The browser calls a relative
+    # /api/... which next.config.mjs rewrites to API_ORIGIN on loopback, so this
+    # build is portable to any hostname. Setting it here would bake in an origin and
+    # produce a site that loads perfectly and does nothing.
+    Say "building (this is the slow part)"
+    npm run build
+    if ($LASTEXITCODE -ne 0) { Bad "next build failed"; Pop-Location; exit 1 }
+    Ok "built"
+    Pop-Location
+}
+
+# ----------------------------------------------------------- 6. gates
+Head "6. Go-live gates"
+Push-Location $Root
+& $Py (Join-Path $Backend "tests\run_all.py") | Select-Object -Last 1
+if ($LASTEXITCODE -eq 0) { Ok "backend suite" } else { Bad "backend suite" }
+
+& $Py (Join-Path $Backend "schedule.py") --validate | Select-Object -Last 1
+if ($LASTEXITCODE -eq 0) { Ok "schedule" } else { Bad "schedule -- a session lands on a non-teaching day" }
+
+& $Py (Join-Path $Backend "check_corpus_coverage.py") | Select-Object -Last 2
+if ($LASTEXITCODE -eq 0) { Ok "corpus covers every topic" }
+else { Warn "corpus has uncovered topics -- fine IF you have written that exemption down" }
+
+& $Py (Join-Path $Backend "checks.py") | Out-Null
+if ($LASTEXITCODE -eq 0) { Ok "item banks parse" } else { Bad "item banks" }
+Pop-Location
+
+# ----------------------------------------------------------- 7. start
+Head "7. Services"
+if (-not $Start) {
+    Say "not started (pass -Start, or run deploy\start.ps1)"
+} elseif ($fail) {
+    Bad "not starting while a gate is red"
+} else {
+    & (Join-Path $PSScriptRoot "start.ps1")
+}
+
+Write-Host ""
+if ($fail) {
+    Write-Host "$fail gate(s) red. Fix them before serving students." -ForegroundColor Red
+    exit 1
+}
+Write-Host "Ready. Next:" -ForegroundColor Green
+Write-Host "    deploy\start.ps1      run it on this machine  (http://localhost:3000)"
+Write-Host "    deploy\publish.ps1    put it on the internet   (refuses if a gate is red)"
+exit 0
