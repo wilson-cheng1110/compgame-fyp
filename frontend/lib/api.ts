@@ -109,7 +109,6 @@ export interface JourneyTopic {
   state: TopicState
   arm: "FLIP" | "CONTROL"
   plays_game_first: boolean
-  mc_bank: boolean
   has_bank: boolean
   lecture_terms: string[]
   session_provisional: boolean

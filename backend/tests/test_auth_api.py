@@ -100,5 +100,44 @@ check("and is indistinguishable from any other failure",
 w = [x for x in research_store.fetch_all() if x["event_type"] == "consent_withdrawn"]
 check("withdrawal logged in sink", len(w) == 1, w)
 
+print("\n-- credential guessing is throttled, and the throttle leaks nothing --")
+# Before 2026-08-30 nothing rate-limited /api/auth/session: ops.allow was on the two
+# RAG endpoints only, and auth_store has no lockout. Moving scrypt off the event loop
+# the same day took sign-ins from 23/s to 173/s -- which is also 173 guesses a second,
+# so the throttle is part of that fix rather than a separate improvement.
+import ops as _ops
+_ops._buckets.clear()
+
+c2 = TestClient(app)
+c2.post("/api/auth/signup", json={"sid": "24067890X", "password": "hunter2xyz"})
+
+_ops._buckets.clear()
+_codes = [c2.post("/api/auth/session",
+                  json={"sid": "24067890X", "password": "wrong-one"}).status_code
+          for _ in range(12)]
+check("guessing one account eventually gets refused", 429 in _codes, _codes)
+check("the first attempts are still plain 401s, not 429s", _codes[0] == 401, _codes[:3])
+# .index() RAISES when the value is absent -- which is exactly the case under a
+# regression -- and an exception here aborts the whole file, hiding every
+# assertion after it. Under the "throttle removed" mutant this suite dropped
+# from 359 to 322 assertions and reported ONE red instead of two.
+_first429 = _codes.index(429) if 429 in _codes else -1
+check("burst is roughly the configured 8", _first429 >= 6, _codes)
+
+# The throttle must not become the enumeration oracle the single 401 exists to
+# prevent: an unknown SID has to behave exactly the same way.
+_ops._buckets.clear()
+_unknown = [c2.post("/api/auth/session",
+                    json={"sid": "99Z99999Z", "password": "wrong-one"}).status_code
+            for _ in range(12)]
+check("an UNKNOWN sid is throttled identically", _unknown == _codes, {"known": _codes, "unknown": _unknown})
+
+# And it is per-SID, so one student under attack cannot lock out the next one --
+# the reason this is not keyed by IP is that a lecture theatre shares one NAT.
+c2.post("/api/auth/signup", json={"sid": "24099999Z", "password": "hunter2xyz"})
+r = c2.post("/api/auth/session", json={"sid": "24099999Z", "password": "hunter2xyz"})
+check("a different student signs in fine while another is throttled", r.status_code == 200, r.status_code)
+_ops._buckets.clear()
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

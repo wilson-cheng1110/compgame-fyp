@@ -290,7 +290,38 @@ Ordered by what blocks what, not by size. Each link states its own done-test.
       every prediction exact.
       *Also fixed in passing: `run_all.py` crashed on cp1252 when a FAILING suite's
       output contained a ✓, hiding the failure it was printing.*
-- [ ] **P4 · the resilience suite** (`e2e/resilience.mjs`, same stdlib harness).
+- [x] **P4 · the resilience suite — done 2026-08-30.** `frontend/e2e/resilience.mjs`,
+      12 tests / 91 assertions, all 13 surfaces including the two that were going to be
+      deferred (keyboard-only, screen-reader). Every assertion mutation-proven: 13
+      mutants across four cycles, red list written before each run.
+
+      **Two real defects found, both fixed, neither visible to any prior test:**
+      · `hashlib.scrypt` ran ON THE EVENT LOOP in /api/auth/session and /signup, so
+        every sign-in blocked the whole server. Measured, not argued: /api/health —
+        which hashes nothing — went 1 ms → 2478 ms during a 60-way burst. Fixed with
+        the house `asyncio.to_thread` pattern: burst 2611→347 ms, throughput 23→173/s.
+        **This corrects a claim in ceefc92's own commit message**: moving the hash out
+        of the lock was necessary but not sufficient.
+      · The suite's SID-block preflight had been DEAD since ceefc92, because it probed
+        /api/auth/session, which now returns one identical 401 by design. It waved a
+        bad offset through into 28 tests throwing "roster exhausted" — 28 fake app bugs.
+
+      **Three more found by asking "is it ready", fixed the same day:** the identical
+      401 was undone by the clock (unknown SID 14.6 ms vs real SID 61.3 ms, 4.2x, no
+      overlap — and 212x at the store level); nothing throttled credential guessing,
+      which the event-loop fix had just made 7.5x faster; and `mc_bank` had become a
+      stale second source of truth that told a lecturer five banked topics had no
+      questions.
+
+      **What the suite does NOT prove:** that any game can be FINISHED. All 28 mount;
+      none are played to completion. That is P5, planned in `docs/go-live-plan.md` §4.1
+      with a per-game table of how Playwright drives each interaction shape.
+
+      *Lesson worth keeping, learned twice: an assertion must not RAISE on the values a
+      regression actually produces. `_codes.index(429)` and `.json()["error"]` both
+      aborted their files under a mutant and hid every assertion behind them.*
+
+- [ ] ~~**P4 · the resilience suite**~~ (`e2e/resilience.mjs`, same stdlib harness).
       Thirteen surfaces nothing tests today: refresh mid-check · two tabs · backend
       down mid-submit · cross-device resume · Ollama actually dead · slow submit ·
       mobile 390x844 · keyboard-only · screen-reader semantics · browser back ·

@@ -73,7 +73,11 @@ check("order field is 1..13", [s["order"] for s in states] == list(range(1,14)))
 # of its own. memory is the first release now.
 check("memory first", states[0]["topic_id"] == "memory", states[0]["topic_id"])
 check("experiment-design last", states[-1]["topic_id"] == "experiment-design")
-check("mc_bank true for exactly 4", sum(1 for s in states if s["mc_bank"]) == 4)
+# mc_bank retired 2026-08-30: it duplicated checks.has_bank() and went stale the
+# day the other nine banks landed. The live fact is asserted in test_checks.py
+# ("every scheduled topic has a bank") and in test_topic_api.py ("has_bank flags
+# all 13"), both of which read the bank file rather than a config flag.
+check("mc_bank is gone from the topic state", "mc_bank" not in states[0], sorted(states[0]))
 check("lecture_terms carried for gestalt",
       any(s["topic_id"]=="gestalt" and "pattern recognition" in s["lecture_terms"] for s in states))
 

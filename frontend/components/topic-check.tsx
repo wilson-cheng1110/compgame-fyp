@@ -159,9 +159,16 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
             {/* Serif, measure-limited. This is the sentence the whole study turns
                 on; it gets the typography of something meant to be read once and
                 carefully, rather than scanned. */}
-            <p className="u-stem mb-5">{inlineMarkdown(item.stem)}</p>
+            <p id={`stem-${item.id}`} className="u-stem mb-5">{inlineMarkdown(item.stem)}</p>
 
-            <div className="space-y-2">
+            {/* radiogroup + radio, not six loose buttons. The comment below is
+                right that OUTCOME never rests on hue alone -- but SELECTION did:
+                a picked option was a border and a background colour and nothing
+                else, so a student using a screen reader could not tell which
+                answer they had chosen, or whether they had chosen one at all.
+                An item they believe they answered and did not is a missing datum,
+                which makes this a measurement problem as much as an access one. */}
+            <div className="space-y-2" role="radiogroup" aria-labelledby={`stem-${item.id}`}>
               {item.options.map((opt) => {
                 const picked = answers[item.id] === opt.letter
                 const isCorrect = graded?.correct_option === opt.letter
@@ -188,6 +195,8 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
                   <button
                     key={opt.letter}
                     type="button"
+                    role="radio"
+                    aria-checked={picked}
                     disabled={!!result}
                     onClick={() => choose(item.id, opt.letter)}
                     onMouseEnter={() => t?.onHoverStart(opt.letter)}
@@ -212,6 +221,7 @@ export default function TopicCheck({ topicId, form, telemetryEnabled, onDone, da
 
       {submitError && (
         <div
+          role="alert"
           className="u-card p-4 text-center"
           style={{ borderColor: "var(--state-late)", color: "var(--state-late)" }}
         >

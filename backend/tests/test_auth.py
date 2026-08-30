@@ -87,5 +87,64 @@ check("stats shape",                   set(st) == {"enrolled","registered","with
 check("withdrawn counted",             st["withdrawn"] == 1, st)
 print("   ", st)
 
+print("\n-- every sign-in failure costs the same work (no timing oracle) --")
+# The single 401 /api/auth/session returns is worth nothing if a missing row can
+# skip the hash. Measured 2026-08-30 before the fix: an unknown SID answered in
+# 14.6 ms against 61.3 ms for a real one with a wrong password -- 4.2x, and the two
+# distributions did not overlap. That is the enrolment list, readable with a
+# stopwatch, and a WITHDRAWN student sat in the fast bucket too.
+#
+# Asserted structurally rather than by clock: count the hashes. A timing bound alone
+# would be flaky; a call count cannot be.
+import time as _time
+_real_verify = A.verify_password
+_calls = []
+def _counting_verify(pw, salt, expected):
+    _calls.append(1)
+    return _real_verify(pw, salt, expected)
+A.verify_password = _counting_verify
+try:
+    A.create_account("24067890X", "hunter2xyz")
+
+    _calls.clear(); A.start_session("99Z99999Z", "anything-at-all")
+    check("a SID with no account still hashes", len(_calls) == 1, len(_calls))
+
+    _calls.clear(); A.start_session("24067890X", "wrong-password-here")
+    check("a real SID with a wrong password hashes", len(_calls) == 1, len(_calls))
+
+    _calls.clear(); A.start_session("", "x")
+    check("an EMPTY sid is the one allowed short-circuit", len(_calls) == 0, len(_calls))
+finally:
+    A.verify_password = _real_verify
+
+# A withdrawn account must not be distinguishable either -- that promise is in
+# start_session's own docstring.
+A.create_account("24099999Z", "hunter2xyz")
+A.withdraw("24099999Z")
+_calls.clear(); A.verify_password = _counting_verify
+try:
+    A.start_session("24099999Z", "hunter2xyz")
+    check("a withdrawn account still hashes", len(_calls) == 1, len(_calls))
+finally:
+    A.verify_password = _real_verify
+check("and still cannot sign in", A.start_session("24099999Z", "hunter2xyz") is None)
+
+def _median_ms(sid, pw, n=9):
+    xs = []
+    for _ in range(n):
+        t0 = _time.perf_counter()
+        A.start_session(sid, pw)
+        xs.append((_time.perf_counter() - t0) * 1000)
+    return sorted(xs)[n // 2]
+
+_miss = _median_ms("99Z99999Z", "anything-at-all")
+_wrong = _median_ms("24067890X", "wrong-password-here")
+_ratio = max(_miss, _wrong) / max(0.001, min(_miss, _wrong))
+# Generous on purpose -- this is a smoke check on a shared machine, not a
+# constant-time proof. The bug it guards was 4.2x; anything under 3 is fine.
+check("miss and wrong-password take comparable time", _ratio < 3.0,
+      f"miss={_miss:.1f}ms wrong={_wrong:.1f}ms ratio={_ratio:.1f}x")
+print(f"     miss={_miss:.1f}ms  wrong-password={_wrong:.1f}ms  ratio={_ratio:.2f}x")
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

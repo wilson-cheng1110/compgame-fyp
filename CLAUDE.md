@@ -49,16 +49,25 @@ FYP_Submission/
                          #   calendar (teaching Mon 31 Aug - Sat 28 Nov 2026, 13 weeks).
                          #   --validate flags lecture dates on public holidays.
     enrolled_sids.txt    # Class list (SID,section). GITIGNORED — real personal data
-    tests/               # 262 assertions: python backend/tests/run_all.py
+    tests/               # 359 assertions: python backend/tests/run_all.py
     make_e2e_schedule.py # today-relative schedule so the browser tests have an open topic
     hci_chroma_db_local/ # Pre-built ChromaDB vector store (HCI lecture PDFs)
     *.pdf                # COMP3423 lecture slides (6 weeks)
     requirements.txt
   frontend/              # Next.js 15 app
-    e2e/                 # 124 browser assertions: node e2e/run.mjs (see e2e/README.md).
+    e2e/                 # 352 browser assertions: node e2e/run.mjs (see e2e/README.md).
                          #   Catches what backend tests structurally cannot — the login
                          #   loop, the assets-400 deploy bug, the stale-session dashboard.
                          #   BUILD THEN START; never rebuild under a running server.
+                         #   THREE suites: happy-path, unhappy-path, and
+      resilience.mjs     #   → the surfaces the other two never touch. All 28 game
+                         #   surfaces (26 routes + 2 Fitts sub-canvases) — only THREE
+                         #   had ever been opened by a test. Plus refresh mid-check,
+                         #   two tabs, backend down mid-submit, slow submit, cleared
+                         #   storage, cross-device resume, a dead tutor, 390px phone,
+                         #   keyboard-only, screen-reader semantics, and a 50-way
+                         #   sign-in burst. Games are proven to MOUNT, not to be
+                         #   finishable — that gap is P5 (docs/go-live-plan.md §4.1).
     app/
       page.tsx           # Landing page
       layout.tsx         # Root layout — BadgeProvider + AiChatWidget global
@@ -250,6 +259,16 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
   - Server accounts ✅ (`backend/auth_store.py`, 26 tests). Corpus staleness check ✅
     (`backend/check_corpus_coverage.py` — currently **exits 1**: zero coverage on `norman` and
     `hicks-law`, because the vector store is built from 2023 decks. Fix is `docs/revamp.md` Part 9.3).
-  - **Blocked on Wilson** (`docs/revamp.md` Part 4): `backend/enrolled_sids.txt` class list · HSESC
-    ethics amendment · 2026/27 lecture decks · the 13 session dates × 3 sections · a backup of
-    `backend/.participant_secret` taken off this machine.
+  - **Blocked on Wilson** (`docs/revamp.md` Part 4 · sequenced in `docs/go-live-plan.md`):
+    `backend/enrolled_sids.txt` class list (OPTIONAL since 2026-08-30, but its absence means the
+    student self-reports their section) · **HSESC ethics amendment — draft ready at
+    `docs/ethics-amendment-stage2.md`, four open questions for the supervisor at its foot** ·
+    2026/27 lecture decks (`norman`/`hicks-law` still zero corpus coverage, `webers-law` thin at
+    3 hits) · section C's session 5 falls on National Day, so `schedule.py --validate` exits 1.
+  - **`backend/.participant_secret` — DONE 2026-08-30, and it was not what the list said.** The
+    file had never existed: it is generated lazily on first use, so it would have been born
+    unnoticed during the first export on the deployment box. Generated deliberately before any
+    real data existed, and copied off-machine with a README and a fingerprint
+    (`3e4d9879…9eabf3`) so a copy can be verified without exposing the key. **Copy it onto the
+    deployment box BEFORE first run** — otherwise that box mints a different key and the backup
+    is worthless.

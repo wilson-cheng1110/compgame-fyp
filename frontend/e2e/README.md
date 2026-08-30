@@ -58,6 +58,19 @@ E2E_VERBOSE=1 node e2e/run.mjs    # show passing assertions too
 ```
 
 `/tmp/roster.txt` is one `SID,section` per line; the tests claim `24E00001A` upward.
+Make it big enough for the block you are running — a full run draws roughly 60 SIDs, so
+`E2E_SID_OFFSET=900` needs the roster to reach `24E00960A`. The harness caps allocation at
+`E2E_SID_MAX` (default 8000) and the preflight refuses to start if the block would run off
+the end of the roster, because the alternative is 28 tests throwing "roster exhausted" and
+reading as 28 app bugs — which is exactly what happened once.
+
+```bash
+python - <<'EOF'
+S="ABC"
+open("/tmp/roster.txt","w").write("".join(f"24E{n:05d}A,{S[n%3]}
+" for n in range(1,8001)))
+EOF
+```
 
 Exit codes: **0** pass, **1** a real failure, **2** setup is wrong and nothing ran —
 the third is deliberately distinct so a broken environment never reads as a red test.

@@ -237,10 +237,19 @@ export async function grepBuild(needle) {
 // Either point AUTH_DB_PATH / RESEARCH_DB_PATH at throwaway files (preferred), or
 // bump E2E_SID_OFFSET between runs.
 const SID_OFFSET = Number(process.env.E2E_SID_OFFSET ?? 0)
+// The ceiling has to match however many lines the roster fixture actually has.
+// It was a bare `400` with nothing tying it to the file, so raising the fixture did
+// nothing and lowering it produced 403s that read as app bugs. Default matches the
+// fixture make_e2e_schedule/the README produce; override for a smaller one.
+const SID_MAX = Number(process.env.E2E_SID_MAX ?? 8000)
 let nextSid = SID_OFFSET
 export function freshSid() {
   nextSid += 1
-  if (nextSid > 400) throw new Error("e2e roster exhausted — raise E2E_SID_OFFSET or reset the DBs")
+  if (nextSid > SID_MAX)
+    throw new Error(
+      `e2e roster exhausted at 24E${String(SID_MAX).padStart(5, "0")}A — extend the ` +
+        `ENROLMENT_PATH fixture and raise E2E_SID_MAX, or reset the DBs`,
+    )
   return `24E${String(nextSid).padStart(5, "0")}A`
 }
 export const sidBlockStart = () => SID_OFFSET + 1

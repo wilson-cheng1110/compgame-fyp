@@ -5,12 +5,17 @@
 // must not be mistaken for a red test.
 
 import { chromium } from "playwright"
-import { getTests, APP, API, T, Halt, sidBlockStart } from "./lib.mjs"
+import { getTests, APP, API, T, Halt, sidBlockStart, E2E_PASSWORD } from "./lib.mjs"
+
+// Roughly how many SIDs one full run draws. Used only to check the block fits
+// inside the roster before anything runs; generous on purpose.
+const DRAWS_PER_RUN = 60
 
 const only = process.argv[2]
 const SUITES = [
   ["happy-path", "./happy-path.mjs"],
   ["unhappy-path", "./unhappy-path.mjs"],
+  ["resilience", "./resilience.mjs"],
 ].filter(([n]) => !only || n === only || n === only + "-path")   // "happy" must not match "unhappy-path"
 
 // ── preflight ─────────────────────────────────────────────────────────────────
@@ -49,21 +54,46 @@ async function preflight() {
   // for setup reasons teaches people to ignore red. Probe the first SID of the block
   // and refuse to run if it has been used.
   if (!problems.length) {
-    const sid = `24E${String(sidBlockStart()).padStart(5, "0")}A`
+    // THIS PROBE USED TO ASK /api/auth/session FOR A BARE SID, AND THAT IS WHY IT
+    // NOW ASKS TWO DIFFERENT QUESTIONS. Since accounts got passwords, /session
+    // returns ONE identical 401 for unknown SID, wrong password, unclaimed account
+    // and withdrawn alike -- deliberately, so it cannot be walked to discover who is
+    // enrolled. That also silently killed this guard: it stopped telling "block
+    // already spent" from "not on the roster" from "fine", and a run with an
+    // out-of-range offset sailed straight past it into 28 tests all throwing
+    // "roster exhausted", which reads as 28 app bugs.
+    //
+    // /signup cannot stand in for it either: weak_password is checked BEFORE the
+    // roster and the existence check, so a deliberately-short password returns 400
+    // for an unenrolled SID and a claimed one alike.
+    const first = sidBlockStart()
+    const sid = `24E${String(first).padStart(5, "0")}A`
+
+    // 1. Does the roster reach far enough for the block this run will draw?
+    const enrolled = health?.components?.enrolment?.enrolled ?? 0
+    if (first + DRAWS_PER_RUN > enrolled) {
+      problems.push(
+        `E2E_SID_OFFSET=${first - 1} needs SIDs up to ~${first + DRAWS_PER_RUN}, but the ` +
+          `roster has ${enrolled}. Extend ENROLMENT_PATH, or lower the offset.`,
+      )
+    }
+
+    // 2. Is the first SID of the block already one of ours? Every account this suite
+    //    creates uses E2E_PASSWORD, so a 200 here means the block is spent. (On a
+    //    fixture DB a 401 means free; against a real DB it would only mean "not one
+    //    of ours", which is the same answer for this purpose.)
     try {
       const r = await fetch(API + "/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sid }),
+        body: JSON.stringify({ sid, password: E2E_PASSWORD }),
       })
-      const body = await r.json()
-      if (r.ok && body.needsConsent === false) {
+      if (r.ok) {
         problems.push(
-          `SID block starting ${sid} has already been used (that student has consented). ` +
-            `Bump E2E_SID_OFFSET, or point AUTH_DB_PATH/RESEARCH_DB_PATH at fresh files.`,
+          `SID block starting ${sid} has already been used (that account signs in ` +
+            `with the e2e password). Bump E2E_SID_OFFSET, or point AUTH_DB_PATH/` +
+            `RESEARCH_DB_PATH at fresh files.`,
         )
-      } else if (r.status === 403) {
-        problems.push(`${sid} is not on the enrolment list — check ENROLMENT_PATH`)
       }
     } catch {
       problems.push("could not probe the API for a fresh SID block")

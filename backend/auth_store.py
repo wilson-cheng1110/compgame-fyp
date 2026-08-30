@@ -188,6 +188,13 @@ def verify_password(password: str, salt, expected) -> bool:
     return hmac.compare_digest(got, bytes(expected))
 
 
+# A password nobody can supply, hashed once per process. It exists so that a
+# sign-in that CANNOT succeed still costs the same as one that fails on the
+# password -- see the note in start_session. Regenerated every boot, so it is not
+# even a stable target.
+_DECOY_SALT, _DECOY_HASH = hash_password(secrets.token_urlsafe(32))
+
+
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -355,9 +362,28 @@ def start_session(sid: str, password: str) -> dict | None:
         finally:
             conn.close()
 
-    if row is None or row["withdrawn"]:
-        return None
-    if not verify_password(password or "", row["pw_salt"], row["pw_hash"]):
+    # CONSTANT WORK ON EVERY FAILURE. The single 401 this function promises is
+    # undone by the clock if a missing row can skip the hash. Measured 2026-08-30
+    # over a direct connection, medians of 21 requests:
+    #
+    #     SID with no account            14.6 ms   (min  1.1)
+    #     SID with an account, wrong pw  61.3 ms   (min 38.2)
+    #
+    # 4.2x, and the two distributions do not overlap: that is the enrolment list,
+    # readable with a stopwatch. A withdrawn student sat in the fast bucket too,
+    # which defeats this docstring's own promise that withdrawal is not confirmed
+    # back to whoever typed the SID. An unclaimed account was fast as well, since
+    # verify_password returns early on a null hash.
+    #
+    # So exactly one scrypt runs on every path, against the real hash when there
+    # is one and a decoy when there is not. `usable` is checked AFTER the hash so
+    # the work happens either way -- do not reorder this into an early return.
+    usable = (row is not None and not row["withdrawn"]
+              and row["pw_salt"] and row["pw_hash"])
+    salt = row["pw_salt"] if usable else _DECOY_SALT
+    expected = row["pw_hash"] if usable else _DECOY_HASH
+    matched = verify_password(password or "", salt, expected)
+    if not usable or not matched:
         return None
 
     # A student the lecturer moved between days gets the new window on next sign-in.

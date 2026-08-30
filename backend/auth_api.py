@@ -34,15 +34,34 @@ shape of the two doors.
 
 The admin surface still does not belong on this router -- it gets its own, with its
 own allowlist file. What changed is only that one is now defensible at all.
+
+
+SCRYPT MUST NOT RUN ON THE EVENT LOOP. Measured 2026-08-30, 60 concurrent sign-ins:
+/api/health -- which hashes nothing -- went from 1 ms to 2478 ms, and only three of
+its probes completed during the 2.6 s burst. Throughput was 23 sign-ins/sec, i.e.
+one 43 ms hash after another, because `async def` + a synchronous call means the
+whole server does nothing else for the duration. A section of ~100 signing in
+together freezes the app for ~4 s for EVERY student, not just the ones signing in.
+
+This is the same bug `ops.run_gated` already documents for LangChain, one layer up:
+"called directly from an async handler it blocks the whole event loop for the
+duration -- so one student's 12-second tutor reply stalls every other request".
+`asyncio.to_thread` is the fix there and it is the fix here. No semaphore: there is
+no GPU to protect, and scrypt releases the GIL, so the threadpool gives real
+parallelism. This is also what makes the P1 decision to hash OUTSIDE `_lock`
+load-bearing -- with the hash inside it, threads would just queue on the lock again.
 """
 
 import os
 
-from fastapi import APIRouter, Cookie, Response
+import asyncio
+
+from fastapi import APIRouter, Cookie, Request, Response
 from pydantic import BaseModel
 
 import auth_store
 import baseline
+import ops
 import research_store
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -118,7 +137,9 @@ async def list_sections():
 async def signup(req: SignupRequest, response: Response):
     """Create an account. Returns the same body as /session so the frontend stores
     one shape either way."""
-    result, reason = auth_store.create_account(
+    # to_thread: see the scrypt note at the foot of this module's docstring.
+    result, reason = await asyncio.to_thread(
+        auth_store.create_account,
         req.sid, req.password, req.section, req.username, req.avatar_id)
     if result is None:
         response.status_code = (409 if reason in ("exists", "withdrawn")
@@ -138,12 +159,30 @@ async def signup(req: SignupRequest, response: Response):
 
 
 @router.post("/session")
-async def create_session(req: SessionRequest, response: Response):
+async def create_session(req: SessionRequest, request: Request, response: Response):
     """Sign in. 401 on any failure, with one message -- see the module docstring.
 
     The response body is what the frontend writes into its own `user` cookie.
     """
-    result = auth_store.start_session(req.sid, req.password)
+    # THROTTLE, KEYED BY THE SID THAT WAS TRIED -- not by IP. A lecture theatre
+    # shares one NAT, so an IP bucket would refuse a whole tutorial signing in at
+    # 09:00, which is a worse failure than the one it prevents. Keyed by SID, a
+    # student signing in normally never comes close (burst 8), while guessing one
+    # account's password empties the bucket in seconds. Unknown SIDs are throttled
+    # identically, so this cannot be walked to discover which SIDs exist.
+    #
+    # It runs BEFORE the hash on purpose: scrypt is ~37 ms of CPU, and since
+    # moving it off the event loop the server will happily burn every core on
+    # attempts. That change took sign-ins from 23/s to 173/s -- which is also 173
+    # guesses a second, so the throttle is part of the same fix, not a separate
+    # improvement.
+    if not ops.allow(f"signin:{(req.sid or '').strip().upper()}", per_minute=10, burst=8):
+        response.status_code = 429
+        return {"error": "too_many_attempts",
+                "message": "Too many sign-in attempts for that student ID. Wait a minute and try again."}
+
+    # to_thread: see the scrypt note at the foot of this module's docstring.
+    result = await asyncio.to_thread(auth_store.start_session, req.sid, req.password)
     if result is None:
         # ONE message for unknown / unclaimed / wrong-password / withdrawn. A student
         # who withdrew must not have that fact confirmed back to whoever typed their

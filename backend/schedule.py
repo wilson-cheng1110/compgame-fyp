@@ -129,7 +129,6 @@ def topic_states(sid: str, section: str, now: datetime | None = None) -> list[di
             "session": topic["session"],
             "arm": arm,
             "plays_game_first": arm == FLIP,
-            "mc_bank": topic.get("mc_bank", False),
             "lecture_terms": topic.get("lecture_terms", []),
             "session_provisional": topic.get("session_provisional", False),
         }
@@ -224,6 +223,23 @@ def validate() -> list[str]:
     return problems
 
 
+def _has_bank(topic_id: str) -> bool:
+    """Ask the item bank, not the config.
+
+    This column used to read a per-topic `mc_bank` flag out of the schedule JSON,
+    which was a SECOND source of truth for a fact checks.py already owns. On
+    2026-08-30 nine banks were authored and the flag was not updated, so this
+    preview told a lecturer that stroop, hicks-law, fitts-law, visual-perception
+    and mental-model had no questions when all five did. Nothing read the flag
+    anywhere else, which is exactly when to delete it rather than fix it.
+    """
+    try:
+        import checks
+        return checks.has_bank(topic_id)
+    except Exception:
+        return False
+
+
 def _preview() -> None:
     cfg = _load()
     print(f"{cfg['cohort']}  --  {len(cfg['topics'])} topics x {len(cfg['sections'])} sections\n")
@@ -231,7 +247,7 @@ def _preview() -> None:
     for idx, topic in enumerate(cfg["topics"]):
         win = _window_for(cfg, topic, "A")
         closes = win[1].strftime("%a %d %b %H:%M") if win else "-- unscheduled --"
-        bank = "yes" if topic.get("mc_bank") else "no"
+        bank = "yes" if _has_bank(topic["id"]) else "no"
         print(f"{idx+1:>2}  {topic['id']:<19}{topic['session']:>5}  {closes:<26}{bank:>5}")
 
     print("\narm assignment sample (first 4 topics):")

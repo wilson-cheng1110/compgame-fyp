@@ -36,40 +36,33 @@
   "topics": [
     {
       "id": "memory",
-      "session": 3,
-      "mc_bank": true
+      "session": 3
     },
     {
       "id": "problem-solving",
-      "session": 3,
-      "mc_bank": true
+      "session": 3
     },
     {
       "id": "stroop",
       "session": 3,
-      "mc_bank": false,
       "session_provisional": true
     },
     {
       "id": "hicks-law",
       "session": 4,
-      "mc_bank": false,
       "session_provisional": true
     },
     {
       "id": "fitts-law",
-      "session": 4,
-      "mc_bank": false
+      "session": 4
     },
     {
       "id": "visual-perception",
-      "session": 5,
-      "mc_bank": false
+      "session": 5
     },
     {
       "id": "webers-law",
       "session": 5,
-      "mc_bank": true,
       "lecture_terms": [
         "just noticeable difference",
         "JND",
@@ -79,7 +72,6 @@
     {
       "id": "gestalt",
       "session": 5,
-      "mc_bank": true,
       "lecture_terms": [
         "pattern recognition",
         "similarity",
@@ -89,29 +81,24 @@
     },
     {
       "id": "mental-model",
-      "session": 6,
-      "mc_bank": false
+      "session": 6
     },
     {
       "id": "norman",
       "session": 6,
-      "mc_bank": false,
       "session_provisional": true
     },
     {
       "id": "language",
-      "session": 8,
-      "mc_bank": false
+      "session": 8
     },
     {
       "id": "ergonomics",
-      "session": 9,
-      "mc_bank": false
+      "session": 9
     },
     {
       "id": "experiment-design",
-      "session": 11,
-      "mc_bank": false
+      "session": 11
     }
   ],
   "no_class_dates": {

@@ -547,7 +547,7 @@ test("the tutor step opens the Socratic surface, not the explain path", async (p
 function journeyRow(topic_id, order, over) {
   return {
     topic_id, order, session: order, state: "locked", arm: "FLIP",
-    plays_game_first: true, mc_bank: true, has_bank: true, lecture_terms: [],
+    plays_game_first: true, has_bank: true, lecture_terms: [],
     session_provisional: false, opens: null, closes: null, late: false,
     pre_done: false, post_done: false, complete: false, ...over,
   }

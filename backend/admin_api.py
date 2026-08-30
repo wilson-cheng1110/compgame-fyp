@@ -27,7 +27,25 @@ WHAT THIS DELIBERATELY CANNOT DO:
   * return password material. `list_participants` selects a boolean, not the hash.
   * delete anything. Withdrawal is the participant's own right and runs through
     /api/auth/withdraw plus research_store.forget_participant.
+
+
+SCRYPT MUST NOT RUN ON THE EVENT LOOP. Measured 2026-08-30, 60 concurrent sign-ins:
+/api/health -- which hashes nothing -- went from 1 ms to 2478 ms, and only three of
+its probes completed during the 2.6 s burst. Throughput was 23 sign-ins/sec, i.e.
+one 43 ms hash after another, because `async def` + a synchronous call means the
+whole server does nothing else for the duration. A section of ~100 signing in
+together freezes the app for ~4 s for EVERY student, not just the ones signing in.
+
+This is the same bug `ops.run_gated` already documents for LangChain, one layer up:
+"called directly from an async handler it blocks the whole event loop for the
+duration -- so one student's 12-second tutor reply stalls every other request".
+`asyncio.to_thread` is the fix there and it is the fix here. No semaphore: there is
+no GPU to protect, and scrypt releases the GIL, so the threadpool gives real
+parallelism. This is also what makes the P1 decision to hash OUTSIDE `_lock`
+load-bearing -- with the hash inside it, threads would just queue on the lock again.
 """
+
+import asyncio
 
 from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel
@@ -123,7 +141,9 @@ async def reset_password(body: PasswordReset, response: Response,
     sid, err = _admin(session, response)
     if err:
         return err
-    ok, reason = auth_store.set_password(body.sid, body.password)
+    # to_thread: scrypt, same reason as auth_api. A teacher resetting passwords
+    # down a class list would otherwise stall every student's page, one per reset.
+    ok, reason = await asyncio.to_thread(auth_store.set_password, body.sid, body.password)
     if not ok:
         response.status_code = 400
         return {"error": reason, "message": MESSAGES.get(reason, "Couldn't reset that.")}
