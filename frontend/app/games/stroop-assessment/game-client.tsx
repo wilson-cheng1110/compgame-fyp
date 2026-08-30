@@ -172,10 +172,10 @@ export default function StroopAssessment() {
   // ── Intro ──────────────────────────────────────────────────────────────────
   if (phase === "intro") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <h1 className="font-press-start-2p text-2xl text-black mb-3">Consistency (Stroop Test)</h1>
-        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#a16207]">
-          <p className="font-press-start-2p text-[#a16207] text-sm">Click the COLOUR — not the word</p>
+        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#004d4d]">
+          <p className="font-press-start-2p text-[#004d4d] text-sm">Click the COLOUR — not the word</p>
         </div>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-md mb-8 leading-relaxed">
           Part 1: A colour word appears — click the colour it's written IN (ignore what the word says).
@@ -183,7 +183,7 @@ export default function StroopAssessment() {
         </p>
         <button
           onClick={() => setPhase("stroop")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Start
         </button>
@@ -194,7 +194,7 @@ export default function StroopAssessment() {
   // ── Stroop game ────────────────────────────────────────────────────────────
   if (phase === "stroop") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-3">
           {stroopIdx + 1} / {STROOP_ROUNDS}
         </p>
@@ -236,7 +236,7 @@ export default function StroopAssessment() {
   if (phase === "quiz") {
     const q = quizQuestions[quizIdx]
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-12 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-12 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-4">
           Question {quizIdx + 1} / {QUIZ_QUESTIONS.length}
         </p>
@@ -245,7 +245,7 @@ export default function StroopAssessment() {
         </p>
         <div className="w-full max-w-xl space-y-3 mb-4">
           {q.options.map((opt, i) => {
-            let cls = "bg-white border-black hover:bg-[#f8f6ee] hover:shadow-[2px_2px_0px_0px_#000]"
+            let cls = "bg-white border-black hover:bg-[#f9fafb] hover:shadow-[2px_2px_0px_0px_#000]"
             if (selectedOption !== null) {
               if (i === q.answer) cls = "bg-green-100 border-green-600 text-green-800"
               else if (i === selectedOption) cls = "bg-red-100 border-red-500 text-red-800"
@@ -272,7 +272,7 @@ export default function StroopAssessment() {
         {selectedOption !== null && (
           <button
             onClick={nextQuiz}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             {quizIdx + 1 >= QUIZ_QUESTIONS.length ? "See Results →" : "Next →"}
           </button>
@@ -283,7 +283,7 @@ export default function StroopAssessment() {
 
   // ── Results ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
+    <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
       <h2 className="font-press-start-2p text-xl text-black mb-2">Assessment Complete</h2>
       <GameDebrief gameId="stroop-assessment" score={score} totalQuestions={STROOP_ROUNDS + QUIZ_QUESTIONS.length} />
     </div>

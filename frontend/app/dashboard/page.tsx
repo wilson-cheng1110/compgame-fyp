@@ -241,22 +241,25 @@ export default function DashboardPage() {
                         Next up
                       </p>
                       <p className="u-h2 mt-1">{nextUp.title}</p>
+                      {/* WHAT AN EXHAUSTED STUDENT IN NOVEMBER NEEDS TO KNOW, before
+                          they will open anything: how long, does it count, and can I
+                          stop. All three were true already and none of them were said
+                          here. "Check, activity, then check again" described the
+                          MECHANISM, which is the one thing they were not asking. */}
                       <p className="u-faint mt-1">
-                        {nextUpState.has_bank
-                          ? "Check, activity, then check again"
-                          : "Activity, then talk it through"}
-                        {/* Late used to render as nothing here, so the one topic
-                            the student is being sent to looked identical whether
-                            it was due Friday or three weeks overdue. It says both
-                            halves now: you are late, and it is still open. */}
+                        About 12 minutes. Not graded — it just helps us see whether
+                        this way of learning works.
                         {nextUpState.closes && nextUpState.late
-                          ? ` · overdue since ${shortDate(nextUpState.closes)} — still open`
+                          ? ` Overdue since ${shortDate(nextUpState.closes)}, and still open.`
                           : nextUpState.closes
-                            ? ` · finish by ${shortDate(nextUpState.closes)}`
+                            ? ` Open until ${shortDate(nextUpState.closes)}.`
                             : ""}
                       </p>
+                      <p className="u-faint mt-0.5" style={{ opacity: 0.8 }}>
+                        You can stop whenever you like — everything saves as you go.
+                      </p>
                     </div>
-                    <span className="u-btn u-btn-primary">Continue →</span>
+                    <span className="u-btn u-btn-primary">Start →</span>
                   </div>
                 </div>
               </Link>

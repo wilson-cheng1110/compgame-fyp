@@ -56,7 +56,7 @@ export default function MemoryUnderstanding() {
 
   if (phase === "learn") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h1 className="font-press-start-2p text-2xl text-black mb-1">Miller's Law</h1>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-2 text-lg">
           <span className="text-black font-bold">Short-term memory holds 7 ± 2 chunks</span>
@@ -70,7 +70,7 @@ export default function MemoryUnderstanding() {
         <div className="w-full max-w-2xl grid grid-cols-3 gap-3 mb-8">
           {[
             { name: "Sensory", duration: "< 1 second", capacity: "Large", border: "border-red-500", bg: "bg-red-50" },
-            { name: "Short-term (STM)", duration: "~20 seconds", capacity: "7 ± 2 chunks", border: "border-[#facc15]", bg: "bg-[#fefce8]" },
+            { name: "Short-term (STM)", duration: "~20 seconds", capacity: "7 ± 2 chunks", border: "border-[#006666]", bg: "bg-[#fefce8]" },
             { name: "Long-term (LTM)", duration: "Permanent", capacity: "Unlimited", border: "border-[#0099db]", bg: "bg-[#dbeafe]" },
           ].map((m) => (
             <div key={m.name} className={`border-2 ${m.border} ${m.bg} p-4`}>
@@ -93,7 +93,7 @@ export default function MemoryUnderstanding() {
 
         <button
           onClick={() => setPhase("chunk-demo")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Experience Chunking →
         </button>
@@ -103,7 +103,7 @@ export default function MemoryUnderstanding() {
 
   if (phase === "chunk-demo") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h2 className="font-press-start-2p text-xl text-black mb-2">Chunking in Action</h2>
         <p className="font-pixelify-sans text-gray-500 text-sm text-center mb-6 max-w-md">
           Chunking organises information into meaningful groups, reducing the STM load.
@@ -118,8 +118,8 @@ export default function MemoryUnderstanding() {
               onClick={() => { setActiveExample(i); setShowChunked(false) }}
               className={`px-3 py-1 border-2 font-pixelify-sans text-sm transition ${
                 i === activeExample
-                  ? "bg-[#facc15] border-[#a16207] text-black"
-                  : "bg-white border-black text-black hover:bg-[#f8f6ee]"
+                  ? "bg-[#006666] border-[#004d4d] text-white"
+                  : "bg-white border-black text-white hover:bg-[#f9fafb]"
               }`}
             >
               {e.title}
@@ -135,7 +135,7 @@ export default function MemoryUnderstanding() {
             </span>
             <button
               onClick={() => setShowChunked((v) => !v)}
-              className={`relative w-14 h-7 border-2 border-black transition-colors ${showChunked ? "bg-[#facc15]" : "bg-gray-300"}`}
+              className={`relative w-14 h-7 border-2 border-black transition-colors ${showChunked ? "bg-[#006666]" : "bg-gray-300"}`}
             >
               <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-black transition-transform ${showChunked ? "translate-x-7" : "translate-x-0"}`} />
             </button>
@@ -144,7 +144,7 @@ export default function MemoryUnderstanding() {
             </span>
           </div>
 
-          <div className="bg-[#f8f6ee] border-2 border-black p-4 text-center font-mono text-lg break-all">
+          <div className="bg-[#f9fafb] border-2 border-black p-4 text-center font-mono text-lg break-all">
             {showChunked ? (
               <span className="text-green-700">{ex.chunked}</span>
             ) : (
@@ -157,7 +157,7 @@ export default function MemoryUnderstanding() {
               <div
                 key={i}
                 className={`w-3 h-3 border border-black transition-colors ${
-                  i < 7 ? (showChunked ? "bg-green-500" : "bg-[#facc15]") : "bg-red-600"
+                  i < 7 ? (showChunked ? "bg-green-500" : "bg-[#006666]") : "bg-red-600"
                 }`}
               />
             ))}
@@ -173,7 +173,7 @@ export default function MemoryUnderstanding() {
 
         <button
           onClick={() => setPhase("debrief")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Complete Understanding →
         </button>
@@ -182,7 +182,7 @@ export default function MemoryUnderstanding() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+    <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
       <GameDebrief gameId="memory-understanding" />
     </div>

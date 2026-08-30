@@ -85,7 +85,7 @@ export default function ProblemSolvingUnderstanding() {
   // ── Learn ──────────────────────────────────────────────────────────────────
   if (phase === "learn") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h1 className="font-press-start-2p text-2xl text-black mb-2">Problem Solving</h1>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-8 leading-relaxed">
           Humans solve problems by searching a <span className="font-bold text-black">problem space</span> — the web of
@@ -94,15 +94,15 @@ export default function ProblemSolvingUnderstanding() {
 
         <div className="w-full max-w-2xl grid md:grid-cols-3 gap-4 mb-8">
           <div className="border-2 border-black bg-white p-4">
-            <p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">State</p>
+            <p className="font-press-start-2p text-[#004d4d] text-[10px] mb-2">State</p>
             <p className="font-pixelify-sans text-sm text-gray-700">A snapshot of the world — e.g. how much water is in each jug right now.</p>
           </div>
           <div className="border-2 border-black bg-white p-4">
-            <p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">Operator</p>
+            <p className="font-press-start-2p text-[#004d4d] text-[10px] mb-2">Operator</p>
             <p className="font-pixelify-sans text-sm text-gray-700">An action that changes the state — fill, empty, or pour a jug.</p>
           </div>
           <div className="border-2 border-black bg-white p-4">
-            <p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">Means-End</p>
+            <p className="font-press-start-2p text-[#004d4d] text-[10px] mb-2">Means-End</p>
             <p className="font-pixelify-sans text-sm text-gray-700">At each step, pick the operator that most reduces the gap to the goal.</p>
           </div>
         </div>
@@ -115,7 +115,7 @@ export default function ProblemSolvingUnderstanding() {
 
         <button
           onClick={() => setPhase("puzzle")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Start Solving →
         </button>
@@ -126,7 +126,7 @@ export default function ProblemSolvingUnderstanding() {
   // ── Puzzle ─────────────────────────────────────────────────────────────────
   if (phase === "puzzle") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-8 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-8 p-6">
         <h2 className="font-press-start-2p text-lg text-black mb-1">Measure exactly {GOAL}L</h2>
         <p className="font-pixelify-sans text-gray-500 text-sm mb-6">Moves: {moves.length}</p>
 
@@ -145,7 +145,7 @@ export default function ProblemSolvingUnderstanding() {
             </div>
             <button
               onClick={() => setPhase("debrief")}
-              className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+              className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
             >
               Finish and review →
             </button>
@@ -157,7 +157,7 @@ export default function ProblemSolvingUnderstanding() {
                 <button
                   key={op.id}
                   onClick={() => applyOp(op)}
-                  className="bg-white border-2 border-black font-pixelify-sans text-sm py-3 px-2 hover:bg-[#facc15] transition-colors shadow-[2px_2px_0px_0px_#000]"
+                  className="bg-white border-2 border-black font-pixelify-sans text-sm py-3 px-2 hover:bg-[#006666] transition-colors shadow-[2px_2px_0px_0px_#000]"
                 >
                   {op.label}
                 </button>
@@ -184,7 +184,7 @@ export default function ProblemSolvingUnderstanding() {
 
   // ── Debrief ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+    <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
       <GameDebrief gameId="problem-solving-understanding" />
     </div>

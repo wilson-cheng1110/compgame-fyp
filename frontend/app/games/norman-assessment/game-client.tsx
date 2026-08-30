@@ -104,17 +104,17 @@ export default function NormanAssessment() {
 
   if (phase === "intro") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <h1 className="font-press-start-2p text-xl text-black mb-3">Norman's Action Cycle</h1>
-        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#a16207]">
-          <p className="font-press-start-2p text-[#a16207] text-[10px]">Which stage broke down?</p>
+        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#004d4d]">
+          <p className="font-press-start-2p text-[#004d4d] text-[10px]">Which stage broke down?</p>
         </div>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-md mb-8 leading-relaxed">
           5 scenarios — each describes a UI failure. Identify which of Norman's 7 stages broke down and which gulf it represents.
         </p>
         <button
           onClick={() => setPhase("quiz")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Start
         </button>
@@ -125,16 +125,16 @@ export default function NormanAssessment() {
   if (phase === "quiz") {
     const q = QUESTIONS[quizIdx]
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-12 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-12 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-4">
           Scenario {quizIdx + 1} / {QUESTIONS.length}
         </p>
-        <div className="bg-[#fefce8] border-2 border-[#a16207] p-4 w-full max-w-xl mb-4 font-pixelify-sans text-sm text-gray-800 leading-relaxed">
+        <div className="bg-[#fefce8] border-2 border-[#004d4d] p-4 w-full max-w-xl mb-4 font-pixelify-sans text-sm text-gray-800 leading-relaxed">
           {q.q}
         </div>
         <div className="w-full max-w-xl space-y-3 mb-4">
           {q.options.map((opt, i) => {
-            let cls = "bg-white border-black hover:bg-[#f8f6ee] hover:shadow-[2px_2px_0px_0px_#000]"
+            let cls = "bg-white border-black hover:bg-[#f9fafb] hover:shadow-[2px_2px_0px_0px_#000]"
             if (selectedOption !== null) {
               if (i === q.answer) cls = "bg-green-100 border-green-600 text-green-800"
               else if (i === selectedOption) cls = "bg-red-100 border-red-500 text-red-800"
@@ -161,7 +161,7 @@ export default function NormanAssessment() {
         {selectedOption !== null && (
           <button
             onClick={nextQ}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             {quizIdx + 1 >= QUESTIONS.length ? "See Results →" : "Next →"}
           </button>
@@ -171,7 +171,7 @@ export default function NormanAssessment() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
+    <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
       <h2 className="font-press-start-2p text-xl text-black mb-2">Assessment Complete</h2>
       <GameDebrief gameId="norman-assessment" score={score} totalQuestions={QUESTIONS.length} />
     </div>

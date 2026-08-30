@@ -79,7 +79,7 @@ export default function GestaltGame() {
                         data-testid="principle-button"
                         className={`block w-64 md:w-80 text-center font-mono text-xl md:text-2xl px-5 py-3 border-2 cursor-pointer transition-colors duration-200 shadow-[3px_3px_0px_0px_#000] ${
                           hoveredItem === principle.id
-                            ? "bg-[#FFE100] border-[#a16207] text-black"
+                            ? "bg-[#006666] border-[#004d4d] text-white"
                             : "bg-[#00507a] border-[#00BFFF] text-white"
                         }`}
                         onMouseEnter={() => setHoveredItem(principle.id)}

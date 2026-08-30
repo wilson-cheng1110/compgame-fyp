@@ -138,21 +138,21 @@ export default function FittsLawAssessment() {
   // ── Intro ───────────────────────────────────────────────────────────────────
   if (phase === "intro") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <h1 className="font-press-start-2p text-2xl md:text-3xl text-[#e35126] mb-4">Fitts&apos; Law</h1>
-        <div className="bg-white border-2 border-black p-4 mb-4 font-mono text-[#a16207] text-center text-lg shadow-[4px_4px_0px_0px_#a16207]">
+        <div className="bg-white border-2 border-black p-4 mb-4 font-mono text-[#004d4d] text-center text-lg shadow-[4px_4px_0px_0px_#004d4d]">
           MT = a + b × log₂(A/W + 0.5)
         </div>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-8 leading-relaxed">
           The time to hit a target grows with its distance (A) and shrinks with its size (W).
-          Click the <span className="text-[#a16207] font-bold">home dot</span>, then move to the
+          Click the <span className="text-[#004d4d] font-bold">home dot</span>, then move to the
           target that appears and click it <span className="font-bold">as fast as you can</span>.
           We time every move. At the end, your own pointing times are plotted against the
           Fitts&apos; Law line. First 2 are practice.
         </p>
         <button
           onClick={start}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-base py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-base py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Start
         </button>
@@ -189,12 +189,12 @@ export default function FittsLawAssessment() {
     const lineX2 = toX(xMax), lineY2 = toY(a + b * xMax)
 
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
         <h2 className="font-press-start-2p text-xl text-black mb-1">Your Results</h2>
         <p className="font-pixelify-sans text-gray-600 text-sm mb-1">
           Fitted: MT = {a.toFixed(0)} + {b.toFixed(0)} × ID ms &nbsp;(R² = {r2.toFixed(2)})
         </p>
-        <p className="font-pixelify-sans text-[#a16207] text-sm mb-4">
+        <p className="font-pixelify-sans text-[#004d4d] text-sm mb-4">
           Your Index of Performance ≈ {ip.toFixed(1)} bits/sec
         </p>
 
@@ -203,7 +203,7 @@ export default function FittsLawAssessment() {
           <line x1={padL} y1={padT + chartH} x2={padL + chartW} y2={padT + chartH} stroke="#999" strokeWidth={1} />
           <text x={padL + chartW / 2} y={H - 4} textAnchor="middle" fontSize={9} fill="#666">Index of Difficulty (bits)</text>
           <text x={12} y={padT + chartH / 2} textAnchor="middle" fontSize={9} fill="#666" transform={`rotate(-90, 12, ${padT + chartH / 2})`}>MT (ms)</text>
-          <line x1={lineX1} y1={lineY1} x2={lineX2} y2={lineY2} stroke="#a16207" strokeWidth={2} strokeDasharray="6 3" />
+          <line x1={lineX1} y1={lineY1} x2={lineX2} y2={lineY2} stroke="#004d4d" strokeWidth={2} strokeDasharray="6 3" />
           {results.map((r, i) => (
             <circle key={i} cx={toX(r.id)} cy={toY(r.mtMs)} r={4} fill="#0099db" />
           ))}
@@ -222,7 +222,7 @@ export default function FittsLawAssessment() {
         <div className="flex gap-4 mb-6">
           <button
             onClick={start}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-6 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-6 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             Try Again
           </button>
@@ -237,7 +237,7 @@ export default function FittsLawAssessment() {
   const scoredDone = Math.max(0, idx - WARMUP_N)
   const scoredTotal = order.length - WARMUP_N
   return (
-    <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-4 text-black">
+    <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-4 text-black">
       <p className="font-press-start-2p text-gray-500 text-[9px] mb-1">
         {isWarmup ? "Practice — not scored" : `Trial ${scoredDone + 1} / ${scoredTotal}`}
       </p>
@@ -256,7 +256,7 @@ export default function FittsLawAssessment() {
           aria-label="Home"
           className={`absolute rounded-full border-2 transition-colors ${
             phase === "home"
-              ? "border-[#a16207] bg-[#facc15] hover:bg-[#fde047] animate-pulse cursor-pointer"
+              ? "border-[#004d4d] bg-[#006666] hover:bg-[#004d4d] animate-pulse cursor-pointer"
               : "border-gray-300 bg-gray-100"
           }`}
           style={{

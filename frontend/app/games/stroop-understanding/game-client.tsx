@@ -74,7 +74,7 @@ export default function StroopUnderstanding() {
   // ── Learn ──────────────────────────────────────────────────────────────────
   if (phase === "learn") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h1 className="font-press-start-2p text-2xl text-black mb-2">Principle of Consistency</h1>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-8 leading-relaxed">
           When a UI breaks established conventions, users slow down and make more errors — even when they know the rules. This is the{" "}
@@ -124,7 +124,7 @@ export default function StroopUnderstanding() {
 
         <button
           onClick={() => { setPhase("rt-test"); startRound() }}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Experience It →
         </button>
@@ -140,14 +140,14 @@ export default function StroopUnderstanding() {
     const isTransition = round === CONSISTENT_ROUNDS && !signal && rts.length === CONSISTENT_ROUNDS
 
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <p className="font-press-start-2p text-[10px] text-gray-500 mb-1">
           {blockLabel} Block — Round {blockRound} / {blockTotal}
         </p>
 
         {isTransition ? (
           <div className="text-center">
-            <p className="font-press-start-2p text-[#a16207] text-sm mb-3">Block complete!</p>
+            <p className="font-press-start-2p text-[#004d4d] text-sm mb-3">Block complete!</p>
             <p className="font-pixelify-sans text-gray-600 mb-2">
               Avg RT: <strong>{avg(rts).toFixed(0)} ms</strong>
             </p>
@@ -156,7 +156,7 @@ export default function StroopUnderstanding() {
             </p>
             <button
               onClick={startRound}
-              className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+              className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
             >
               Start Inconsistent Block →
             </button>
@@ -205,7 +205,7 @@ export default function StroopUnderstanding() {
             {!signal && !missed && rts.length < round && (
               <button
                 onClick={startRound}
-                className="mt-8 bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+                className="mt-8 bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
               >
                 Next Round
               </button>
@@ -226,7 +226,7 @@ export default function StroopUnderstanding() {
     const maxBar = Math.max(conAvg, incAvg)
 
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <h2 className="font-press-start-2p text-xl text-black mb-2">Your Results</h2>
         <p className="font-pixelify-sans text-gray-600 text-sm mb-6 text-center">
           Inconsistency cost you <strong className="text-red-600">{delta > 0 ? `+${delta.toFixed(0)} ms` : `${delta.toFixed(0)} ms`}</strong> per response
@@ -265,7 +265,7 @@ export default function StroopUnderstanding() {
         <div className="flex gap-3">
           <button
             onClick={() => setPhase("debrief")}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             Finish and review →
           </button>
@@ -276,7 +276,7 @@ export default function StroopUnderstanding() {
 
   // ── Debrief ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+    <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
       <GameDebrief gameId="stroop-understanding" />
     </div>

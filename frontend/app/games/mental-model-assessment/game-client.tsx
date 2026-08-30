@@ -133,17 +133,17 @@ export default function MentalModelAssessment() {
 
   if (phase === "intro") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <h1 className="font-press-start-2p text-xl text-black mb-3">Mental Models &amp; Affordances</h1>
-        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#a16207]">
-          <p className="font-press-start-2p text-[#a16207] text-[10px]">5 questions + 1 ranking task</p>
+        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#004d4d]">
+          <p className="font-press-start-2p text-[#004d4d] text-[10px]">5 questions + 1 ranking task</p>
         </div>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-md mb-8 leading-relaxed">
           Answer 5 MCQ questions on mental models, affordances, and signifiers. Then rank 4 UI buttons from clearest to most ambiguous affordance.
         </p>
         <button
           onClick={() => setPhase("quiz")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Start
         </button>
@@ -154,7 +154,7 @@ export default function MentalModelAssessment() {
   if (phase === "quiz") {
     const q = QUESTIONS[quizIdx]
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-12 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-12 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-4">
           Question {quizIdx + 1} / {QUESTIONS.length}
         </p>
@@ -163,7 +163,7 @@ export default function MentalModelAssessment() {
         </p>
         <div className="w-full max-w-xl space-y-3 mb-4">
           {q.options.map((opt, i) => {
-            let cls = "bg-white border-black hover:bg-[#f8f6ee] hover:shadow-[2px_2px_0px_0px_#000]"
+            let cls = "bg-white border-black hover:bg-[#f9fafb] hover:shadow-[2px_2px_0px_0px_#000]"
             if (selectedOption !== null) {
               if (i === q.answer) cls = "bg-green-100 border-green-600 text-green-800"
               else if (i === selectedOption) cls = "bg-red-100 border-red-500 text-red-800"
@@ -190,7 +190,7 @@ export default function MentalModelAssessment() {
         {selectedOption !== null && (
           <button
             onClick={nextQ}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             {quizIdx + 1 >= QUESTIONS.length ? "Ranking Task →" : "Next →"}
           </button>
@@ -201,7 +201,7 @@ export default function MentalModelAssessment() {
 
   if (phase === "rank") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-12 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-12 text-black">
         <p className="font-press-start-2p text-[10px] text-black mb-2">Ranking Task</p>
         <p className="font-pixelify-sans text-gray-600 text-sm text-center mb-2 max-w-md">
           Click to rank these 4 button designs from <strong>clearest affordance (1st)</strong> to <strong>most ambiguous (4th)</strong>
@@ -236,7 +236,7 @@ export default function MentalModelAssessment() {
                   className={`w-full text-left border-2 p-3 font-pixelify-sans text-sm transition flex items-center gap-3 ${
                     rankSubmitted
                       ? isCorrect ? "bg-green-100 border-green-600" : "bg-red-100 border-red-500"
-                      : isRanked ? "bg-[#facc15] border-[#a16207]" : "bg-white border-black hover:bg-[#f8f6ee]"
+                      : isRanked ? "bg-[#006666] border-[#004d4d]" : "bg-white border-black hover:bg-[#f9fafb]"
                   }`}
                 >
                   <span className={`font-press-start-2p text-lg w-8 text-center ${isRanked ? "text-black" : "text-gray-300"}`}>
@@ -244,7 +244,7 @@ export default function MentalModelAssessment() {
                   </span>
                   <span className="flex-1">{item.label}</span>
                   {isRanked && !rankSubmitted && (
-                    <span className="font-pixelify-sans text-xs text-[#a16207]">tap to remove</span>
+                    <span className="font-pixelify-sans text-xs text-[#004d4d]">tap to remove</span>
                   )}
                   {rankSubmitted && (
                     <span className="ml-auto font-press-start-2p text-[9px]">
@@ -267,7 +267,7 @@ export default function MentalModelAssessment() {
         ) : (
           <button
             onClick={() => setPhase("results")}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             See Results →
           </button>
@@ -277,7 +277,7 @@ export default function MentalModelAssessment() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
+    <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
       <h2 className="font-press-start-2p text-xl text-black mb-2">Assessment Complete</h2>
       <GameDebrief
         gameId="mental-model-assessment"

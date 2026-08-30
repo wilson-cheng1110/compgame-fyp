@@ -25,7 +25,7 @@ function ElementPreview({ id }: { id: string }) {
   switch (id) {
     case "raised-btn":
       return (
-        <button className="bg-[#facc15] border-2 border-[#a16207] rounded-md px-4 py-1.5 font-pixelify-sans text-sm text-black shadow-[3px_3px_0px_0px_#000]">
+        <button className="bg-[#006666] border-2 border-[#004d4d] rounded-md px-4 py-1.5 font-pixelify-sans text-sm text-white shadow-[3px_3px_0px_0px_#000]">
           Submit
         </button>
       )
@@ -127,7 +127,7 @@ export default function MentalModelUnderstanding() {
   // ── Intro ──────────────────────────────────────────────────────────────────
   if (phase === "intro") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h1 className="font-press-start-2p text-xl text-black mb-2">Mental Models & Affordances</h1>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-6 leading-relaxed">
           Users don't read manuals — they build a <strong>mental model</strong> of how a system works based on past experience and visible cues. <strong>Affordances</strong> are properties that suggest how something should be used. <strong>Signifiers</strong> are the visible cues that communicate those affordances.
@@ -138,7 +138,7 @@ export default function MentalModelUnderstanding() {
             {
               term: "Mental Model",
               def: "The user's internal representation of how the system works. Built from past experience, metaphors, and instruction. Good UIs match users' existing mental models.",
-              border: "border-[#a16207]",
+              border: "border-[#004d4d]",
               bg: "bg-[#fefce8]",
             },
             {
@@ -163,7 +163,7 @@ export default function MentalModelUnderstanding() {
 
         <button
           onClick={() => setPhase("affordance-sort")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Sort UI Elements →
         </button>
@@ -174,7 +174,7 @@ export default function MentalModelUnderstanding() {
   // ── Affordance Sort ────────────────────────────────────────────────────────
   if (phase === "affordance-sort") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h2 className="font-press-start-2p text-xl text-black mb-2">Affordance Sort</h2>
         <p className="font-pixelify-sans text-gray-500 text-sm text-center mb-6 max-w-md">
           For each UI element, decide: does it have a <strong>clear affordance</strong> (user knows what to do) or a <strong>weak affordance</strong> (user might not)?
@@ -187,7 +187,7 @@ export default function MentalModelUnderstanding() {
             return (
               <div key={item.id} className="bg-white border-2 border-black p-4">
                 <div className="flex items-center gap-4 mb-1">
-                  <div className="shrink-0 w-24 flex items-center justify-center min-h-[2.5rem] bg-[#f8f6ee] border border-gray-200 rounded">
+                  <div className="shrink-0 w-24 flex items-center justify-center min-h-[2.5rem] bg-[#f9fafb] border border-gray-200 rounded">
                     <ElementPreview id={item.id} />
                   </div>
                   <p className="font-pixelify-sans text-sm font-bold text-black">{item.label}</p>
@@ -232,7 +232,7 @@ export default function MentalModelUnderstanding() {
         ) : (
           <button
             onClick={() => setPhase("mismatch")}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             Mental Model Match →
           </button>
@@ -245,7 +245,7 @@ export default function MentalModelUnderstanding() {
   if (phase === "mismatch") {
     const pair = MISMATCH_PAIRS[mismatchIdx]
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-4">
           {mismatchIdx + 1} / {MISMATCH_PAIRS.length}
         </p>
@@ -267,9 +267,9 @@ export default function MentalModelUnderstanding() {
                 key={side}
                 onClick={() => { if (!mismatchSelected) setMismatchSelected(side) }}
                 disabled={!!mismatchSelected}
-                className={`flex-1 border-2 p-4 text-left transition ${cls} ${!mismatchSelected ? "hover:border-[#a16207] cursor-pointer" : "cursor-default"}`}
+                className={`flex-1 border-2 p-4 text-left transition ${cls} ${!mismatchSelected ? "hover:border-[#004d4d] cursor-pointer" : "cursor-default"}`}
               >
-                <p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">Option {side}</p>
+                <p className="font-press-start-2p text-[#004d4d] text-[10px] mb-2">Option {side}</p>
                 <p className="font-pixelify-sans text-sm text-black mb-2 font-bold">{opt.label}</p>
                 <p className="font-pixelify-sans text-xs text-gray-600">{opt.reason}</p>
               </button>
@@ -294,7 +294,7 @@ export default function MentalModelUnderstanding() {
                 setMismatchIdx((i) => i + 1)
               }
             }}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             {mismatchIdx + 1 >= MISMATCH_PAIRS.length ? "Complete Understanding →" : "Next Scenario →"}
           </button>
@@ -304,7 +304,7 @@ export default function MentalModelUnderstanding() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+    <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
       <GameDebrief gameId="mental-model-understanding" />
     </div>

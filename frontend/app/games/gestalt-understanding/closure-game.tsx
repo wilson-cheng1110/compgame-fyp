@@ -116,7 +116,7 @@ const ClosureGame = () => {
           <button
             key={answer}
             className={`w-40 h-12 font-mono text-lg rounded-md transition-colors duration-200
-              ${selectedAnswer === answer ? "bg-[#FFE100] text-black" : "bg-white text-black hover:bg-[#FFE100]"}`}
+              ${selectedAnswer === answer ? "bg-[#006666] text-white" : "bg-white text-white hover:bg-[#006666]"}`}
             onClick={() => handleAnswerSelect(answer)}
             disabled={selectedAnswer !== null}
           >

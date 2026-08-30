@@ -10,7 +10,7 @@ clarity and flow need the walkthrough in `ux-walkthrough-plan.md`.
 |---|---|
 | primary-action styling | **7** |
 | dominant font | **2** -- Inter, Pixelify Sans |
-| page background | **8** -- rgb(249, 250, 251) / rgb(255, 255, 255) / rgb(3, 96, 127) / rgb(248, 246, 238) / rgb(0, 51, 68) / rgb(0, 0, 0) / rgb(219, 234, 254) / rgb(250, 204, 21) |
+| page background | **7** -- rgb(249, 250, 251) / rgb(255, 255, 255) / rgb(3, 96, 127) / rgb(0, 51, 68) / rgb(0, 0, 0) / rgb(219, 234, 254) / rgb(0, 102, 102) |
 
 A student learns "the thing that moves me forward" by its look. 7 distinct
 primary-action styles means learning it 7 times.
@@ -21,14 +21,14 @@ primary-action styles means learning it 7 times.
   - 5 surface(s): /badges, /about, /account, /admin, /games/gestalt-assessment
 - `rgb(9, 56, 71) | rgb(255, 255, 255) | 0px | Inter | 30px | 5px | no-shadow`
   - 1 surface(s): /games/fitts-law-understanding
-- `rgb(250, 204, 21) | rgb(0, 0, 0) | 0px | Press Start 2P | 18px | 2px | shadow`
+- `rgb(0, 102, 102) | rgb(255, 255, 255) | 0px | Press Start 2P | 18px | 2px | shadow`
   - 2 surface(s): /games/fitts-law-assessment, /games/hicks-law-assessment
-- `rgb(255, 225, 0) | rgb(0, 0, 0) | 0px | ui-monospace | 20px | 2px | no-shadow`
+- `rgb(0, 102, 102) | rgb(255, 255, 255) | 0px | ui-monospace | 20px | 2px | no-shadow`
   - 1 surface(s): /games/gestalt-understanding
-- `rgb(250, 204, 21) | rgb(0, 0, 0) | 0px | Press Start 2P | 16px | 2px | shadow`
+- `rgb(0, 102, 102) | rgb(255, 255, 255) | 0px | Press Start 2P | 16px | 2px | shadow`
   - 20 surface(s): /games/hicks-law-understanding, /games/memory-understanding, /games/memory-assessment, /games/stroop-understanding, /games/stroop-assessment, /games/webers-law-understanding …
-- `rgb(253, 224, 71) | rgb(0, 0, 0) | 0px | Press Start 2P | 16px | 2px | shadow`
-  - 1 surface(s): /games/problem-solving-assessment
+- `rgb(0, 77, 77) | rgb(255, 255, 255) | 0px | Press Start 2P | 16px | 2px | shadow`
+  - 1 surface(s): /games/language-assessment
 
 ## Per-heuristic findings
 

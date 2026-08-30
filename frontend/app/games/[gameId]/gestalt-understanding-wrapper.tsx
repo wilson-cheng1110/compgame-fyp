@@ -302,7 +302,7 @@ export default function GestaltUnderstandingWrapper() {
                           data-testid="principle-button"
                           className={`block w-64 md:w-80 text-center font-mono text-xl md:text-2xl px-5 py-3 border-2 cursor-pointer transition-colors duration-200 shadow-[3px_3px_0px_0px_#000] ${
                             hoveredItem === principle.id
-                              ? "bg-[#FFE100] border-[#a16207] text-black"
+                              ? "bg-[#006666] border-[#004d4d] text-white"
                               : "bg-[#00507a] border-[#00BFFF] text-white"
                           }`}
                           onMouseEnter={() => setHoveredItem(principle.id)}
@@ -323,7 +323,7 @@ export default function GestaltUnderstandingWrapper() {
                   <button
                     onClick={() => finishLearning(unit)}
                     data-testid="gestalt-learned"
-                    className="mt-6 w-full bg-[#FFE100] border-2 border-[#a16207] text-black font-mono text-lg md:text-xl py-3 px-4 hover:bg-[#fde047] transition-colors font-bold"
+                    className="mt-6 w-full bg-[#006666] border-2 border-[#004d4d] text-white font-mono text-lg md:text-xl py-3 px-4 hover:bg-[#004d4d] transition-colors font-bold"
                   >
                     {unit
                       ? "✓ I've learned these — Back to the unit →"

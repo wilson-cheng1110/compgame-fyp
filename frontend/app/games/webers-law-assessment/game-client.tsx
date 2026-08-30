@@ -43,7 +43,7 @@ function buildRound(config: typeof ROUND_CONFIGS[0]) {
     const isOdd = i === oddIdx
     if (config.attr === "size") {
       const size = isOdd ? Math.round(BASE_SIZE * (1 + config.jndPct)) : BASE_SIZE
-      return { size, color: "#facc15", borderColor: "#a16207" }
+      return { size, color: "#006666", borderColor: "#004d4d" }
     }
     if (config.attr === "brightness") {
       const b = isOdd ? Math.min(255, Math.round(BASE_BRIGHTNESS * (1 + config.jndPct))) : BASE_BRIGHTNESS
@@ -89,10 +89,10 @@ export default function WebersLawAssessment() {
 
   if (phase === "intro") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <h1 className="font-press-start-2p text-2xl text-black mb-3">Weber's Law</h1>
-        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#a16207]">
-          <p className="font-press-start-2p text-[#a16207] text-sm">Click the shape that's different</p>
+        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#004d4d]">
+          <p className="font-press-start-2p text-[#004d4d] text-sm">Click the shape that's different</p>
         </div>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-md mb-8 leading-relaxed">
           8 rounds. One shape in each grid is slightly different — bigger, brighter, or a different hue.
@@ -100,7 +100,7 @@ export default function WebersLawAssessment() {
         </p>
         <button
           onClick={() => setPhase("playing")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Start
         </button>
@@ -110,7 +110,7 @@ export default function WebersLawAssessment() {
 
   if (phase === "playing") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-1">
           Round {roundIdx + 1} / {ROUND_CONFIGS.length}
         </p>
@@ -163,7 +163,7 @@ export default function WebersLawAssessment() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
+    <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
       <h2 className="font-press-start-2p text-xl text-black mb-2">Assessment Complete</h2>
       <GameDebrief gameId="webers-law-assessment" score={score} totalQuestions={ROUND_CONFIGS.length} />
     </div>

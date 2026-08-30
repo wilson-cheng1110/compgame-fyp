@@ -37,7 +37,7 @@ export default function ErgonomicsUnderstanding() {
   // ── Learn ──────────────────────────────────────────────────────────────────
   if (phase === "learn") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h1 className="font-press-start-2p text-xl text-black mb-2">Ergonomics &amp; I/O Devices</h1>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-8 leading-relaxed">
           Ergonomics (human factors) fits the <span className="font-bold text-black">system to the human</span> — body,
@@ -46,17 +46,17 @@ export default function ErgonomicsUnderstanding() {
         </p>
         <div className="w-full max-w-2xl grid md:grid-cols-2 gap-4 mb-8 font-pixelify-sans text-sm text-gray-700">
           <div className="border-2 border-black bg-white p-4">
-            <p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">Physical ergonomics</p>
+            <p className="font-press-start-2p text-[#004d4d] text-[10px] mb-2">Physical ergonomics</p>
             Posture, anthropometry, repetitive strain. Bad fit → musculoskeletal disorders like carpal tunnel syndrome.
           </div>
           <div className="border-2 border-black bg-white p-4">
-            <p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">I/O devices</p>
+            <p className="font-press-start-2p text-[#004d4d] text-[10px] mb-2">I/O devices</p>
             Inputs and outputs are the user interface. Judge them by how they fit the eye, the hand, and motor limits (Fitts&apos; Law, haptics).
           </div>
         </div>
         <button
           onClick={() => setPhase("hazards")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Spot the hazards →
         </button>
@@ -68,7 +68,7 @@ export default function ErgonomicsUnderstanding() {
   if (phase === "hazards") {
     const allFound = found.length === HAZARDS.length
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-8 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-8 p-6">
         <h2 className="font-press-start-2p text-lg text-black mb-1">Spot the ergonomic hazards</h2>
         <p className="font-pixelify-sans text-gray-500 text-sm mb-6">Found {found.length} / {HAZARDS.length}</p>
 
@@ -77,12 +77,12 @@ export default function ErgonomicsUnderstanding() {
         </p>
 
         {/* Labeled side-view workstation — each hotspot sits on its body region */}
-        <div className="relative bg-white border-2 border-black w-80 h-72 mb-6 shadow-[4px_4px_0px_0px_#a16207]">
+        <div className="relative bg-white border-2 border-black w-80 h-72 mb-6 shadow-[4px_4px_0px_0px_#004d4d]">
           {/* head bent toward a low screen */}
           <div className="absolute top-4 left-10 text-5xl rotate-[25deg]">🧑</div>
           <div className="absolute top-20 left-2 text-4xl">🖥️</div>
           {/* arms/desk */}
-          <div className="absolute top-32 left-1/2 -translate-x-1/2 w-64 h-2 bg-[#a16207]" />
+          <div className="absolute top-32 left-1/2 -translate-x-1/2 w-64 h-2 bg-[#004d4d]" />
           <div className="absolute top-28 right-10 text-3xl">🖐️</div>
           {/* dangling feet */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-3xl">🦶</div>
@@ -105,7 +105,7 @@ export default function ErgonomicsUnderstanding() {
               >
                 <span
                   className={`w-7 h-7 rounded-full border-2 font-press-start-2p text-[10px] flex items-center justify-center ${
-                    got ? "bg-red-500 border-black text-white" : "bg-[#facc15] border-black animate-pulse"
+                    got ? "bg-red-500 border-black text-white" : "bg-[#006666] border-black animate-pulse"
                   }`}
                 >
                   {got ? "!" : "?"}
@@ -129,7 +129,7 @@ export default function ErgonomicsUnderstanding() {
         <button
           onClick={() => setPhase("haptics")}
           disabled={!allFound}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000] disabled:opacity-40"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000] disabled:opacity-40"
         >
           {allFound ? "Next: Haptics →" : `Find ${HAZARDS.length - found.length} more`}
         </button>
@@ -142,7 +142,7 @@ export default function ErgonomicsUnderstanding() {
     const b = BODY[body]
     const maxT = 42
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-8 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-8 p-6">
         <h2 className="font-press-start-2p text-lg text-black mb-1">Haptic resolution</h2>
         <p className="font-pixelify-sans text-gray-500 text-sm mb-6 max-w-md text-center">
           The two-point threshold is the smallest gap at which two touches feel like two, not one. It varies hugely across the body.
@@ -153,14 +153,14 @@ export default function ErgonomicsUnderstanding() {
             <button
               key={r.region}
               onClick={() => setBody(i)}
-              className={`font-press-start-2p text-[9px] py-2 px-3 border-2 border-black ${i === body ? "bg-[#facc15]" : "bg-white hover:bg-[#f8f6ee]"}`}
+              className={`font-press-start-2p text-[9px] py-2 px-3 border-2 border-black ${i === body ? "bg-[#006666]" : "bg-white hover:bg-[#f9fafb]"}`}
             >
               {r.region}
             </button>
           ))}
         </div>
 
-        <div className="w-full max-w-md bg-white border-2 border-black p-5 mb-6 shadow-[4px_4px_0px_0px_#a16207]">
+        <div className="w-full max-w-md bg-white border-2 border-black p-5 mb-6 shadow-[4px_4px_0px_0px_#004d4d]">
           <div className="flex justify-between font-pixelify-sans text-sm mb-1">
             <span className="font-bold">{b.region}</span>
             <span>~{b.threshold} mm</span>
@@ -173,7 +173,7 @@ export default function ErgonomicsUnderstanding() {
 
         <button
           onClick={() => setPhase("debrief")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Finish and review →
         </button>
@@ -183,7 +183,7 @@ export default function ErgonomicsUnderstanding() {
 
   // ── Debrief ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+    <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
       <GameDebrief gameId="ergonomics-understanding" />
     </div>

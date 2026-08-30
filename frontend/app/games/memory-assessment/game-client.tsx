@@ -138,10 +138,10 @@ export default function MemoryAssessment() {
   // ── Intro ──────────────────────────────────────────────────────────────────
   if (phase === "intro") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <h1 className="font-press-start-2p text-2xl text-black mb-3">Miller's Law</h1>
-        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#a16207]">
-          <p className="font-press-start-2p text-[#a16207] text-sm">STM capacity = 7 ± 2 items</p>
+        <div className="bg-white border-2 border-black p-4 mb-4 text-center shadow-[4px_4px_0px_0px_#004d4d]">
+          <p className="font-press-start-2p text-[#004d4d] text-sm">STM capacity = 7 ± 2 items</p>
         </div>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-md mb-8 leading-relaxed">
           First, experience the limits of working memory — you'll see a sequence of digits, then type them back.
@@ -149,7 +149,7 @@ export default function MemoryAssessment() {
         </p>
         <button
           onClick={startSpanRound}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Start Memory Test
         </button>
@@ -160,7 +160,7 @@ export default function MemoryAssessment() {
   // ── Digit span: showing ────────────────────────────────────────────────────
   if (phase === "span-show") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-6">
           Round {spanRound + 1} / {SPAN_ROUNDS.length} — {digits.length} digits
         </p>
@@ -169,7 +169,7 @@ export default function MemoryAssessment() {
           {digits.map((d, i) => (
             <div
               key={i}
-              className="w-12 h-14 bg-[#facc15] border-2 border-[#a16207] flex items-center justify-center font-press-start-2p text-2xl text-black shadow-[3px_3px_0px_0px_#000]"
+              className="w-12 h-14 bg-[#006666] border-2 border-[#004d4d] flex items-center justify-center font-press-start-2p text-2xl text-white shadow-[3px_3px_0px_0px_#000]"
             >
               {d}
             </div>
@@ -185,7 +185,7 @@ export default function MemoryAssessment() {
   // ── Digit span: recall ─────────────────────────────────────────────────────
   if (phase === "span-recall") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <p className="font-pixelify-sans text-gray-600 mb-2">Type the digits you saw, in order:</p>
         <input
           type="text"
@@ -212,7 +212,7 @@ export default function MemoryAssessment() {
     const last = spanResults[spanResults.length - 1]
     const correct = last?.correct
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-center p-6 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-black">
         <div className={`font-press-start-2p text-5xl mb-4 ${correct ? "text-green-600" : "text-red-600"}`}>
           {correct ? "✓" : "✗"}
         </div>
@@ -227,7 +227,7 @@ export default function MemoryAssessment() {
         )}
         <button
           onClick={nextSpanRound}
-          className="mt-8 bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="mt-8 bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           {spanRound + 1 >= SPAN_ROUNDS.length ? "Take the Quiz →" : `Next Round (${SPAN_ROUNDS[spanRound + 1]} digits)`}
         </button>
@@ -239,7 +239,7 @@ export default function MemoryAssessment() {
   if (phase === "quiz") {
     const q = QUIZ_QUESTIONS[quizIdx]
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-12 text-black">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-12 text-black">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-4 uppercase tracking-wider">
           Question {quizIdx + 1} / {QUIZ_QUESTIONS.length}
         </p>
@@ -250,7 +250,7 @@ export default function MemoryAssessment() {
           {q.options.map((opt, i) => {
             const isCorrect = i === q.answer
             const isSelected = i === selectedOption
-            let cls = "bg-white border-black hover:bg-[#f8f6ee] hover:shadow-[2px_2px_0px_0px_#000]"
+            let cls = "bg-white border-black hover:bg-[#f9fafb] hover:shadow-[2px_2px_0px_0px_#000]"
             if (selectedOption !== null) {
               if (isCorrect) cls = "bg-green-100 border-green-600 text-green-800"
               else if (isSelected) cls = "bg-red-100 border-red-500 text-red-800"
@@ -277,7 +277,7 @@ export default function MemoryAssessment() {
         {selectedOption !== null && (
           <button
             onClick={nextQuiz}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             {quizIdx + 1 >= QUIZ_QUESTIONS.length ? "See Results →" : "Next Question →"}
           </button>
@@ -289,7 +289,7 @@ export default function MemoryAssessment() {
   // ── Results ───────────────────────────────────────────────────────────────
   if (phase === "results") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
+      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-start p-6 pt-10 text-black overflow-y-auto">
         <h2 className="font-press-start-2p text-xl text-black mb-2">Assessment Complete</h2>
         <GameDebrief
           gameId="memory-assessment"

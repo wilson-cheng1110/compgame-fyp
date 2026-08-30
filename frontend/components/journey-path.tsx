@@ -50,8 +50,13 @@ export default function JourneyPath({
         ))}
       </div>
       <div className="flex items-baseline justify-between gap-4 mt-2 flex-wrap">
+        {/* COUNT DOWN, NOT UP. "9 of 13 done" grows all semester and reads as a debt
+            you are behind on; "4 topics left" shrinks and reads as survivable. Same
+            number, opposite feeling, and by November the feeling is the whole point. */}
         <p className="u-faint u-num" data-testid="journey-count">
-          {done} of {ordered.length} topics
+          {ordered.length - done === 0
+            ? "All topics done"
+            : `${ordered.length - done} topic${ordered.length - done === 1 ? "" : "s"} left`}
         </p>
         {showNext && next && (
           <p className="u-faint">

@@ -47,15 +47,15 @@ export default function WebersLawUnderstanding() {
     const refRadius = 60
     const changePct = ((learnSlider - refRadius) / refRadius * 100)
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h1 className="font-press-start-2p text-2xl text-black mb-2">Weber's Law</h1>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-6 leading-relaxed">
           Ernst Weber (1834) discovered that the smallest detectable change in a stimulus is not a fixed amount — it is a constant <em>fraction</em> of the original. This fraction is called the <strong>Weber fraction (k)</strong>.
         </p>
 
-        <div className="bg-white border-2 border-black p-5 w-full max-w-md mb-6 text-center shadow-[4px_4px_0px_0px_#a16207]">
-          <p className="font-press-start-2p text-[#a16207] text-[10px] uppercase tracking-widest mb-2">The Formula</p>
-          <p className="font-mono text-[#a16207] text-xl font-bold">ΔI / I = k</p>
+        <div className="bg-white border-2 border-black p-5 w-full max-w-md mb-6 text-center shadow-[4px_4px_0px_0px_#004d4d]">
+          <p className="font-press-start-2p text-[#004d4d] text-[10px] uppercase tracking-widest mb-2">The Formula</p>
+          <p className="font-mono text-[#004d4d] text-xl font-bold">ΔI / I = k</p>
           <div className="mt-3 font-pixelify-sans text-sm text-gray-600 space-y-1">
             <p><span className="text-black font-bold">ΔI</span> = just noticeable difference (JND)</p>
             <p><span className="text-black font-bold">I</span> = original stimulus intensity</p>
@@ -71,7 +71,7 @@ export default function WebersLawUnderstanding() {
           <div className="flex items-center justify-center gap-8 mb-4">
             <div className="flex flex-col items-center gap-1">
               <div
-                className="border-2 border-black bg-[#facc15]"
+                className="border-2 border-black bg-[#006666]"
                 style={{ width: refRadius * 2, height: refRadius * 2, borderRadius: "50%" }}
               />
               <span className="font-pixelify-sans text-xs text-gray-500">Reference</span>
@@ -90,7 +90,7 @@ export default function WebersLawUnderstanding() {
             max={refRadius * 2}
             value={learnSlider}
             onChange={(e) => setLearnSlider(Number(e.target.value))}
-            className="w-full accent-[#facc15] mb-2"
+            className="w-full accent-[#006666] mb-2"
           />
           <div className="text-center font-pixelify-sans text-sm">
             Change: <strong className={changePct > 10 ? "text-green-700" : "text-gray-500"}>+{changePct.toFixed(1)}%</strong>
@@ -105,7 +105,7 @@ export default function WebersLawUnderstanding() {
 
         <button
           onClick={() => setPhase("jnd-demo")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Find Your JND →
         </button>
@@ -116,7 +116,7 @@ export default function WebersLawUnderstanding() {
   // ── JND Demo ───────────────────────────────────────────────────────────────
   if (phase === "jnd-demo") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h2 className="font-press-start-2p text-xl text-black mb-2">Find Your JND</h2>
         <p className="font-pixelify-sans text-gray-500 text-sm text-center mb-6 max-w-md">
           Move the slider until the right shape is clearly different from the left. Then click "I notice it!"
@@ -130,8 +130,8 @@ export default function WebersLawUnderstanding() {
               onClick={() => setAttrIdx(i)}
               className={`px-3 py-1 border-2 font-pixelify-sans text-sm transition ${
                 i === attrIdx
-                  ? "bg-[#facc15] border-[#a16207] text-black"
-                  : "bg-white border-black text-black hover:bg-[#f8f6ee]"
+                  ? "bg-[#006666] border-[#004d4d] text-white"
+                  : "bg-white border-black text-white hover:bg-[#f9fafb]"
               }`}
             >
               {ATTR_LABELS[a]}
@@ -146,7 +146,7 @@ export default function WebersLawUnderstanding() {
             {/* Reference */}
             <div className="flex flex-col items-center gap-2">
               {attr === "size" && (
-                <div className="border-2 border-black bg-[#facc15]" style={{ width: BASE.size * 2, height: BASE.size * 2, borderRadius: "50%" }} />
+                <div className="border-2 border-black bg-[#006666]" style={{ width: BASE.size * 2, height: BASE.size * 2, borderRadius: "50%" }} />
               )}
               {attr === "brightness" && (
                 <div className="border-2 border-black" style={{ width: 80, height: 80, backgroundColor: `rgb(${BASE.brightness},${BASE.brightness},${BASE.brightness})` }} />
@@ -154,7 +154,7 @@ export default function WebersLawUnderstanding() {
               {attr === "count" && (
                 <div className="flex flex-wrap gap-1 w-[80px]">
                   {Array.from({ length: Math.round(BASE.count) }, (_, i) => (
-                    <div key={i} className="w-4 h-4 bg-[#facc15] border border-black" />
+                    <div key={i} className="w-4 h-4 bg-[#006666] border border-black" />
                   ))}
                 </div>
               )}
@@ -186,7 +186,7 @@ export default function WebersLawUnderstanding() {
             step={attr === "count" ? 1 : 1}
             value={currentVal}
             onChange={(e) => setUserSlider((prev) => ({ ...prev, [attr]: Number(e.target.value) }))}
-            className="w-full accent-[#facc15] mb-3"
+            className="w-full accent-[#006666] mb-3"
           />
 
           <div className="text-center font-pixelify-sans text-sm mb-3">
@@ -210,7 +210,7 @@ export default function WebersLawUnderstanding() {
         {Object.values(noticed).filter(Boolean).length === ATTRS.length ? (
           <button
             onClick={() => setPhase("ui-examples")}
-            className="mt-4 bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="mt-4 bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             UI Design Implications →
           </button>
@@ -226,7 +226,7 @@ export default function WebersLawUnderstanding() {
   // ── UI Examples ────────────────────────────────────────────────────────────
   if (phase === "ui-examples") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h2 className="font-press-start-2p text-xl text-black mb-2">Weber's Law in UI</h2>
         <p className="font-pixelify-sans text-gray-500 text-sm text-center mb-6 max-w-md">
           If a UI change is below the user's JND threshold, it goes unnoticed. Designers must ensure feedback exceeds that threshold.
@@ -244,7 +244,7 @@ export default function WebersLawUnderstanding() {
               title: "Error highlight contrast",
               good: "Increase input border from 1px grey to 2px red + background tint — well above JND",
               bad: "Change border from grey #9CA3AF to grey #8B96A8 — likely invisible",
-              border: "border-[#a16207]",
+              border: "border-[#004d4d]",
               bg: "bg-[#fefce8]",
             },
             {
@@ -264,7 +264,7 @@ export default function WebersLawUnderstanding() {
         </div>
         <button
           onClick={() => setPhase("debrief")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Complete Understanding →
         </button>
@@ -273,7 +273,7 @@ export default function WebersLawUnderstanding() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+    <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
       <GameDebrief gameId="webers-law-understanding" />
     </div>

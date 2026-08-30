@@ -55,7 +55,7 @@ module.exports = {
           foreground: "#003344",
         },
         background: "#003344",
-        highlight: "#FFE100",
+        highlight: "#006666",
       },
       borderRadius: {
         lg: "var(--radius)",

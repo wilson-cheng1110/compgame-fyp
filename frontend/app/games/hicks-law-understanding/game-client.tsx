@@ -77,7 +77,7 @@ export default function HicksLawUnderstanding() {
   // ── Learn phase ───────────────────────────────────────────────────────────
   if (phase === "learn") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h1 className="font-press-start-2p text-2xl text-black mb-1">Hick's Law</h1>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-8 leading-relaxed">
           In 1952, William Edmund Hick showed that decision time grows logarithmically with the number of choices.
@@ -85,9 +85,9 @@ export default function HicksLawUnderstanding() {
         </p>
 
         {/* Formula box */}
-        <div className="bg-white border-2 border-black p-5 w-full max-w-md mb-6 text-center shadow-[4px_4px_0px_0px_#a16207]">
-          <p className="font-press-start-2p text-[#a16207] text-[10px] uppercase tracking-widest mb-2">The Formula</p>
-          <p className="font-mono text-[#a16207] text-xl font-bold">RT = a + b × log₂(n + 1)</p>
+        <div className="bg-white border-2 border-black p-5 w-full max-w-md mb-6 text-center shadow-[4px_4px_0px_0px_#004d4d]">
+          <p className="font-press-start-2p text-[#004d4d] text-[10px] uppercase tracking-widest mb-2">The Formula</p>
+          <p className="font-mono text-[#004d4d] text-xl font-bold">RT = a + b × log₂(n + 1)</p>
           <div className="mt-3 font-pixelify-sans text-sm text-gray-600 space-y-1">
             <p><span className="text-black font-bold">RT</span> = reaction time (seconds)</p>
             <p><span className="text-black font-bold">a</span> = motor/cognitive baseline (~0.2 s)</p>
@@ -107,15 +107,15 @@ export default function HicksLawUnderstanding() {
               max={20}
               value={sliderN}
               onChange={(e) => setSliderN(Number(e.target.value))}
-              className="flex-1 accent-[#facc15]"
+              className="flex-1 accent-[#006666]"
             />
             <span className="font-pixelify-sans text-xs text-gray-500 w-6">20</span>
           </div>
           <div className="text-center">
-            <span className="font-press-start-2p text-4xl text-[#a16207]">{sliderN}</span>
+            <span className="font-press-start-2p text-4xl text-[#004d4d]">{sliderN}</span>
             <span className="font-pixelify-sans text-gray-600 ml-2">choices</span>
           </div>
-          <div className="mt-4 bg-[#f8f6ee] border-2 border-black p-3 text-center">
+          <div className="mt-4 bg-[#f9fafb] border-2 border-black p-3 text-center">
             <p className="font-pixelify-sans text-xs text-gray-500 mb-1">Predicted reaction time</p>
             <p className="font-press-start-2p text-2xl text-black">{(rt * 1000).toFixed(0)} ms</p>
             <p className="font-pixelify-sans text-xs text-gray-500 mt-1">
@@ -129,7 +129,7 @@ export default function HicksLawUnderstanding() {
               return (
                 <div key={n} className="flex flex-col items-center">
                   <div
-                    className={`w-7 transition-all ${n === sliderN ? "bg-[#facc15] border border-[#a16207]" : "bg-gray-300"}`}
+                    className={`w-7 transition-all ${n === sliderN ? "bg-[#006666] border border-[#004d4d]" : "bg-gray-300"}`}
                     style={{ height: h }}
                   />
                   <span className="font-pixelify-sans text-xs text-gray-500 mt-1">{n}</span>
@@ -146,7 +146,7 @@ export default function HicksLawUnderstanding() {
 
         <button
           onClick={() => setPhase("compare")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Apply It: Compare UIs →
         </button>
@@ -158,7 +158,7 @@ export default function HicksLawUnderstanding() {
   if (phase === "compare") {
     const comp = COMPARISONS[compareIdx]
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-4 uppercase tracking-wider">
           Compare {compareIdx + 1} / {COMPARISONS.length}
         </p>
@@ -180,12 +180,12 @@ export default function HicksLawUnderstanding() {
                 key={side}
                 onClick={() => handleCompareSelect(side)}
                 disabled={selectedAnswer !== null}
-                className={`flex-1 border-2 p-4 text-left transition ${borderCls} ${selectedAnswer === null ? "hover:border-[#a16207] cursor-pointer hover:shadow-[3px_3px_0px_0px_#a16207]" : "cursor-default"}`}
+                className={`flex-1 border-2 p-4 text-left transition ${borderCls} ${selectedAnswer === null ? "hover:border-[#004d4d] cursor-pointer hover:shadow-[3px_3px_0px_0px_#004d4d]" : "cursor-default"}`}
               >
-                <p className="font-press-start-2p text-[#a16207] text-[10px] mb-2">Option {side}: {opt.label}</p>
+                <p className="font-press-start-2p text-[#004d4d] text-[10px] mb-2">Option {side}: {opt.label}</p>
                 <div className="flex flex-wrap gap-2">
                   {opt.items.map((item) => (
-                    <span key={item} className="bg-[#f8f6ee] border border-black font-pixelify-sans text-black text-xs px-2 py-1">
+                    <span key={item} className="bg-[#f9fafb] border border-black font-pixelify-sans text-black text-xs px-2 py-1">
                       {item}
                     </span>
                   ))}
@@ -206,7 +206,7 @@ export default function HicksLawUnderstanding() {
         {selectedAnswer && (
           <button
             onClick={nextCompare}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             {compareIdx + 1 >= COMPARISONS.length ? "See Summary →" : "Next →"}
           </button>
@@ -217,7 +217,7 @@ export default function HicksLawUnderstanding() {
 
   // ── Debrief ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+    <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-2">Understanding Complete</h2>
       <p className="font-pixelify-sans text-gray-600 text-sm mb-4">
         {compareResults.filter(Boolean).length} / {COMPARISONS.length} comparisons correct

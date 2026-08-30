@@ -121,7 +121,7 @@ export default function NormanUnderstanding() {
   // ── Intro ──────────────────────────────────────────────────────────────────
   if (phase === "intro") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h1 className="font-press-start-2p text-xl text-black mb-2">Norman's Action Cycle</h1>
         <p className="font-pixelify-sans text-gray-600 text-center max-w-lg mb-6 leading-relaxed">
           Don Norman's model explains how users interact with any system. Every action goes through 7 stages, split across
@@ -132,10 +132,10 @@ export default function NormanUnderstanding() {
           <div className="flex gap-2 items-start">
             {/* Left: intention + execution */}
             <div className="flex-1 space-y-2">
-              <p className="font-press-start-2p text-[10px] text-[#a16207] mb-2">EXECUTION</p>
+              <p className="font-press-start-2p text-[10px] text-[#004d4d] mb-2">EXECUTION</p>
               {STAGES.filter((s) => s.side !== "evaluation").map((s) => (
-                <div key={s.num} className="border-2 border-[#a16207] bg-[#fefce8] p-2">
-                  <p className="font-press-start-2p text-[8px] text-[#a16207]">{s.num}. {s.name}</p>
+                <div key={s.num} className="border-2 border-[#004d4d] bg-[#fefce8] p-2">
+                  <p className="font-press-start-2p text-[8px] text-[#004d4d]">{s.num}. {s.name}</p>
                   <p className="font-pixelify-sans text-xs text-gray-600 mt-1">{s.desc}</p>
                 </div>
               ))}
@@ -153,14 +153,14 @@ export default function NormanUnderstanding() {
           </div>
         </div>
 
-        <div className="bg-[#f8f6ee] border-2 border-black p-4 w-full max-w-xl mb-6 font-pixelify-sans text-sm text-gray-700 space-y-2">
+        <div className="bg-[#f9fafb] border-2 border-black p-4 w-full max-w-xl mb-6 font-pixelify-sans text-sm text-gray-700 space-y-2">
           <p><strong className="text-red-600">Gulf of Execution</strong> — user can't figure out HOW to do something (stages 2–4 break down)</p>
           <p><strong className="text-red-600">Gulf of Evaluation</strong> — user can't tell IF they succeeded (stages 5–7 break down)</p>
         </div>
 
         <button
           onClick={() => setPhase("scenario")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Walk Through a Scenario →
         </button>
@@ -171,11 +171,11 @@ export default function NormanUnderstanding() {
   // ── Scenario ───────────────────────────────────────────────────────────────
   if (phase === "scenario") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <p className="font-press-start-2p text-gray-500 text-[9px] mb-1">
           Stage {step.stage} / {SCENARIO.length}
         </p>
-        <p className="font-press-start-2p text-[10px] text-[#a16207] mb-4">{step.stageLabel}</p>
+        <p className="font-press-start-2p text-[10px] text-[#004d4d] mb-4">{step.stageLabel}</p>
 
         <div className="bg-white border-2 border-black p-4 w-full max-w-xl mb-4 font-pixelify-sans text-sm text-gray-800 leading-relaxed">
           {step.situation}
@@ -184,7 +184,7 @@ export default function NormanUnderstanding() {
         <div className="w-full max-w-xl space-y-3 mb-4">
           {step.options.map((opt, i) => {
             const isCorrect = i === step.correct
-            let cls = "bg-white border-black hover:bg-[#f8f6ee] hover:shadow-[2px_2px_0px_0px_#000]"
+            let cls = "bg-white border-black hover:bg-[#f9fafb] hover:shadow-[2px_2px_0px_0px_#000]"
             if (selected !== null) {
               if (isCorrect) cls = "bg-green-100 border-green-600 text-green-800"
               else if (i === selected) cls = "bg-red-100 border-red-500 text-red-800"
@@ -235,7 +235,7 @@ export default function NormanUnderstanding() {
                 setStepIdx((i) => i + 1)
               }
             }}
-            className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
           >
             {stepIdx + 1 >= SCENARIO.length ? "Learn About Gulfs →" : "Next Stage →"}
           </button>
@@ -247,7 +247,7 @@ export default function NormanUnderstanding() {
   // ── Gulfs ──────────────────────────────────────────────────────────────────
   if (phase === "gulfs") {
     return (
-      <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+      <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
         <h2 className="font-press-start-2p text-xl text-black mb-6">The Two Gulfs</h2>
         <div className="w-full max-w-xl space-y-4 mb-8">
           <div className="border-2 border-red-500 bg-red-50 p-5">
@@ -277,7 +277,7 @@ export default function NormanUnderstanding() {
         </div>
         <button
           onClick={() => setPhase("debrief")}
-          className="bg-[#facc15] border-2 border-[#a16207] text-black font-press-start-2p text-sm py-3 px-10 hover:bg-[#fde047] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
         >
           Complete Understanding →
         </button>
@@ -286,7 +286,7 @@ export default function NormanUnderstanding() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f6ee] text-black flex flex-col items-center justify-start pt-10 p-6">
+    <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
       <GameDebrief gameId="norman-understanding" />
     </div>

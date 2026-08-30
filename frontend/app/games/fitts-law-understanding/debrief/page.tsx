@@ -30,7 +30,7 @@ export default function FittsLawDebrief() {
   }, [router])
 
   return (
-    <div className={`min-h-screen bg-[#f8f6ee] text-black ${pixelifySans.variable} ${pressStart2P.variable}`}>
+    <div className={`min-h-screen bg-[#f9fafb] text-black ${pixelifySans.variable} ${pressStart2P.variable}`}>
       <div className="flex flex-col items-center justify-start pt-10 p-6">
         <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
         <GameDebrief gameId="fitts-law-understanding" />
