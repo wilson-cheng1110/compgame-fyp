@@ -137,5 +137,86 @@ check("no false positive when nothing is declared",
       not any("not a teaching day" in p for p in probs3), probs3[:3])
 shutil.rmtree(tmp2, ignore_errors=True)
 
+
+# ---------------------------------------------------------------------------
+print("")
+print("-- editing a lecture date from the teacher panel --")
+# A COPY. These tests write, and writing the real topic_schedule.json from a test
+# run would move the study's own dates -- the one file where a stray edit is
+# expensive. Point the module at a temp copy and restore it afterwards.
+tmp3 = tempfile.mkdtemp()
+path3 = os.path.join(tmp3, "sched.json")
+shutil.copy(os.path.join(BE, "topic_schedule.json"), path3)
+real_path = os.path.join(BE, "topic_schedule.json")
+S.CONFIG_PATH = path3
+S._config = None; S._config_mtime = None
+
+grid = S.session_grid()
+check("the grid lists every session with a date per section",
+      len(grid["sessions"]) == len(S._load()["sessions"])
+      and all(set(x["dates"]) == set(grid["sections"]) for x in grid["sessions"]),
+      len(grid["sessions"]))
+check("and it says which topics ride on each session",
+      sum(len(x["topics"]) for x in grid["sessions"]) == NTOPICS,
+      sum(len(x["topics"]) for x in grid["sessions"]))
+
+before_date = S._load()["sessions"]["5"]["C"]
+a5_before = S._load()["sessions"]["5"]["A"]
+
+# Preview must not write. That is the whole point of the two-step: the panel asks
+# what would happen, and nothing has happened yet.
+prev = S.set_session_date(5, "C", "2026-10-02", commit=False)
+check("a preview reports the change", prev["ok"] and prev["new"] == "2026-10-02", prev)
+check("a preview writes NOTHING to disk",
+      json.load(open(path3, encoding="utf-8"))["sessions"]["5"]["C"] == before_date)
+check("a preview leaves the loaded config alone",
+      S._load()["sessions"]["5"]["C"] == before_date)
+
+# Bad input is refused by reason, not by exception -- it arrives off an HTTP body.
+check("a bad date is refused", S.set_session_date(5, "C", "2 Oct", commit=True)["reason"] == "bad_date")
+check("an unknown section is refused", S.set_session_date(5, "Z", "2026-10-02", commit=True)["reason"] == "no_such_section")
+check("an unknown lecture is refused", S.set_session_date(99, "C", "2026-10-02", commit=True)["reason"] == "no_such_session")
+check("a no-op is refused", S.set_session_date(5, "C", before_date, commit=True)["reason"] == "unchanged")
+check("...and none of those wrote either",
+      json.load(open(path3, encoding="utf-8"))["sessions"]["5"]["C"] == before_date)
+
+# A date on a declared no-class day ADDS a validation problem, so the commit is
+# refused. Pre-existing problems must not block an edit, but new ones must.
+bad = S.set_session_date(5, "C", "2026-10-19", commit=True)   # Chung Yeung, declared
+check("a date that breaks the schedule is refused",
+      not bad["ok"] and bad["reason"] == "would_add_problems", bad.get("added_problems"))
+check("and the refusal explains what would break", bool(bad.get("added_problems")), bad)
+check("and it wrote nothing",
+      json.load(open(path3, encoding="utf-8"))["sessions"]["5"]["C"] == before_date)
+
+good = S.set_session_date(5, "C", "2026-10-02", commit=True)
+check("a valid move commits", good["ok"] and good["committed"], good)
+check("and it is on disk",
+      json.load(open(path3, encoding="utf-8"))["sessions"]["5"]["C"] == "2026-10-02")
+check("and the loader serves the new date immediately",
+      S._load()["sessions"]["5"]["C"] == "2026-10-02")
+check("and no temp file is left behind", not os.path.exists(path3 + ".tmp"))
+check("the schedule is still valid afterwards", S.validate() == [])
+check("the other sections did not move",
+      json.load(open(path3, encoding="utf-8"))["sessions"]["5"]["A"] == a5_before)
+
+# Moving a lecture FORWARD can take a topic away from a student mid-unit. That is
+# the hazard the preview exists to surface, so it has to actually be surfaced.
+soon = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+near = S.set_session_date(3, "A", soon, commit=False)
+check("pulling a lecture forward reports the topics it would unlock",
+      near["ok"] and any(a["from"] == "locked" and a["to"] != "locked"
+                         for a in near["affected"]), near.get("affected"))
+back = S.set_session_date(3, "A", "2027-01-05", commit=False)
+check("and pushing one out reports no topic losing ground it already had",
+      back["ok"] and all(a["from"] == "locked" for a in back["affected"]),
+      back.get("affected"))
+
+S.CONFIG_PATH = real_path
+S._config = None; S._config_mtime = None
+shutil.rmtree(tmp3, ignore_errors=True)
+check("the real schedule is untouched by these tests",
+      S._load()["sessions"]["5"]["C"] == "2026-10-01", S._load()["sessions"]["5"]["C"])
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

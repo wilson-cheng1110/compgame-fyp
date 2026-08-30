@@ -272,7 +272,7 @@ export default function GestaltUnderstandingWrapper() {
               {/* Control buttons */}
               <div className="absolute bottom-6 left-6 right-6 flex justify-between">
                 <SoundToggle />
-                <Link href="/games/gestalt-understanding">
+                <Link href="/games/gestalt-understanding" aria-label="Back to the Gestalt menu">
                   <div className="bg-[#0066CC] p-2 rounded-md hover:bg-[#0055AA] transition-colors duration-200">
                     <Home className="h-8 w-8 text-white" />
                   </div>
@@ -323,7 +323,7 @@ export default function GestaltUnderstandingWrapper() {
                   <button
                     onClick={() => finishLearning(unit)}
                     data-testid="gestalt-learned"
-                    className="mt-6 w-full bg-[#006666] border-2 border-[#004d4d] text-white font-mono text-lg md:text-xl py-3 px-4 hover:bg-[#004d4d] transition-colors font-bold"
+                    className="pixel-btn mt-6 w-full"
                   >
                     {unit
                       ? "✓ I've learned these — Back to the unit →"

@@ -78,7 +78,7 @@ export default function LanguageUnderstanding() {
         </div>
         <button
           onClick={() => setPhase("play")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Disambiguate sentences →
         </button>
@@ -122,7 +122,7 @@ export default function LanguageUnderstanding() {
             </div>
             <button
               onClick={next}
-              className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+              className="pixel-btn-sm"
             >
               {idx + 1 >= SENTENCES.length ? "Finish and review →" : "Next sentence →"}
             </button>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useGamePhase } from "@/lib/game-phase"
 
 // ── Hick's Law: RT = a + b × log₂(n + 1)
 // Each round doubles the number of coloured buttons. Player clicks the
@@ -41,8 +42,23 @@ function linearRegression(xs: number[], ys: number[]): { a: number; b: number } 
   return { a, b }
 }
 
+// The stages the strip shows. `Record<Phase, number>` is the guard: add a
+// phase to the union and this stops compiling until it is placed in a stage.
+const STAGES = ["Brief", "Warm-up", "Rounds", "Results"]
+const STAGE_OF: Record<Phase, number> = {
+  "intro": 0,
+  "warmupReady": 1,
+  "warmupPlay": 1,
+  "warmupDone": 1,
+  "fixation": 2,
+  "playing": 2,
+  "between": 2,
+  "results": 3,
+}
+
 export default function HicksLawAssessment() {
   const [phase, setPhase] = useState<Phase>("intro")
+  useGamePhase(STAGES, STAGE_OF[phase])
   const [roundIdx, setRoundIdx] = useState(0)
   const [targetIdx, setTargetIdx] = useState(0)
   const [results, setResults] = useState<RoundResult[]>([])
@@ -135,7 +151,7 @@ export default function HicksLawAssessment() {
         </p>
         <button
           onClick={startWarmup}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-base py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Start
         </button>
@@ -153,6 +169,7 @@ export default function HicksLawAssessment() {
           {Array.from({ length: WARMUP_N }, (_, i) => (
             <button
               key={i}
+              aria-label={i === warmupTarget ? "Target - click this one" : `Choice ${i + 1}`}
               onClick={() => handleWarmupClick(i)}
               className={`transition-all duration-75 border-2 ${
                 i === warmupTarget
@@ -176,7 +193,7 @@ export default function HicksLawAssessment() {
         </p>
         <button
           onClick={startRound}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-base py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Begin scored rounds →
         </button>
@@ -197,7 +214,7 @@ export default function HicksLawAssessment() {
             </p>
             <button
               onClick={nextRound}
-              className="mt-4 bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+              className="pixel-btn-sm mt-4"
             >
               Next Round
             </button>
@@ -229,6 +246,7 @@ export default function HicksLawAssessment() {
           {Array.from({ length: n }, (_, i) => (
             <button
               key={i}
+              aria-label={i === targetIdx ? "Target - click this one" : `Choice ${i + 1}`}
               onClick={() => handleButtonClick(i)}
               className={`transition-all duration-75 border-2 ${
                 i === targetIdx
@@ -306,7 +324,7 @@ export default function HicksLawAssessment() {
         <div className="flex gap-4 mb-6">
           <button
             onClick={restart}
-            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-6 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm"
           >
             Try Again
           </button>

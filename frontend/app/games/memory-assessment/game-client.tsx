@@ -149,7 +149,7 @@ export default function MemoryAssessment() {
         </p>
         <button
           onClick={startSpanRound}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Start Memory Test
         </button>
@@ -227,7 +227,7 @@ export default function MemoryAssessment() {
         )}
         <button
           onClick={nextSpanRound}
-          className="mt-8 bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn-sm mt-8"
         >
           {spanRound + 1 >= SPAN_ROUNDS.length ? "Take the Quiz →" : `Next Round (${SPAN_ROUNDS[spanRound + 1]} digits)`}
         </button>
@@ -277,7 +277,7 @@ export default function MemoryAssessment() {
         {selectedOption !== null && (
           <button
             onClick={nextQuiz}
-            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm"
           >
             {quizIdx + 1 >= QUIZ_QUESTIONS.length ? "See Results →" : "Next Question →"}
           </button>

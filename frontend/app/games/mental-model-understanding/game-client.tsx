@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useGamePhase } from "@/lib/game-phase"
 
 // Mental Models & Affordances Understanding
 // Phase 1: Intro — mental models + affordances + signifiers
@@ -113,8 +114,19 @@ const MISMATCH_PAIRS = [
   },
 ]
 
+// The stages the strip shows. `Record<Phase, number>` is the guard: add a
+// phase to the union and this stops compiling until it is placed in a stage.
+const STAGES = ["Learn", "Sort", "Compare", "Recap"]
+const STAGE_OF: Record<Phase, number> = {
+  "intro": 0,
+  "affordance-sort": 1,
+  "mismatch": 2,
+  "debrief": 3,
+}
+
 export default function MentalModelUnderstanding() {
   const [phase, setPhase] = useState<Phase>("intro")
+  useGamePhase(STAGES, STAGE_OF[phase])
   const [sortAnswers, setSortAnswers] = useState<Record<string, "good" | "bad" | null>>(
     Object.fromEntries(SORT_ITEMS.map((item) => [item.id, null]))
   )
@@ -163,7 +175,7 @@ export default function MentalModelUnderstanding() {
 
         <button
           onClick={() => setPhase("affordance-sort")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Sort UI Elements →
         </button>
@@ -232,7 +244,7 @@ export default function MentalModelUnderstanding() {
         ) : (
           <button
             onClick={() => setPhase("mismatch")}
-            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm"
           >
             Mental Model Match →
           </button>
@@ -294,7 +306,7 @@ export default function MentalModelUnderstanding() {
                 setMismatchIdx((i) => i + 1)
               }
             }}
-            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm"
           >
             {mismatchIdx + 1 >= MISMATCH_PAIRS.length ? "Complete Understanding →" : "Next Scenario →"}
           </button>

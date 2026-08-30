@@ -116,7 +116,7 @@ export default function SimilarityGame() {
       >
         {isSoundOn ? <Volume2 className="h-8 w-8 text-white" /> : <VolumeX className="h-8 w-8 text-white" />}
       </button>
-      <Link href="/games/gestalt-understanding">
+      <Link href="/games/gestalt-understanding" aria-label="Back to the Gestalt menu">
         <div className="bg-[#0066CC] p-2 rounded-md hover:bg-[#0055AA] transition-colors duration-200">
           <Home className="h-8 w-8 text-white" />
         </div>

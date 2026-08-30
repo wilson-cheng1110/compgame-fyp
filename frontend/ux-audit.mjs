@@ -17,6 +17,7 @@
 //           should look; it does not replace them.
 
 import { chromium } from "playwright"
+import { giveConsent, onboard } from "./e2e/lib.mjs"
 
 const APP = process.env.E2E_APP ?? "http://localhost:3000"
 const SID = process.env.AUDIT_SID ?? "24E00399A"
@@ -102,7 +103,19 @@ async function fingerprint(page) {
       h1: document.querySelectorAll("h1").length,
       headings: document.querySelectorAll("h1,h2,h3").length,
       // Nielsen 3: user control and freedom. Every page needs a visible exit.
-      wayBack: !!document.querySelector('[data-testid="game-exit"], a[href="/dashboard"], a[href^="/topics/"], [aria-label*="ack"]'),
+      //
+      // CORRECTED 2026-08-30. The first version looked only for a testid, a
+      // /dashboard or /topics href, or an aria-label containing "ack" -- so it
+      // reported "no way back" on /login, /signup and /about, all three of which
+      // carry a logo <Link href="/"> and an explicit cross-link, and on /dashboard,
+      // which is the signed-in ROOT. Four of the five it flagged were not defects.
+      // A metric that cries wolf gets ignored, which is worse than not having it.
+      // Now: any upward link, by href OR by its visible text.
+      wayBack: !!document.querySelector(
+        '[data-testid="game-exit"], a[href="/"], a[href="/dashboard"], a[href^="/topics/"], [aria-label*="ack"]'
+      ) || Array.from(document.querySelectorAll("a[href], button")).some(
+        (e) => vis(e) && /^\s*(←|<-)|back/i.test(e.innerText || "")
+      ),
       // Nielsen 10: the tutor is meant to be everywhere.
       tutor: !!document.querySelector('[aria-label="Open AI tutor"]'),
       noAlt: Array.from(document.querySelectorAll("img")).filter((e) => vis(e) && e.getAttribute("alt") === null).length,
@@ -115,7 +128,8 @@ async function fingerprint(page) {
 
 const browser = await chromium.launch()
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
-const page = await ctx.newPage()
+const signedIn = await ctx.newPage()
+const page = signedIn
 const errors = []
 page.on("pageerror", (e) => errors.push(e.message.slice(0, 80)))
 
@@ -126,12 +140,43 @@ await page.locator('[data-testid="login-password"]').fill(PW)
 await page.locator('button[type="submit"]').first().click()
 await page.waitForTimeout(3500)
 
+// FINISH ONBOARDING, or the shell rows are measuring a redirect.
+//
+// Found 2026-08-30: /dashboard fingerprinted as 148 characters with a primary
+// action of "Continue" and no way back -- because the audit account had been
+// reset and every /dashboard visit was landing on /onboarding/avatar. The script
+// asked for one page, was silently handed another, and reported the numbers as
+// if they were the dashboard's. Exactly the failure mode as the <body> ground
+// and the parked mouse: the instrument was wrong in a way that still produced a
+// plausible-looking table.
+await giveConsent(page)
+await onboard(page, "Audit")
+
+// The signed-OUT surfaces have to be measured signed out. Visited with a session
+// in hand, /login and /signup bounce to /dashboard and fingerprint as the
+// dashboard -- three rows describing the same page, and the "primary action" the
+// signed-out landing pages actually show never measured at all. A second context
+// costs one browser tab.
+const SIGNED_OUT = new Set(["/", "/login", "/signup"])
+const anonCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+const anon = await anonCtx.newPage()
+
 const rows = []
 for (const route of [...SHELL, ...GAMES]) {
+  const page = SIGNED_OUT.has(route) ? anon : signedIn
   try {
     await page.goto(APP + route, { waitUntil: "domcontentloaded" })
+    // PARK THE MOUSE FIRST. Playwright's virtual pointer stays where it last
+    // clicked -- the login submit, near the middle of the viewport -- and it does
+    // not reset on navigation. Any centred CTA under that point renders in :hover
+    // and fingerprints as a DIFFERENT primary style. That is how #004d4d (the hover
+    // shade of the one shared pixel button) showed up as its own style on exactly
+    // the two games whose CTA sits there. A measurement artefact, not a defect.
+    await page.mouse.move(0, 0)
     await page.waitForTimeout(1300)
-    rows.push({ route, ...(await fingerprint(page)) })
+    // Record where we ACTUALLY landed. A silent redirect is the difference
+    // between measuring the dashboard and measuring the onboarding screen.
+    rows.push({ route, landed: new URL(page.url()).pathname, ...(await fingerprint(page)) })
   } catch (e) {
     rows.push({ route, error: String(e.message).slice(0, 60) })
   }
@@ -162,10 +207,25 @@ for (const p of prim) {
   console.log(`- \`${p}\`\n  - ${who.length} surface(s): ${who.slice(0, 6).join(", ")}${who.length > 6 ? " …" : ""}`)
 }
 
+const redirected = ok.filter((r) => r.landed && r.landed !== r.route)
+if (redirected.length) {
+  console.log(`
+## WARNING -- ${redirected.length} route(s) did not render themselves
+`)
+  console.log(`Every number below for these is the page they REDIRECTED TO, not the one asked for.
+`)
+  for (const r of redirected) console.log(`- \`${r.route}\` -> \`${r.landed}\``)
+  console.log()
+}
+
 const problems = [
   ["H1 Visibility of status", "no heading at all", ok.filter((r) => r.headings === 0)],
   ["H2 Match with the real world", "shows internal jargon", ok.filter((r) => r.jargon.length)],
-  ["H3 User control and freedom", "no visible way back", ok.filter((r) => !r.wayBack)],
+  // `/` and `/dashboard` are the two ROOTS -- signed-out and signed-in. There is
+  // nothing above them to go back to, so requiring an exit there is the metric
+  // inventing a defect rather than finding one.
+  ["H3 User control and freedom", "no visible way back",
+   ok.filter((r) => !r.wayBack && !["/", "/dashboard"].includes(r.route))],
   ["H4 Consistency", "more than 3 button styles on ONE page", ok.filter((r) => r.buttonStyles > 3)],
   ["H10 Help", "tutor absent", ok.filter((r) => !r.tutor)],
   ["Accessibility", "image without alt", ok.filter((r) => r.noAlt > 0)],

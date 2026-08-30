@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useGamePhase } from "@/lib/game-phase"
 
 // Problem Solving — Understanding
 // Phase 1: Learn the problem space + means-end analysis
@@ -59,8 +60,18 @@ function Jug({ capacity, amount, label }: { capacity: number; amount: number; la
   )
 }
 
+// The stages the strip shows. `Record<Phase, number>` is the guard: add a
+// phase to the union and this stops compiling until it is placed in a stage.
+const STAGES = ["Learn", "Puzzle", "Recap"]
+const STAGE_OF: Record<Phase, number> = {
+  "learn": 0,
+  "puzzle": 1,
+  "debrief": 2,
+}
+
 export default function ProblemSolvingUnderstanding() {
   const [phase, setPhase] = useState<Phase>("learn")
+  useGamePhase(STAGES, STAGE_OF[phase])
   const [state, setState] = useState<State>(START)
   const [moves, setMoves] = useState<string[]>([])
   const [solved, setSolved] = useState(false)
@@ -115,7 +126,7 @@ export default function ProblemSolvingUnderstanding() {
 
         <button
           onClick={() => setPhase("puzzle")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Start Solving →
         </button>
@@ -145,7 +156,7 @@ export default function ProblemSolvingUnderstanding() {
             </div>
             <button
               onClick={() => setPhase("debrief")}
-              className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+              className="pixel-btn-sm"
             >
               Finish and review →
             </button>
@@ -157,7 +168,7 @@ export default function ProblemSolvingUnderstanding() {
                 <button
                   key={op.id}
                   onClick={() => applyOp(op)}
-                  className="bg-white border-2 border-black font-pixelify-sans text-sm py-3 px-2 hover:bg-[#006666] transition-colors shadow-[2px_2px_0px_0px_#000]"
+                  className="bg-white border-2 border-black font-pixelify-sans text-sm py-3 px-2 hover:bg-[#006666] hover:text-white transition-colors shadow-[2px_2px_0px_0px_#000]"
                 >
                   {op.label}
                 </button>

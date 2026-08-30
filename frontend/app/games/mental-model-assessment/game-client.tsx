@@ -143,7 +143,7 @@ export default function MentalModelAssessment() {
         </p>
         <button
           onClick={() => setPhase("quiz")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Start
         </button>
@@ -190,7 +190,7 @@ export default function MentalModelAssessment() {
         {selectedOption !== null && (
           <button
             onClick={nextQ}
-            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm"
           >
             {quizIdx + 1 >= QUESTIONS.length ? "Ranking Task →" : "Next →"}
           </button>
@@ -267,7 +267,7 @@ export default function MentalModelAssessment() {
         ) : (
           <button
             onClick={() => setPhase("results")}
-            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm"
           >
             See Results →
           </button>

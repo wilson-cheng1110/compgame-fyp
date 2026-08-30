@@ -223,6 +223,151 @@ def validate() -> list[str]:
     return problems
 
 
+# ---------------------------------------------------------------------------
+# Editing a lecture date, from the teacher panel.
+#
+# Until now the ONLY way to move a lecture was to hand-edit topic_schedule.json on
+# the box and restart nothing (the loader re-reads on mtime). That is fine for the
+# person who wrote the file and untenable for a course team in November: section C's
+# session 5 already falls on National Day, and the fix for that has been a to-do
+# item rather than a two-click change.
+#
+# ONE FIELD IS EDITABLE AND NO OTHERS: sessions[<n>][<section>], the date of one
+# lecture for one section. Every window in the study derives from it -- the config's
+# own comment says "holiday displacements are edited HERE and nowhere else" -- so
+# exposing this one date exposes the whole capability without exposing the
+# derivation. opens_days_before, the topic->session mapping and the section days
+# stay in the file, where changing them is a design decision and not an operational
+# one.
+#
+# THIS MUTATES THE INDEPENDENT VARIABLE'S TIMING, which is why it returns a preview
+# instead of just doing it. Moving a date FORWARD can put a currently-open topic
+# back behind a lock, i.e. take away something a student is halfway through; moving
+# it BACKWARD only ever makes topics late, and late is still enterable by design.
+# The caller gets both the state delta and any new validation problems, and decides.
+
+
+def _atomic_write(cfg: dict) -> None:
+    """Write the config so a crash mid-write cannot leave it unparseable.
+
+    A half-written topic_schedule.json is not a degraded study, it is a stopped one:
+    every route that asks for a topic state raises and every student sees an error.
+    Write beside it, fsync, then rename -- rename is atomic on both NTFS and POSIX.
+    """
+    tmp = CONFIG_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(cfg, fh, indent=1, ensure_ascii=False)
+        fh.write(chr(10))
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, CONFIG_PATH)
+
+
+def session_grid() -> dict:
+    """The editable surface: every session, its date per section, and its topics."""
+    cfg = _load()
+    by_session: dict[str, list[str]] = {}
+    for t in cfg["topics"]:
+        by_session.setdefault(str(t["session"]), []).append(t["id"])
+    return {
+        "sections": cfg.get("sections", {}),
+        "sessions": [
+            {"session": int(n), "dates": dict(d), "topics": by_session.get(n, [])}
+            for n, d in sorted(cfg["sessions"].items(), key=lambda kv: int(kv[0]))
+        ],
+        "problems": validate(),
+    }
+
+
+def set_session_date(session: int, section: str, date: str, *, commit: bool) -> dict:
+    """Preview (commit=False) or apply (commit=True) a lecture-date change.
+
+    Returns {ok, old, new, problems, added_problems, affected} -- never raises for
+    bad input, because this is called straight off an HTTP body.
+    """
+    cfg = _load()
+    key = str(session)
+    if key not in cfg["sessions"]:
+        return {"ok": False, "reason": "no_such_session"}
+    if section not in cfg.get("sections", {}):
+        return {"ok": False, "reason": "no_such_section"}
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return {"ok": False, "reason": "bad_date"}
+
+    old = cfg["sessions"][key].get(section)
+    if old == date:
+        return {"ok": False, "reason": "unchanged"}
+
+    before = set(validate())
+
+    # A DECLARED NO-CLASS DAY IS NEVER A VALID TARGET, even an acknowledged one.
+    # validate() skips acknowledged holidays, and correctly: all four in the config
+    # are acknowledged, three because no section has class that weekday anyway and
+    # the fourth (National Day) because Wilson accepted the collision in writing on
+    # 2026-08-27. But that acknowledgement was granted for the arrangement that
+    # EXISTS. It is not a licence to move a lecture onto the date later, which is a
+    # new decision and has to be made deliberately. So this is checked here, on the
+    # edit, rather than by loosening validate() for everyone.
+    holiday = (cfg.get("no_class_dates") or {}).get(date)
+    edit_problems = set()
+    if holiday:
+        why = holiday.get("why") if isinstance(holiday, dict) else holiday
+        edit_problems.add(
+            f"{date} is not a teaching day: {why}")
+
+    # Deep-enough copy: only the one dict we touch has to be independent, and
+    # rebinding the module cache to the trial config is what lets validate() and
+    # topic_states() read it without a second code path.
+    trial = dict(cfg)
+    trial["sessions"] = {k: dict(v) for k, v in cfg["sessions"].items()}
+    trial["sessions"][key][section] = date
+
+    global _config, _config_mtime
+    saved_cfg, saved_mtime = _config, _config_mtime
+    try:
+        _config, _config_mtime = trial, _config_mtime
+        after = set(validate())
+        # Which topics change state for a student in this section, right now. This
+        # is the sentence the teacher actually needs: "two topics that are open
+        # today would be locked again."
+        was = {t["topic_id"]: t["state"] for t in topic_states("PREVIEW", section)}
+        _config, _config_mtime = saved_cfg, saved_mtime
+        now_ = {t["topic_id"]: t["state"] for t in topic_states("PREVIEW", section)}
+        _config, _config_mtime = trial, _config_mtime
+        affected = [
+            {"topic_id": k, "from": now_[k], "to": was[k]}
+            for k in was if was[k] != now_.get(k)
+        ]
+    finally:
+        _config, _config_mtime = saved_cfg, saved_mtime
+
+    result = {
+        "ok": True,
+        "old": old,
+        "new": date,
+        "problems": sorted(after),
+        "added_problems": sorted((after - before) | edit_problems),
+        "affected": affected,
+        "committed": False,
+    }
+    if not commit:
+        return result
+
+    # Refuse to write a change that INTRODUCES a validation problem. Pre-existing
+    # ones (National Day) must not block the very edit that fixes them, so the test
+    # is "worse than before", not "clean".
+    if (after - before) or edit_problems:
+        return {**result, "ok": False, "reason": "would_add_problems"}
+
+    cfg["sessions"][key][section] = date
+    _atomic_write(cfg)
+    _config = None          # force a re-read; mtime alone can tie within a second
+    _config_mtime = None
+    return {**result, "committed": True}
+
+
 def _has_bank(topic_id: str) -> bool:
     """Ask the item bank, not the config.
 

@@ -56,7 +56,7 @@ export default function ErgonomicsUnderstanding() {
         </div>
         <button
           onClick={() => setPhase("hazards")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Spot the hazards →
         </button>
@@ -129,7 +129,7 @@ export default function ErgonomicsUnderstanding() {
         <button
           onClick={() => setPhase("haptics")}
           disabled={!allFound}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000] disabled:opacity-40"
+          className="pixel-btn-sm"
         >
           {allFound ? "Next: Haptics →" : `Find ${HAZARDS.length - found.length} more`}
         </button>
@@ -173,7 +173,7 @@ export default function ErgonomicsUnderstanding() {
 
         <button
           onClick={() => setPhase("debrief")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn-sm"
         >
           Finish and review →
         </button>

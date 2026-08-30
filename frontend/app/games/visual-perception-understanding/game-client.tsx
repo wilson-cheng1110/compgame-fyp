@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useGamePhase } from "@/lib/game-phase"
 
 // Visual Perception — Understanding
 // Phase 1: Learn — the eye is not a camera
@@ -10,8 +11,18 @@ import GameDebrief from "@/components/game-debrief"
 
 type Phase = "learn" | "demos" | "debrief"
 
+// The stages the strip shows. `Record<Phase, number>` is the guard: add a
+// phase to the union and this stops compiling until it is placed in a stage.
+const STAGES = ["Learn", "Try it", "Recap"]
+const STAGE_OF: Record<Phase, number> = {
+  "learn": 0,
+  "demos": 1,
+  "debrief": 2,
+}
+
 export default function VisualPerceptionUnderstanding() {
   const [phase, setPhase] = useState<Phase>("learn")
+  useGamePhase(STAGES, STAGE_OF[phase])
   const [demo, setDemo] = useState(0)
 
   // colour-blindness demo state
@@ -74,7 +85,7 @@ export default function VisualPerceptionUnderstanding() {
         </div>
         <button
           onClick={() => setPhase("demos")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Explore the demos →
         </button>
@@ -120,10 +131,10 @@ export default function VisualPerceptionUnderstanding() {
                 ))}
               </div>
               <div className="flex gap-3 mb-3">
-                <button onClick={() => setCbSim((v) => !v)} className={`font-pixelify-sans text-sm py-2 px-4 border-2 border-black ${cbSim ? "bg-[#006666]" : "bg-white"}`}>
+                <button onClick={() => setCbSim((v) => !v)} className={`font-pixelify-sans text-sm py-2 px-4 border-2 border-black ${cbSim ? "bg-[#006666] text-white" : "bg-white"}`}>
                   {cbSim ? "✓ " : ""}Simulate red-green blindness
                 </button>
-                <button onClick={() => setCbRedundant((v) => !v)} className={`font-pixelify-sans text-sm py-2 px-4 border-2 border-black ${cbRedundant ? "bg-[#006666]" : "bg-white"}`}>
+                <button onClick={() => setCbRedundant((v) => !v)} className={`font-pixelify-sans text-sm py-2 px-4 border-2 border-black ${cbRedundant ? "bg-[#006666] text-white" : "bg-white"}`}>
                   {cbRedundant ? "✓ " : ""}Add icon (redundant cue)
                 </button>
               </div>
@@ -145,7 +156,7 @@ export default function VisualPerceptionUnderstanding() {
                 {staring ? <span className="text-black text-3xl font-bold">+</span> : afterImage ? <span className="text-gray-400 text-xs font-pixelify-sans px-2 text-center">Keep looking at the cross spot — a faint reddish square appears</span> : null}
               </div>
               {!staring && (
-                <button onClick={() => setStaring(true)} className="font-pixelify-sans text-sm py-2 px-6 border-2 border-black bg-[#006666] hover:bg-[#004d4d]">
+                <button onClick={() => setStaring(true)} className="pixel-btn-sm">
                   {afterImage ? "Try again" : "Stare at the + for 5s"}
                 </button>
               )}
@@ -183,7 +194,7 @@ export default function VisualPerceptionUnderstanding() {
                   <span key={i} className={`px-0.5 ${i === fixation ? "bg-[#006666] rounded" : ""}`}>{w} </span>
                 ))}
               </p>
-              <button onClick={playReading} className="font-pixelify-sans text-sm py-2 px-6 border-2 border-black bg-[#006666] hover:bg-[#004d4d] mb-4">
+              <button onClick={playReading} className="pixel-btn-sm mb-4">
                 Animate the eye
               </button>
               <p className="font-pixelify-sans text-sm text-gray-700 text-center max-w-md leading-relaxed">
@@ -197,7 +208,7 @@ export default function VisualPerceptionUnderstanding() {
 
         <button
           onClick={() => setPhase("debrief")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn-sm"
         >
           Finish and review →
         </button>

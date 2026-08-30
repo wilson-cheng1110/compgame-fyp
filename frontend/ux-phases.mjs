@@ -18,6 +18,7 @@
 // game. That is the honest denominator: distinct screens actually reached, not clicks.
 
 import { chromium } from "playwright"
+import { giveConsent, onboard } from "./e2e/lib.mjs"
 
 const APP = process.env.E2E_APP ?? "http://localhost:3000"
 const SID = process.env.AUDIT_SID ?? "24E00399A"
@@ -111,6 +112,18 @@ await page.locator('[data-testid="login-password"]').fill(PW)
 await page.locator('button[type="submit"]').first().click()
 await page.waitForTimeout(3500)
 
+// FINISH ONBOARDING, or the shell rows are measuring a redirect.
+//
+// Found 2026-08-30: /dashboard fingerprinted as 148 characters with a primary
+// action of "Continue" and no way back -- because the audit account had been
+// reset and every /dashboard visit was landing on /onboarding/avatar. The script
+// asked for one page, was silently handed another, and reported the numbers as
+// if they were the dashboard's. Exactly the failure mode as the <body> ground
+// and the parked mouse: the instrument was wrong in a way that still produced a
+// plausible-looking table.
+await giveConsent(page)
+await onboard(page, "Audit")
+
 const per = []
 const all = []
 for (const g of GAMES) {
@@ -119,6 +132,13 @@ for (const g of GAMES) {
   await page.goto(`${APP}/games/${g}`, { waitUntil: "domcontentloaded" }).catch(() => {})
   await page.waitForTimeout(1500)
   for (let i = 0; i < MAX_STEPS; i++) {
+    // Park the pointer before fingerprinting. Playwright's virtual mouse stays on
+    // whatever it last clicked, so the button that advanced us to THIS screen is
+    // still hovered while we measure it -- and a hovered pixel button reports
+    // #004d4d where a resting one reports #006666. Left in, that counts the SAME
+    // button twice and the style total goes UP as the fix lands. Same artefact as
+    // ux-audit.mjs, same fix.
+    await page.mouse.move(0, 0).catch(() => {})
     let v
     try { v = await look(page) } catch { break }
     if (!seen.has(v.sig)) { seen.add(v.sig); screens.push(v); all.push({ game: g, ...v }) }
@@ -143,6 +163,32 @@ console.log(`| measure | distinct |`)
 console.log(`|---|---|`)
 console.log(`| primary-action styling | **${uniq((r) => r.primary).length}** |`)
 console.log(`| ground | **${uniq((r) => r.ground).length}** |\n`)
+
+// The raw count needs this breakdown or it is misleading. "Primary action" here is
+// THE BIGGEST VISIBLE BUTTON, which on a game's landing screen is the CTA -- but
+// three screens deep it is usually a game OBJECT: an answer tile, an option row, a
+// draggable card. Those are the lesson's content and they are supposed to differ.
+// Counting them as competing button styles turns "the games are varied" into "the
+// design is inconsistent". So: how many screens are led by the ONE shared pixel
+// button, and what is everything else.
+const led = all.filter((r) => r.primary && /Press Start 2P/.test(r.primary) && /rgb\(0, 102, 102\)/.test(r.primary))
+console.log(`Of ${all.length} screens, **${led.length}** are led by the one shared \`.pixel-btn\`.`)
+console.log(`The rest are led by a game object -- a tile, an option row, an answer card --`)
+console.log(`which is content, not chrome. Broken down:\n`)
+const byStyle = new Map()
+for (const r of all) {
+  if (!r.primary) continue
+  if (!byStyle.has(r.primary)) byStyle.set(r.primary, { n: 0, games: new Set() })
+  const e = byStyle.get(r.primary); e.n++; e.games.add(r.game)
+}
+console.log(`| screens | games | primary-action fingerprint |`)
+console.log(`|---|---|---|`)
+for (const [k, e] of [...byStyle].sort((a, b) => b[1].n - a[1].n)) {
+  const g = [...e.games]
+  const who = g.length > 3 ? `${g.slice(0, 3).join(", ")} +${g.length - 3}` : g.join(", ")
+  console.log(`| ${e.n} | ${who} | \`${k}\` |`)
+}
+console.log()
 
 const noProg = per.filter((p) => p.reached > 1 && p.withProgress === 0)
 console.log(`## H1 Visibility of status, inside the games\n`)

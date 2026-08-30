@@ -51,8 +51,16 @@ from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel
 
 import auth_store
+import schedule
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+class SessionDate(BaseModel):
+    session: int
+    section: str
+    date: str          # YYYY-MM-DD
+    commit: bool = False
 
 
 class SectionChange(BaseModel):
@@ -70,6 +78,14 @@ MESSAGES = {
     "bad_section": "That isn't a section this cohort runs.",
     "no_such_user": "No account with that student ID.",
     "weak_password": f"Pick a password of at least {auth_store.MIN_PASSWORD} characters.",
+    "no_such_session": "There is no lecture with that number in the schedule.",
+    "no_such_section": "That isn't a section this cohort runs.",
+    "bad_date": "Dates go in as YYYY-MM-DD.",
+    "unchanged": "That is already the date for this lecture.",
+    "would_add_problems": (
+        "That date would break the schedule -- see the problems listed. Nothing was "
+        "saved."
+    ),
     "roster_authoritative": (
         "A class list is configured, so it decides the section — sign-in re-reads it "
         "every time and would undo this. Edit enrolled_sids.txt instead."
@@ -163,3 +179,43 @@ async def audit(response: Response, session: str | None = Cookie(default=None)):
     if err:
         return err
     return {"entries": auth_store.audit_log()}
+
+
+@router.get("/schedule")
+async def get_schedule(response: Response, session: str | None = Cookie(default=None)):
+    """Every lecture, its date per section, and which topics ride on it."""
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    return schedule.session_grid()
+
+
+@router.post("/schedule")
+async def set_schedule(body: SessionDate, response: Response,
+                       session: str | None = Cookie(default=None)):
+    """Move one lecture for one section. `commit: false` previews and writes nothing.
+
+    THE PREVIEW IS NOT A COURTESY. A lecture date is the timing of the independent
+    variable: pushing one forward can put a topic a student is part-way through back
+    behind a lock, and pulling one back marks topics late (still enterable -- late is
+    a state, not a refusal). Neither is a thing to discover after the fact, so the
+    panel asks first and shows exactly which topics change state.
+
+    Audited like every other mutation here, with the old date in the entry, so the
+    log is enough on its own to put a wrong edit back.
+    """
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    result = schedule.set_session_date(
+        body.session, body.section, body.date, commit=body.commit)
+    if not result.get("ok"):
+        reason = result.get("reason", "bad_date")
+        response.status_code = 409 if reason == "would_add_problems" else 400
+        return {**result, "error": reason,
+                "message": MESSAGES.get(reason, "Couldn't change that date.")}
+    if result.get("committed"):
+        auth_store.audit(sid, "set_session_date", None,
+                         f"session {body.session} section {body.section}: "
+                         f"{result['old']} -> {result['new']}")
+    return result

@@ -3,6 +3,7 @@
 import { Suspense, type ReactNode } from "react"
 import Link from "next/link"
 import { useUnitId, useUnitStep } from "@/lib/unit-link"
+import { GamePhaseProvider, useDeclaredPhase } from "@/lib/game-phase"
 import { TOPICS } from "@/lib/topic-definitions"
 
 // Shared chrome for every game route.
@@ -38,6 +39,44 @@ import { TOPICS } from "@/lib/topic-definitions"
 // the game -- which matters, because globals.css redefines Tailwind's .text-*
 // utilities and the games depend on that.
 
+// The second line of the strip: where you are inside THIS game.
+//
+// It reuses `.u-rail`, which is already the unit's eight steps, the journey's
+// thirteen topics and the badges page's level. All four encode one idea -- a
+// position in a bounded sequence -- so they get one graphic rather than a fourth
+// invented one, and a student learns to read it once.
+//
+// The rail is decorative and hidden from assistive tech; the sentence beside it is
+// the announced version, and it is a polite live region so a screen-reader user is
+// told "Practise, 2 of 3" when the game advances instead of silently landing on a
+// new screen.
+function PhaseLine() {
+  const phase = useDeclaredPhase()
+  if (!phase || phase.labels.length < 2) return null
+  const { labels, index } = phase
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <div className="u-rail" aria-hidden style={{ flex: 1, minWidth: 56 }}>
+        {labels.map((l, i) => (
+          <div
+            key={l + i}
+            className={`u-rail-seg ${i < index ? "is-done" : i === index ? "is-now" : ""}`}
+          />
+        ))}
+      </div>
+      <span
+        className="text-[12px] whitespace-nowrap"
+        data-testid="game-phase"
+        aria-live="polite"
+        style={{ color: "var(--ink-faint)" }}
+      >
+        {labels[index]} · {index + 1} of {labels.length}
+      </span>
+    </div>
+  )
+}
+
 function Chrome() {
   const unit = useUnitId()
   const { step, of } = useUnitStep()
@@ -49,7 +88,7 @@ function Chrome() {
   return (
     <div className="shell fixed top-3 left-3 z-[100]">
       <div
-        className="flex items-center gap-2.5 rounded-xl px-3 py-2"
+        className="rounded-xl px-3 py-2"
         style={{
           background: "var(--paper-raised)",
           border: "1px solid var(--rule-strong)",
@@ -57,6 +96,7 @@ function Chrome() {
           fontFamily: "var(--font-inter), system-ui, sans-serif",
         }}
       >
+        <div className="flex items-center gap-2.5">
         <Link
           href={href}
           aria-label={unit ? "Back to the topic" : "Exit to dashboard"}
@@ -89,6 +129,12 @@ function Chrome() {
             Step {step} of {of}
           </span>
         )}
+        </div>
+
+        {/* Nested under the unit's counter, because that is how the two actually
+            nest: the whole game is ONE of the unit's steps, and this says where you
+            are within it. */}
+        <PhaseLine />
       </div>
     </div>
   )
@@ -97,12 +143,14 @@ function Chrome() {
 export default function GamesLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      {/* useSearchParams opts its subtree out of static prerendering, so it needs a
-          Suspense boundary or the whole route becomes dynamic. */}
-      <Suspense fallback={null}>
-        <Chrome />
-      </Suspense>
-      {children}
+      <GamePhaseProvider>
+        {/* useSearchParams opts its subtree out of static prerendering, so it needs a
+            Suspense boundary or the whole route becomes dynamic. */}
+        <Suspense fallback={null}>
+          <Chrome />
+        </Suspense>
+        {children}
+      </GamePhaseProvider>
     </>
   )
 }

@@ -103,3 +103,61 @@ body {
     font-size: 0.65rem;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   THE PIXEL BUTTON -- one definition, two sizes.
+
+   Measured 2026-08-30: nine distinct class strings across the 26 games described
+   the same button. Not a design disagreement -- copy-paste drift. Four were
+   near-misses of the 24-use standard (`text-base` instead of `text-sm`, which
+   .text-base above turns into 18px against 16px; `px-6` instead of `px-8`;
+   `font-mono ... font-bold` with no shadow at all). Editing four buttons to match
+   is how you get five next month, so the shape is named once here and imported by
+   class name.
+
+   Scoped nowhere on purpose: this is the GAME register and globals.css is the
+   games' stylesheet. The reverse -- shell styles moving in here -- stays
+   forbidden, because this file redefines Tailwind's .text-* utilities globally
+   and .shell exists to keep that away from CUBIK.
+
+   `disabled` and `:focus-visible` are IN the class rather than sprinkled per use.
+   One game had `disabled:opacity-40` and the rest had nothing, so the same button
+   looked live while it was dead; and a keyboard-only student had no focus ring on
+   any of them.
+   --------------------------------------------------------------------------- */
+.pixel-btn,
+.pixel-btn-sm {
+  background: #006666;
+  border: 2px solid #004d4d;
+  color: #ffffff;
+  font-family: var(--font-press-start-2p), monospace;
+  box-shadow: 3px 3px 0 0 #000;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+  cursor: pointer;
+  display: inline-block;
+  text-align: center;
+}
+.pixel-btn:hover:not(:disabled),
+.pixel-btn-sm:hover:not(:disabled) {
+  background: #004d4d;
+}
+.pixel-btn:disabled,
+.pixel-btn-sm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* Black on the games' near-white ground, so the ring is visible OFF the button
+   rather than lost against the teal. */
+.pixel-btn:focus-visible,
+.pixel-btn-sm:focus-visible {
+  outline: 3px solid #000;
+  outline-offset: 2px;
+}
+.pixel-btn {
+  font-size: 1rem;
+  padding: 0.75rem 2.5rem;
+}
+.pixel-btn-sm {
+  font-size: 10px;
+  padding: 0.5rem 2rem;
+}

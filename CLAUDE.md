@@ -17,7 +17,12 @@ FYP deliverable + EDC exhibition + academic paper (measuring flip-learning effec
   **Inter** + **Roboto Mono** (data only), teal `#006666` on `#FFFFFF`/`#F9FAFB`/`#F2F4F5`, glass
   cards at `rounded-2xl`, black primary buttons that go teal on hover. Source of truth is
   `~/.antigravity/cubik-website` (`CLAUDE.md` Styling + `src/styles/globals.css`) - **if that
-  changes, update `app/shell.css` and `app/fonts.ts`; never hand-drift the palette.** The **26 game CANVASES keep Press Start 2P + Pixelify Sans** and are untouched — but everything
+  changes, update `app/shell.css` and `app/fonts.ts`; never hand-drift the palette.** The **26 game CANVASES keep Press Start 2P + Pixelify Sans**, but since 2026-08-30 they take
+  CUBIK's teal too: v0's inherited yellow (`#facc15`/`#fde047`/`#a16207`/cream `#f8f6ee`) is gone,
+  and the one shared game CTA is **`.pixel-btn` / `.pixel-btn-sm` in `app/globals.css`** — 58 drifted
+  call sites collapsed into two classes. Pixel GEOMETRY is untouched (square corners, hard offset
+  shadow, Press Start 2P); only colour and the class name changed. Text on a teal fill must be white
+  (black is ~3.2:1 and fails AA). Everything else around the canvases is untouched — but everything
   around them is CUBIK, including the AI tutor widget (renders on every page) and the
   end-of-game debrief (25 of 26 routes). All shell styling is scoped
   under `.shell` because `globals.css` redefines Tailwind's `.text-*` utilities globally and the
@@ -31,7 +36,11 @@ FYP_Submission/
                          #   Imports chromadb+langchain at module scope, so anything
                          #   that must work WITHOUT the RAG stack lives in a router:
     auth_api.py          #   → /api/auth/*      signup, session, consent, profile, withdraw
-    admin_api.py         #   → /api/admin/*     teacher panel; own allowlist file, audited
+    admin_api.py         #   → /api/admin/*     teacher panel; own allowlist file, audited.
+                         #     Includes GET/POST /api/admin/schedule — moves ONE lecture date
+                         #     (sessions[n][section]); previews first because that date is the
+                         #     timing of the IV, refuses a date that adds a validation problem
+                         #     or lands on a declared no-class day, writes atomically, audited.
     topic_api.py         #   → /api/topics/*    journey, gate, pre/post checks
     research_api.py      #   → /api/research/*  event, summary, pseudonymised export
     auth_store.py        # Participant accounts (stdlib sqlite3) + HMAC pseudonyms
@@ -49,7 +58,7 @@ FYP_Submission/
                          #   calendar (teaching Mon 31 Aug - Sat 28 Nov 2026, 13 weeks).
                          #   --validate flags lecture dates on public holidays.
     enrolled_sids.txt    # Class list (SID,section). GITIGNORED — real personal data
-    tests/               # 359 assertions: python backend/tests/run_all.py
+    tests/               # 381 assertions: python backend/tests/run_all.py
     make_e2e_schedule.py # today-relative schedule so the browser tests have an open topic
     hci_chroma_db_local/ # Pre-built ChromaDB vector store (HCI lecture PDFs)
     *.pdf                # COMP3423 lecture slides (6 weeks)
@@ -107,12 +116,21 @@ FYP_Submission/
       ai-chat-widget.tsx # Floating RAG chatbot (calls localhost:8080)
       reflection-dialog.tsx # Post-game reflection prompt (open + Likert)
       game-card.tsx
+      session-map.tsx    # "How this works" on the dashboard. Orientation, which is a
+                         #   DIFFERENT job from the lecture grouping below it: grouping
+                         #   answers "where is my stuff", this answers "what is this and
+                         #   how do I use it". Open only while nothing is finished.
       game-debrief.tsx   # End-of-game debrief + completion recording
       game-layout.tsx    # Shared wrapper for games (auth check, nav)
     lib/
       user-store.ts      # Zustand store (user, badges, login/signup/logout) — was store.ts
       badge-context.tsx  # React context for badge state
       progress-context.tsx # Per-topic progress + research-sink mirroring
+      game-phase.tsx     # Where you are INSIDE a game. Two contexts, not one: games
+                         #   subscribe only to the stable setter, so a chrome update can
+                         #   never re-render a game subtree — hicks-law-assessment MEASURES
+                         #   REACTION TIME and must not be perturbed by the strip.
+                         #   The 7 games that showed no progress on any screen now do.
       browser-utils.ts
       navigation.ts
 ```
@@ -286,7 +304,10 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
     student self-reports their section) · **HSESC ethics amendment — draft ready at
     `docs/ethics-amendment-stage2.md`, four open questions for the supervisor at its foot** ·
     2026/27 lecture decks (`norman`/`hicks-law` still zero corpus coverage, `webers-law` thin at
-    3 hits) · section C's session 5 falls on National Day, so `schedule.py --validate` exits 1.
+    3 hits).
+    *(The National Day item that used to sit here is DONE: section C's session 5 on 2026-10-01 was
+    acknowledged with a written decision on 2026-08-27, so `schedule.py --validate` exits 0. A
+    teacher can now move any lecture date from `/admin` without touching the file.)*
   - **`backend/.participant_secret` — DONE 2026-08-30, and it was not what the list said.** The
     file had never existed: it is generated lazily on first use, so it would have been born
     unnoticed during the first export on the deployment box. Generated deliberately before any

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import SchedulePanel from "./schedule-panel"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -300,6 +301,12 @@ export default function AdminPage() {
             </ol>
           </div>
         )}
+
+        {/* Lecture dates last: it is the rarest job on this page and the one with
+            the widest blast radius, so it sits below the everyday ones rather than
+            competing with them. `refresh` pulls the audit log back so a date change
+            shows up in the same log as a section change, which is the point. */}
+        <SchedulePanel onDone={() => void load()} />
       </div>
     </main>
   )

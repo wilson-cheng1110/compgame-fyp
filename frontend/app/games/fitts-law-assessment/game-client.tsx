@@ -152,7 +152,7 @@ export default function FittsLawAssessment() {
         </p>
         <button
           onClick={start}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-base py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Start
         </button>
@@ -222,7 +222,7 @@ export default function FittsLawAssessment() {
         <div className="flex gap-4 mb-6">
           <button
             onClick={start}
-            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-6 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm"
           >
             Try Again
           </button>

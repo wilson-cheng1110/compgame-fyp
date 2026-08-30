@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useGamePhase } from "@/lib/game-phase"
 
 // Weber's Law Understanding
 // Phase 1: Learn ΔI/I = k with an interactive size slider
@@ -26,8 +27,19 @@ const WEBER_K: Record<Attribute, number> = {
 }
 const BASE: Record<Attribute, number> = { size: 60, brightness: 128, count: 10 }
 
+// The stages the strip shows. `Record<Phase, number>` is the guard: add a
+// phase to the union and this stops compiling until it is placed in a stage.
+const STAGES = ["Learn", "Try it", "In real UIs", "Recap"]
+const STAGE_OF: Record<Phase, number> = {
+  "learn": 0,
+  "jnd-demo": 1,
+  "ui-examples": 2,
+  "debrief": 3,
+}
+
 export default function WebersLawUnderstanding() {
   const [phase, setPhase] = useState<Phase>("learn")
+  useGamePhase(STAGES, STAGE_OF[phase])
   const [learnSlider, setLearnSlider] = useState(60)   // circle radius px
   const [attrIdx, setAttrIdx] = useState(0)
   const [userSlider, setUserSlider] = useState<Record<Attribute, number>>({ size: 60, brightness: 128, count: 10 })
@@ -86,6 +98,7 @@ export default function WebersLawUnderstanding() {
           </div>
           <input
             type="range"
+            aria-label="Size of the variable circle"
             min={refRadius}
             max={refRadius * 2}
             value={learnSlider}
@@ -105,7 +118,7 @@ export default function WebersLawUnderstanding() {
 
         <button
           onClick={() => setPhase("jnd-demo")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Find Your JND →
         </button>
@@ -181,6 +194,7 @@ export default function WebersLawUnderstanding() {
 
           <input
             type="range"
+            aria-label={`Adjust the ${attr} until you notice a difference`}
             min={attr === "size" ? BASE.size : attr === "brightness" ? BASE.brightness : BASE.count}
             max={attr === "size" ? BASE.size * 2 : attr === "brightness" ? 255 : BASE.count * 3}
             step={attr === "count" ? 1 : 1}
@@ -210,7 +224,7 @@ export default function WebersLawUnderstanding() {
         {Object.values(noticed).filter(Boolean).length === ATTRS.length ? (
           <button
             onClick={() => setPhase("ui-examples")}
-            className="mt-4 bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm mt-4"
           >
             UI Design Implications →
           </button>
@@ -264,7 +278,7 @@ export default function WebersLawUnderstanding() {
         </div>
         <button
           onClick={() => setPhase("debrief")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Complete Understanding →
         </button>

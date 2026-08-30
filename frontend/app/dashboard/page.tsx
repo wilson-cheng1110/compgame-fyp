@@ -12,6 +12,7 @@ import { useProgress } from "@/lib/progress-context"
 import { topics as topicsApi, auth, type JourneyTopic } from "@/lib/api"
 import { badgesFromJourney, completedCount } from "@/lib/badges"
 import JourneyPath from "@/components/journey-path"
+import SessionMap from "@/components/session-map"
 import { TOPICS } from "@/lib/topic-definitions"
 import { useSlowLoad } from "@/lib/use-slow-load"
 import type { TopicId } from "@/lib/topic-definitions"
@@ -181,6 +182,33 @@ export default function DashboardPage() {
           .filter((t): t is (typeof TOPICS)[number] => !!t)
       : TOPICS
 
+  // SEVEN LECTURES, NOT THIRTEEN ERRANDS.
+  //
+  // The thirteen topics are released one to three at a time, with the lecture they
+  // belong to. Rendered flat, that structure is invisible and the page reads as a
+  // wall of thirteen equal chores -- which is exactly the shape that makes a tired
+  // student in November close the tab. Grouped, the same list reads as "one lecture
+  // at a time" and the two or three topics that share a release date sit together
+  // where they belong.
+  //
+  // Groups are contiguous because orderedTopics is already in release order, so a
+  // single pass builds them and the numbering (01..13) keeps running across the
+  // groups -- the sequence IS the independent variable and it must not restart.
+  const sessionGroups = (() => {
+    const out: {
+      session: number | null
+      start: number
+      topics: (typeof TOPICS)[number][]
+    }[] = []
+    orderedTopics.forEach((t, i) => {
+      const sn = journey[t.id]?.session ?? null
+      const last = out[out.length - 1]
+      if (last && last.session === sn) last.topics.push(t)
+      else out.push({ session: sn, start: i, topics: [t] })
+    })
+    return out
+  })()
+
   // THE ONE THING TO DO NEXT. This replaced an avatar with a speech bubble telling
   // the student they were doing great. At 13 topics released on a schedule, exactly
   // one is normally actionable, and surfacing it is more useful than encouragement
@@ -265,10 +293,47 @@ export default function DashboardPage() {
               </Link>
             )}
 
-            <ol className="mt-8 space-y-2.5">
-              {/* The student's own lecture day, so the explanation on each row is
-                  about THEIR section rather than the timetable in general. */}
-              {orderedTopics.map((topic, idx) => {
+            {/* Orientation before navigation: what this is, then where things are. */}
+            <div className="mt-8">
+              <SessionMap topics={journeyList} />
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {sessionGroups.map((grp) => {
+                const st = grp.topics.map((t) => journey[t.id])
+                const anyLive = st.some(
+                  (j) => j && !j.complete && (j.state === "open" || j.state === "late"),
+                )
+                const allDone = grp.topics.every(
+                  (t) => journey[t.id]?.complete || getTopicProgress(t.id as TopicId).assessmentCompleted,
+                )
+                const opensOn = st.find((j) => j?.opens)?.opens
+                // A one-glance summary, so a collapsed group still answers "is
+                // there anything here for me". Words, never colour alone.
+                const note = allDone
+                  ? "All done"
+                  : anyLive
+                    ? `${st.filter((j) => j && !j.complete && (j.state === "open" || j.state === "late")).length} to do`
+                    : opensOn
+                      ? `Opens ${shortDate(opensOn)}`
+                      : "Not scheduled yet"
+
+                return (
+                  // OPEN ONLY WHAT IS ACTIONABLE. A group with nothing live is shut
+                  // by default -- it is still one click away, and shutting it is the
+                  // difference between a page you scan and a page you scroll.
+                  <details key={`s${grp.session ?? "none"}-${grp.start}`} className="u-group" open={anyLive}>
+                    <summary className="u-group-head">
+                      <span style={{ fontWeight: 600 }}>
+                        {grp.session === null ? "Not yet scheduled" : `Lecture ${grp.session}`}
+                      </span>
+                      <span className="u-faint" style={{ marginLeft: "auto" }}>
+                        {note}
+                      </span>
+                    </summary>
+                    <ol className="u-group-body space-y-2.5">
+              {grp.topics.map((topic, gi) => {
+                const idx = grp.start + gi
                 const tp = getTopicProgress(topic.id as TopicId)
                 const aDone = tp.assessmentCompleted
                 const js = journey[topic.id]
@@ -379,7 +444,11 @@ export default function DashboardPage() {
                   </li>
                 )
               })}
-            </ol>
+                    </ol>
+                  </details>
+                )
+              })}
+            </div>
           </div>
 
           {/* ── SIDEBAR: profile, progress, and the demoted reward layer ── */}

@@ -103,6 +103,7 @@ export default function HicksLawUnderstanding() {
             <span className="font-pixelify-sans text-xs text-gray-500 w-4">1</span>
             <input
               type="range"
+              aria-label="Number of menu items"
               min={1}
               max={20}
               value={sliderN}
@@ -146,7 +147,7 @@ export default function HicksLawUnderstanding() {
 
         <button
           onClick={() => setPhase("compare")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Apply It: Compare UIs →
         </button>
@@ -206,7 +207,7 @@ export default function HicksLawUnderstanding() {
         {selectedAnswer && (
           <button
             onClick={nextCompare}
-            className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-8 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+            className="pixel-btn-sm"
           >
             {compareIdx + 1 >= COMPARISONS.length ? "See Summary →" : "Next →"}
           </button>

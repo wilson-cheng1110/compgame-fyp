@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useGamePhase } from "@/lib/game-phase"
 
 // HCI Experiment Design — Understanding
 // Phase 1: Learn the vocabulary (IV/DV, H0/HA, between/within, confounds, order effects)
@@ -14,8 +15,18 @@ type Design = "between" | "within" | null
 type Order = "counter" | "none" | null
 type Assign = "random" | "convenience" | null
 
+// The stages the strip shows. `Record<Phase, number>` is the guard: add a
+// phase to the union and this stops compiling until it is placed in a stage.
+const STAGES = ["Learn", "Build", "Recap"]
+const STAGE_OF: Record<Phase, number> = {
+  "learn": 0,
+  "build": 1,
+  "debrief": 2,
+}
+
 export default function ExperimentDesignUnderstanding() {
   const [phase, setPhase] = useState<Phase>("learn")
+  useGamePhase(STAGES, STAGE_OF[phase])
   const [step, setStep] = useState(0) // 0 design, 1 order, 2 assign, 3 result
   const [design, setDesign] = useState<Design>(null)
   const [order, setOrder] = useState<Order>(null)
@@ -70,7 +81,7 @@ export default function ExperimentDesignUnderstanding() {
         </div>
         <button
           onClick={() => setPhase("build")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Build an experiment →
         </button>
@@ -83,7 +94,7 @@ export default function ExperimentDesignUnderstanding() {
     const Option = ({ onClick, title, sub }: { onClick: () => void; title: string; sub: string }) => (
       <button
         onClick={onClick}
-        className="w-full text-left border-2 border-black bg-white p-4 hover:bg-[#006666] transition-colors shadow-[2px_2px_0px_0px_#000]"
+        className="w-full text-left border-2 border-black bg-white p-4 hover:bg-[#006666] hover:text-white transition-colors shadow-[2px_2px_0px_0px_#000]"
       >
         <p className="font-press-start-2p text-[10px] mb-1">{title}</p>
         <p className="font-pixelify-sans text-sm text-gray-700">{sub}</p>
@@ -143,7 +154,7 @@ export default function ExperimentDesignUnderstanding() {
               <button onClick={reset} className="bg-white border-2 border-black text-black font-press-start-2p text-[10px] py-2 px-6 hover:bg-gray-100 shadow-[2px_2px_0px_0px_#000]">
                 Try another design
               </button>
-              <button onClick={() => setPhase("debrief")} className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-[10px] py-2 px-6 hover:bg-[#004d4d] shadow-[3px_3px_0px_0px_#000]">
+              <button onClick={() => setPhase("debrief")} className="pixel-btn-sm">
                 Finish and review →
               </button>
             </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import GameDebrief from "@/components/game-debrief"
+import { useGamePhase } from "@/lib/game-phase"
 
 // ── Miller's Law Understanding
 // Interactive chunking demo + STM vs LTM comparison
@@ -47,8 +48,18 @@ const CHUNKING_EXAMPLES = [
   },
 ]
 
+// The stages the strip shows. `Record<Phase, number>` is the guard: add a
+// phase to the union and this stops compiling until it is placed in a stage.
+const STAGES = ["Learn", "Try it", "Recap"]
+const STAGE_OF: Record<Phase, number> = {
+  "learn": 0,
+  "chunk-demo": 1,
+  "debrief": 2,
+}
+
 export default function MemoryUnderstanding() {
   const [phase, setPhase] = useState<Phase>("learn")
+  useGamePhase(STAGES, STAGE_OF[phase])
   const [activeExample, setActiveExample] = useState(0)
   const [showChunked, setShowChunked] = useState(false)
 
@@ -93,7 +104,7 @@ export default function MemoryUnderstanding() {
 
         <button
           onClick={() => setPhase("chunk-demo")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Experience Chunking →
         </button>
@@ -135,6 +146,8 @@ export default function MemoryUnderstanding() {
             </span>
             <button
               onClick={() => setShowChunked((v) => !v)}
+              aria-label="Group the digits into chunks"
+              aria-pressed={showChunked}
               className={`relative w-14 h-7 border-2 border-black transition-colors ${showChunked ? "bg-[#006666]" : "bg-gray-300"}`}
             >
               <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-black transition-transform ${showChunked ? "translate-x-7" : "translate-x-0"}`} />
@@ -173,7 +186,7 @@ export default function MemoryUnderstanding() {
 
         <button
           onClick={() => setPhase("debrief")}
-          className="bg-[#006666] border-2 border-[#004d4d] text-white font-press-start-2p text-sm py-3 px-10 hover:bg-[#004d4d] transition-colors shadow-[3px_3px_0px_0px_#000]"
+          className="pixel-btn"
         >
           Complete Understanding →
         </button>

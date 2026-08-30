@@ -282,6 +282,31 @@ export const admin = {
       end_sessions: endSessions,
     }),
   audit: () => api.get<{ entries: AuditEntry[] }>("/api/admin/audit"),
+
+  schedule: () => api.get<ScheduleGrid>("/api/admin/schedule"),
+  /** `commit: false` previews and writes nothing -- see SessionDateResult. */
+  setSessionDate: (session: number, section: string, date: string, commit = false) =>
+    api.post<SessionDateResult>("/api/admin/schedule", { session, section, date, commit }),
+}
+
+export interface ScheduleGrid {
+  sections: Record<string, { day: string; size: number }>
+  sessions: { session: number; dates: Record<string, string>; topics: string[] }[]
+  problems: string[]
+}
+
+/** The two-step edit. A lecture date is the timing of the independent variable, so
+ *  the panel previews (`commit: false`), shows `affected`, and only then commits. */
+export interface SessionDateResult {
+  ok: boolean
+  old?: string
+  new?: string
+  problems?: string[]
+  added_problems?: string[]
+  affected?: { topic_id: string; from: string; to: string }[]
+  committed?: boolean
+  error?: string
+  message?: string
 }
 
 export const topics = {
