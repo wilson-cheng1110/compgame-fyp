@@ -316,7 +316,12 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
     fixed per topic — a per-student generated probe is a different instrument per student).
     Blind offline grading ✅ (Phase 04) · teacher tutorial report ✅ (Phase 06) ·
     `corpus_version`/`app_version` stamped on every event ✅ (Part 13.2).
-    **Still open:** questionnaire/reflection logging, Phase 07 visual pass (the 太game fix).
+    Questionnaire logging ✅ — IMI/CoI/ARCS/Paas wired as `backend/questionnaire_api.py`
+    (`/api/questionnaire/*`), **OFF by default** (`QUESTIONNAIRES_ENABLED`, tied to the HSESC
+    amendment), **consent-gated** (403 pre-consent, same as every recorded path), scoring key
+    never served, one submission per instrument (partial unique index covers `questionnaire_%`).
+    Derivation helpers in `backend/measures.py` (arm ASSIGNED, `played_first` OBSERVED from
+    server_ts). **Still open:** Phase 07 visual pass (the 太game fix).
   - Server accounts ✅ (`backend/auth_store.py`, 26 tests). Corpus staleness check ✅
     (`backend/check_corpus_coverage.py` — currently **exits 1**: zero coverage on `norman` and
     `hicks-law`, because the vector store is built from 2023 decks. Fix is `docs/revamp.md` Part 9.3).
