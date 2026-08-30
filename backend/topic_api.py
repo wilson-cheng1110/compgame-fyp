@@ -114,8 +114,14 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
         st["completed_at"] = (done.get((st["topic_id"], "topic_posttest"))
                               or done.get((st["topic_id"], "assessment_complete")))
 
-    return {"section": user["section"], "telemetry_enabled": TELEMETRY_ENABLED,
-            "topics": states}
+    # The section's lecture DAY travels with the journey, not just its letter. The
+    # dashboard uses it to say "opens a week before your Tuesday class" instead of
+    # showing a date and leaving the student to work out why. It is one field and it
+    # saves a second round trip to /api/auth/sections for something that is plainly
+    # part of "when does my work open".
+    section_day = (schedule.sections().get(user["section"]) or {}).get("day")
+    return {"section": user["section"], "section_day": section_day,
+            "telemetry_enabled": TELEMETRY_ENABLED, "topics": states}
 
 
 @router.get("/{topic_id}")

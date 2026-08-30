@@ -230,7 +230,7 @@ export default function TopicUnitClient({
               This part is a game. Come back here when you&apos;ve finished it — the rest of the
               unit is waiting.
             </p>
-            <Link href={`/games/${meta.understandingGameId}?unit=${state.topic_id}`}>
+            <Link href={`/games/${meta.understandingGameId}?unit=${state.topic_id}&step=${position}&of=${steps.length}`}>
               <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
                 Open the activity →
               </button>
@@ -266,7 +266,7 @@ export default function TopicUnitClient({
               answers you already gave — those are recorded — and it is how your badge
               levels up.
             </p>
-            <Link href={`/games/${meta.assessmentGameId}?unit=${state.topic_id}`}>
+            <Link href={`/games/${meta.assessmentGameId}?unit=${state.topic_id}&step=${position}&of=${steps.length}`}>
               <button className="u-btn u-btn-primary u-btn-lg u-btn-block mt-7">
                 Open the assessment →
               </button>

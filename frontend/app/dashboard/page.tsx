@@ -40,6 +40,9 @@ export default function DashboardPage() {
   // the student is allowed to open.
   const [journey, setJourney] = useState<Record<string, JourneyTopic>>({})
   const [journeyLoaded, setJourneyLoaded] = useState(false)
+  // The student's own lecture day ("Tue"), so a row can explain itself in terms
+  // of THEIR class rather than the timetable in general.
+  const [sectionDay, setSectionDay] = useState<string>("")
   // No page may hang forever — see lib/use-slow-load.ts.
   const slowToLoad = useSlowLoad(!user)
 
@@ -51,6 +54,7 @@ export default function DashboardPage() {
         const byId: Record<string, JourneyTopic> = {}
         res.data.topics.forEach((t) => { byId[t.topic_id] = t })
         setJourney(byId)
+        setSectionDay(res.data.section_day ?? "")
       }
       setJourneyLoaded(true)
     })
@@ -259,6 +263,8 @@ export default function DashboardPage() {
             )}
 
             <ol className="mt-8 space-y-2.5">
+              {/* The student's own lecture day, so the explanation on each row is
+                  about THEIR section rather than the timetable in general. */}
               {orderedTopics.map((topic, idx) => {
                 const tp = getTopicProgress(topic.id as TopicId)
                 const aDone = tp.assessmentCompleted
@@ -287,6 +293,19 @@ export default function DashboardPage() {
                           ? `Until ${shortDate(js.closes)}`
                           : null
 
+                // SAY WHY. A state chip and a date answer "what" and leave "why"
+                // to the student's imagination, which on a platform for teaching
+                // HCI is not a defensible place to leave it. Everything below is
+                // already in the journey payload -- the server knew all of it and
+                // the page simply never said it out loud.
+                const why = !js
+                  ? null
+                  : locked
+                    ? `Opens with lecture ${js.session}, a week before your ${sectionDay || "section's"} class`
+                    : js.late
+                      ? `Lecture ${js.session} has passed — still open, so it still counts`
+                      : `Lecture ${js.session} · open now, closes two days before the next class`
+
                 const row = (
                   <div
                     className={`u-row p-4 ${openable ? "u-row-actionable" : ""} ${locked ? "u-row-locked" : ""}`}
@@ -308,6 +327,16 @@ export default function DashboardPage() {
                           {when && <span className="u-faint">{when}</span>}
                         </div>
                         <p className="u-faint mt-0.5 truncate">{topic.description}</p>
+                        {/* The REASON, under the description. A state chip answers
+                            "what" and a date answers "when"; neither answers "why is
+                            this one shut", which is the question a student actually
+                            has. Deliberately allowed to wrap onto two lines -- a
+                            reason clipped mid-sentence is worse than no reason. */}
+                        {why && (
+                          <p className="u-faint mt-0.5" style={{ opacity: 0.75 }}>
+                            {why}
+                          </p>
+                        )}
                       </div>
                       {openable && (
                         <span className="u-faint" aria-hidden>

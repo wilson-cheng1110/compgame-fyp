@@ -159,6 +159,10 @@ export interface JourneyTopic {
 
 export interface Journey {
   section: string
+  /** The section's lecture weekday ("Tue"). Travels with the journey so the dashboard
+   *  can explain a locked topic in terms of the student's OWN class rather than
+   *  showing a bare date. Optional: a section with no configured day is possible. */
+  section_day?: string | null
   telemetry_enabled: boolean
   topics: JourneyTopic[]
 }

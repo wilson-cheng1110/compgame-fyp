@@ -30,7 +30,6 @@ import { storeSession, nextStep } from "@/lib/session-handoff"
 export default function SignupPage() {
   const router = useRouter()
   const [sid, setSid] = useState("")
-  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [section, setSection] = useState("")
   const [sections, setSections] = useState<SectionOption[] | null>(null)
@@ -72,7 +71,13 @@ export default function SignupPage() {
     }
 
     setBusy(true)
-    const res = await auth.signup(trimmed, password, section || undefined, username.trim() || undefined)
+    // No display name here on purpose. Onboarding is the step that exists to
+    // collect identity (avatar, then name), and asking at BOTH doors meant a
+    // student who typed one here was shown an EMPTY box a moment later and made
+    // to type it again -- the value was stored, the next screen just never read
+    // it. Signup is the highest-friction moment in the whole product; it asks
+    // for the minimum that creates an account.
+    const res = await auth.signup(trimmed, password, section || undefined)
     setBusy(false)
 
     if (!res.ok || !res.data) {
@@ -136,20 +141,7 @@ export default function SignupPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="username" className="u-eyebrow block">
-                Display name <span className="u-faint">— optional</span>
-              </label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="u-field"
-                data-testid="signup-username"
-              />
-              <p className="u-faint pt-1">What the dashboard calls you. Nobody is graded on it.</p>
-            </div>
+            
 
             <div className="space-y-2">
               <label htmlFor="password" className="u-eyebrow block">

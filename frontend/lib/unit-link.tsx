@@ -31,6 +31,27 @@ export function useUnitId(): string | null {
   return params?.get("unit") ?? null
 }
 
+/** Where this activity sits in the unit, when the unit said so.
+ *
+ *  The unit shows "Step 3 of 7" the whole way through and then hands the student to
+ *  a full-screen game that shows nothing at all -- no topic, no step, no progress.
+ *  Measured 2026-08-30: across all 26 game routes the ONLY shared chrome was a single
+ *  corner Exit link, and it was styled in the game's own pixel register, so even the
+ *  one piece of app furniture read as part of the game. A student crosses that border
+ *  twice per twelve-minute unit and has nothing telling them they are still inside it.
+ *
+ *  The unit appends these; free play has no unit and therefore no step, which is
+ *  correct -- there is no sequence to be at position 3 of.
+ */
+export function useUnitStep(): { step: number | null; of: number | null } {
+  const params = useSearchParams()
+  const n = (k: string) => {
+    const v = Number(params?.get(k))
+    return Number.isFinite(v) && v > 0 ? v : null
+  }
+  return { step: n("step"), of: n("of") }
+}
+
 function Reader({ children }: { children: (unit: string | null) => ReactNode }) {
   const unit = useUnitId()
   return <>{children(unit)}</>

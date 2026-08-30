@@ -35,6 +35,12 @@ export default function UsernameSelectionPage() {
     const parsedUserData = JSON.parse(userCookie)
     setUserData(parsedUserData)
 
+    // Show a name the account already has instead of an empty box. Signup no
+    // longer asks, but an admin-created account can arrive here with one, and a
+    // required field that silently discards what the student already gave is the
+    // bug this whole step just had.
+    if (parsedUserData.username) setUsername(parsedUserData.username)
+
     if (parsedUserData.avatarId) {
       // Use the direct blob URL based on avatarId
       setAvatarSrc(avatarUrls[parsedUserData.avatarId as keyof typeof avatarUrls] || "/placeholder.svg")

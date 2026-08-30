@@ -58,6 +58,13 @@ E2E_VERBOSE=1 node e2e/run.mjs    # show passing assertions too
 ```
 
 `/tmp/roster.txt` is one `SID,section` per line; the tests claim `24E00001A` upward.
+
+**`24E…` is a TEST CONVENTION, not a SID format.** The product validates nothing about
+a student ID beyond it being non-empty -- no prefix, no length, no pattern, in the form,
+in the request model, or in `auth_store`. That is deliberate: a real cohort contains
+deferred students, repeaters and people taking the unit late, so their IDs span several
+intake years and no single shape covers them. The fixture uses one shape only because a
+generator needs one. A real `enrolled_sids.txt` is whatever the department hands you.
 Make it big enough for the block you are running — a full run draws roughly 60 SIDs, so
 `E2E_SID_OFFSET=900` needs the roster to reach `24E00960A`. The harness caps allocation at
 `E2E_SID_MAX` (default 8000) and the preflight refuses to start if the block would run off
