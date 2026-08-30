@@ -222,6 +222,15 @@ URL, because server-side `fetch` has no document and so no origin to resolve aga
 - Auth check in every page: `Cookies.get("user")` → redirect to /login if missing
 - Onboarding gate: if `needsOnboarding` in cookie → redirect to /onboarding/avatar
 - Never use server-side session — keep client-only
+- **Idle timeout — added 2026-08-31 (Wilson).** `SESSION_IDLE_MINUTES` (default 15):
+  `auth_store.resolve_session` stamps `last_seen_at` (throttled to ~1 write/min) and,
+  past the window, refuses AND deletes the session row → the next request lands on
+  /login. The absolute `SESSION_DAYS` expiry is unchanged; this is the inactivity cut.
+  Legacy sessions with NULL `last_seen_at` are honoured then stamped (nobody logged out
+  retroactively). `POST /api/auth/ping` + `components/session-keep-alive.tsx` refresh an
+  ACTIVE session — the widget pings ONLY when there's been real interaction since the
+  last 5-min tick, so typing a long probe answer keeps the session while a walked-away
+  tab still times out.
 
 ### RAG backend
 - Must be running locally on port 8080 before frontend can answer questions
