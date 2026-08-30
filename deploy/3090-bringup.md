@@ -6,6 +6,10 @@ target — each student sits each topic once, there is no second run to fix a ba
 the point of this list is that `publish.ps1` never puts a misconfigured box in front of a
 student, and that the box survives without you afterwards.
 
+> **Run every command below in PowerShell, from the repository root** (the folder
+> holding `deploy\`, `backend\`, `frontend\`); every path is relative to it. As written
+> the commands are copy-paste-ready for PowerShell.
+
 ## 0. On the box already
 - [ ] **Python 3.11+**, **Node 18+**, **Ollama** installed (setup.ps1 checks and stops with a link if not). An NVIDIA GPU to *run* the tutor at a usable speed.
 - [ ] The repo pulled to the current branch HEAD (`git pull`). The tree **builds from a clean clone** — verified — so a pull is enough; you do not hand-copy source.
@@ -37,10 +41,10 @@ git will not deliver these. Put them in place **before** `start.ps1`.
 
 ## 3. Start on loopback
 - [ ] `powershell -ExecutionPolicy Bypass -File deploy\start.ps1`  (waits until both services actually answer)
-- [ ] Stop, if needed, is `deploy\start.ps1 -Stop`.
+- [ ] Stop, if needed: `powershell -ExecutionPolicy Bypass -File deploy\start.ps1 -Stop`
 
 ## 4. Sanity BEFORE publishing (the gate is good, but measure the box)
-- [ ] `curl http://127.0.0.1:3000/api/health` → `status: ok`, `enrolment` is your cohort size (**not 8000**), `rag_model.ok: true`.
+- [ ] `Invoke-RestMethod http://127.0.0.1:3000/api/health | ConvertTo-Json -Depth 6` → `status: ok`, `enrolment` your cohort size (**not 8000**), `rag_model.ok: true`. (Plain `curl` in PowerShell is an alias for Invoke-WebRequest and prints an object, not JSON — use this.)
 - [ ] **One tutor call, timed.** The 3090's tutor latency is unmeasured here — the dev box was ~7 s warm. Sign in as a test student and ask the tutor once; if it's tens of seconds, fix that before a section arrives (the concurrency gate will hold at 4 concurrent / 40 queued, refusing honestly, but slow is still slow).
 - [ ] Run **one full topic unit** as a test student end-to-end (pre-check → activity → post-check), then withdraw or ignore that account. Confirm your data lands in the sink.
 
