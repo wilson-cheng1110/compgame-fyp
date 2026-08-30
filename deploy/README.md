@@ -8,6 +8,11 @@ powershell -ExecutionPolicy Bypass -File deploy\start.ps1     # run it here
 powershell -ExecutionPolicy Bypass -File deploy\publish.ps1   # put it on the internet
 ```
 
+> **New box? Follow the step-by-step.** The visual runbook is **`deploy\install-3090.html`**
+> (open it in a browser — copy-paste commands, gate/gotcha callouts). The same steps with
+> the *why* on each are in **`deploy\3090-bringup.md`**. And **`deploy\bootstrap.ps1`** does
+> prerequisites → `setup` → `start` in one command once your carry-across files are placed.
+
 `setup.ps1` is safe to re-run: every phase checks before it acts, so a second run is a
 no-op and a run after a failure resumes instead of starting over. It never overwrites a
 database, a secret, or an existing `.env.local`.

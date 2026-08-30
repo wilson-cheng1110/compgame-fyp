@@ -1,0 +1,241 @@
+<title>COMPGame 3090 Install</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#f9fafb; --surface:#ffffff; --code:#f2f4f5;
+    --ink:#111c1b; --muted:#55635f; --faint:#8b9793;
+    --accent:#006666; --accent-ink:#004d4d; --accent-soft:#e2efef;
+    --rule:#e4e8e8; --rule-soft:#eef1f1;
+    --warn:#8a5a06; --warn-bg:#fbf1df; --warn-edge:#e6cf9f;
+    --danger:#a62617; --danger-bg:#fbe9e6; --danger-edge:#eec3bc;
+    --good:#0a6b45; --good-bg:#e6f3ec; --good-edge:#bfe0cd;
+    --shadow:0 1px 2px rgba(16,40,38,.06),0 6px 20px rgba(16,40,38,.05);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0c1211; --surface:#121b19; --code:#0a100f;
+      --ink:#e9efec; --muted:#9fb0ab; --faint:#6c7d78;
+      --accent:#43b5b0; --accent-ink:#5fc7c2; --accent-soft:#10231f;
+      --rule:#22302d; --rule-soft:#1a2523;
+      --warn:#e0aa5c; --warn-bg:#241c10; --warn-edge:#40331b;
+      --danger:#f0938a; --danger-bg:#26150f; --danger-edge:#432219;
+      --good:#6fc79c; --good-bg:#10231a; --good-edge:#1f3d2d;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0c1211; --surface:#121b19; --code:#0a100f;
+    --ink:#e9efec; --muted:#9fb0ab; --faint:#6c7d78;
+    --accent:#43b5b0; --accent-ink:#5fc7c2; --accent-soft:#10231f;
+    --rule:#22302d; --rule-soft:#1a2523;
+    --warn:#e0aa5c; --warn-bg:#241c10; --warn-edge:#40331b;
+    --danger:#f0938a; --danger-bg:#26150f; --danger-edge:#432219;
+    --good:#6fc79c; --good-bg:#10231a; --good-edge:#1f3d2d;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.28);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Inter",system-ui,-apple-system,sans-serif;
+    line-height:1.6; margin:0;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:820px; margin:0 auto; padding:clamp(20px,5vw,56px) clamp(16px,4vw,32px) 80px;}
+
+  header.top{margin-bottom:40px;}
+  .eyebrow{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); font-weight:600;}
+  h1{font-size:clamp(26px,5vw,38px); line-height:1.12; font-weight:700; margin:.35em 0 .25em; text-wrap:balance; letter-spacing:-.02em;}
+  .lede{color:var(--muted); font-size:17px; max-width:62ch; margin:0;}
+  .meta{margin-top:18px; display:flex; flex-wrap:wrap; gap:8px;}
+  .tag{font:500 12px/1 "Roboto Mono",ui-monospace,monospace; color:var(--accent-ink); background:var(--accent-soft); border:1px solid var(--rule); padding:6px 9px; border-radius:6px;}
+
+  section{margin-top:14px;}
+  h2{font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); font-weight:600; margin:38px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--rule-soft);}
+
+  /* panels */
+  .panel{background:var(--surface); border:1px solid var(--rule); border-radius:14px; padding:20px 22px; box-shadow:var(--shadow);}
+  .panel h3{margin:0 0 10px; font-size:16px; font-weight:600;}
+  ul.check{list-style:none; margin:0; padding:0; display:grid; gap:9px;}
+  ul.check li{display:flex; gap:11px; align-items:flex-start; font-size:15px; color:var(--muted);}
+  ul.check li b{color:var(--ink); font-weight:600;}
+  ul.check li::before{content:""; flex:none; width:16px; height:16px; margin-top:4px; border:1.5px solid var(--accent); border-radius:5px;}
+  ul.check li code{color:var(--ink);}
+
+  /* steps */
+  ol.steps{list-style:none; counter-reset:s; margin:0; padding:0; display:grid; gap:18px;}
+  ol.steps>li{
+    counter-increment:s; position:relative;
+    background:var(--surface); border:1px solid var(--rule); border-radius:14px;
+    padding:22px 24px 22px 68px; box-shadow:var(--shadow);
+  }
+  ol.steps>li::before{
+    content:counter(s); position:absolute; left:20px; top:22px;
+    width:32px; height:32px; border-radius:9px;
+    background:var(--accent); color:#fff;
+    font:600 15px/32px "Roboto Mono",monospace; text-align:center;
+    box-shadow:0 2px 6px rgba(0,102,102,.28);
+  }
+  .step-t{font-size:18px; font-weight:600; margin:2px 0 4px; letter-spacing:-.01em;}
+  .step-d{color:var(--muted); font-size:15px; margin:0 0 14px;}
+  .step-d code, p code, li code, .note code{font-family:"Roboto Mono",monospace; font-size:.88em; background:var(--code); border:1px solid var(--rule-soft); padding:.08em .4em; border-radius:5px; color:var(--ink);}
+
+  /* command block */
+  .cmd{position:relative; margin:12px 0;}
+  .cmd pre{
+    margin:0; background:var(--code); border:1px solid var(--rule);
+    border-radius:10px; padding:14px 52px 14px 16px; overflow-x:auto;
+  }
+  .cmd code{font-family:"Roboto Mono",ui-monospace,monospace; font-size:13.5px; line-height:1.7; color:var(--ink); white-space:pre;}
+  .cmd .p{color:var(--accent); user-select:none;}
+  .cmd .c{color:var(--faint);}
+  .copy{
+    position:absolute; top:9px; right:9px;
+    font:500 11px/1 "Roboto Mono",monospace; letter-spacing:.03em;
+    color:var(--muted); background:var(--surface); border:1px solid var(--rule);
+    padding:6px 9px; border-radius:7px; cursor:pointer; transition:.15s;
+  }
+  .copy:hover{color:var(--accent-ink); border-color:var(--accent);}
+  .copy:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  /* callouts */
+  .note{border-radius:10px; padding:11px 14px 11px 14px; font-size:14px; margin-top:12px; border:1px solid;}
+  .note .lbl{font:600 11px/1 "Roboto Mono",monospace; letter-spacing:.08em; text-transform:uppercase; display:inline-block; margin-right:8px;}
+  .note.check{background:var(--good-bg); border-color:var(--good-edge); color:var(--good);}
+  .note.warn{background:var(--warn-bg); border-color:var(--warn-edge); color:var(--warn);}
+  .note.gate{background:var(--danger-bg); border-color:var(--danger-edge); color:var(--danger);}
+  .note b{color:inherit;}
+  .note code{background:rgba(127,127,127,.14); border-color:transparent; color:inherit;}
+
+  a{color:var(--accent-ink); text-decoration:underline; text-underline-offset:2px; text-decoration-thickness:1px;}
+  .foot{margin-top:34px; color:var(--faint); font-size:13.5px;}
+  .foot code{font-family:"Roboto Mono",monospace;}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Study server &middot; manual path</div>
+    <h1>Installing COMPGame on the 3090</h1>
+    <p class="lede">The proven <code>setup&nbsp;&rarr;&nbsp;start&nbsp;&rarr;&nbsp;publish</code> sequence, one command at a time. Every command is PowerShell, run from the repository root. The box is a one-shot study target &mdash; each student sits each topic once &mdash; so the gates below refuse rather than warn.</p>
+    <div class="meta">
+      <span class="tag">Windows &middot; PowerShell</span>
+      <span class="tag">branch: master</span>
+      <span class="tag">backend 462/0 &middot; e2e 416/0</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Before you start</h2>
+    <p class="step-d" style="margin:0 0 12px">One tool has to come first &mdash; <b>Git</b>, so you can clone the repo that carries the manifest for everything else. NVIDIA drivers for the 3090 should already be present.</p>
+    <div class="cmd"><button class="copy">copy</button><pre><code>winget install -e --id Git.Git --accept-package-agreements --accept-source-agreements</code></pre></div>
+    <div class="note check"><span class="lbl">the rest</span>Python, Node, Ollama and cloudflared install in <b>one command</b> right after you clone (Step&nbsp;1), from <code>deploy&#92;winget-packages.json</code>. No five-line block.</div>
+    <div class="panel" style="margin-top:16px">
+      <h3>Then have these ready &mdash; you bring them, nothing installs them</h3>
+      <ul class="check">
+        <li>Your backup of <b>backend&#92;.participant_secret</b> and its <b>16-hex fingerprint</b>.</li>
+        <li>The real <b>enrolled_sids.txt</b> (roster, <code>SID,section</code> per line) and <b>admin_sids.txt</b> (teacher SIDs).</li>
+        <li>A free <b>healthchecks.io</b> ping URL for the heartbeat (Step&nbsp;8).</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>The install</h2>
+    <ol class="steps">
+
+      <li>
+        <div class="step-t">Get the code, then the tools</div>
+        <p class="step-d">Clone &mdash; the default branch <code>master</code> now holds the tested code (backend 462/0, e2e 416/0) &mdash; then install Python + Node + Ollama + cloudflared from the manifest in one command.</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>git clone https://github.com/wilson-cheng1110/compgame-fyp.git
+cd compgame-fyp
+winget import -i deploy&#92;winget-packages.json --accept-package-agreements --accept-source-agreements</code></pre></div>
+        <div class="note warn"><span class="lbl">then</span>Everything runs <b>from this folder</b> (it holds <code>backend&#92;</code>, <code>deploy&#92;</code>). <b>Open a new PowerShell</b> after the import so PATH picks up what was installed. If an id errors, <code>winget search ollama</code> and swap it &mdash; <code>setup.ps1</code> re-checks anyway.</div>
+      </li>
+
+      <li>
+        <div class="step-t">Drop in the three files git will not carry</div>
+        <p class="step-d">Copy them into <code>backend&#92;</code>. They are gitignored because they hold real people and a real key. Then verify the key is the <em>right</em> one:</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>(Get-FileHash backend&#92;.participant_secret -Algorithm SHA256).Hash.Substring(0,16)</code></pre></div>
+        <div class="note gate"><span class="lbl">must match</span>The output must equal your backup's fingerprint. A <b>fresh key silently breaks every pre/post export join</b> &mdash; the publish gate checks the file is <em>present</em>, never that it is correct. This step is the only guard.</div>
+        <div class="note warn"><span class="lbl">also</span><code>enrolled_sids.txt</code> = the real roster (<code>SID,section</code> per line). <code>admin_sids.txt</code> = teacher SIDs, one per line. Without the roster, sign-up is open and students self-report their section.</div>
+      </li>
+
+      <li>
+        <div class="step-t">Run setup</div>
+        <p class="step-d">The proven one-shot for the machine: it checks the prerequisites, builds the venv and the app, <b>pulls the Ollama models (~8&nbsp;GB, once)</b>, and writes a starter <code>deploy&#92;.env.local</code>. Re-runnable &mdash; it never overwrites a secret, a database, or an existing <code>.env.local</code>, and resumes after a failure.</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;setup.ps1</code></pre></div>
+        <div class="note warn"><span class="lbl">if it stops</span>It refuses when Python / Node / Ollama is missing and prints the link. Install it, <b>open a NEW PowerShell</b> so PATH refreshes, and re-run.</div>
+      </li>
+
+      <li>
+        <div class="step-t">Set the heartbeat URL</div>
+        <p class="step-d">Open <code>deploy&#92;.env.local</code> and add your healthchecks.io ping URL. <code>COOKIE_SECURE=1</code> is already written; leave <code>QUESTIONNAIRES_ENABLED</code> / <code>TELEMETRY_ENABLED</code> unset until the HSESC amendment lands.</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>HEARTBEAT_URL=https://hc-ping.com/your-uuid-here</code></pre></div>
+      </li>
+
+      <li>
+        <div class="step-t">Start it (loopback)</div>
+        <p class="step-d">Brings up the API on 8080 and the app on 3000, both loopback only, and <b>waits until each actually answers</b> before returning &mdash; "the process started" is not "the service is up".</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;start.ps1</code></pre></div>
+        <div class="note warn"><span class="lbl">to stop</span><code>powershell -ExecutionPolicy Bypass -File deploy&#92;start.ps1 -Stop</code></div>
+      </li>
+
+      <li>
+        <div class="step-t">Sanity-check before going public</div>
+        <p class="step-d">Read the health endpoint <em>through port 3000</em> (that proves the rewrite works). On Windows PowerShell use <code>Invoke-RestMethod</code> &mdash; plain <code>curl</code> is an alias there and prints an object, not JSON.</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>Invoke-RestMethod http://127.0.0.1:3000/api/health | ConvertTo-Json -Depth 6</code></pre></div>
+        <div class="note check"><span class="lbl">confirm</span><code>status: ok</code>, <code>enrolment</code> = your cohort size (<b>not 8000</b>), <code>rag_model.ok: true</code>. Then sign in as a throwaway student, <b>ask the tutor once and time it</b> (this box's latency is unmeasured), and run one full topic unit.</div>
+      </li>
+
+      <li>
+        <div class="step-t">Publish</div>
+        <p class="step-d">Opens the Cloudflare tunnel in front of port 3000. It <b>refuses on a red gate</b> and tells you why.</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;publish.ps1</code></pre></div>
+        <div class="note gate"><span class="lbl">gate</span>Refuses unless: web + API answer through :3000, <code>COOKIE_SECURE&ne;0</code>, participant key present, enrolment <b>&ne; 8000</b>, and the bundle names no hardcoded origin.</div>
+        <div class="note warn"><span class="lbl">tunnel</span>Needs <code>cloudflared</code>. A named tunnel gives a <b>stable URL</b> students can bookmark, but wants a one-time <code>cloudflared tunnel login</code>. Note the URL it prints.</div>
+      </li>
+
+      <li>
+        <div class="step-t">Make it survive reboots</div>
+        <p class="step-d">Run from an <b>elevated</b> PowerShell. Registers three Scheduled Tasks: <b>Boot</b> (start at startup), <b>Watchdog</b> (restart if it stops answering), <b>Heartbeat</b> (ping out every 5&nbsp;min &mdash; if the pings stop, healthchecks.io emails you).</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;install-services.ps1</code></pre></div>
+        <div class="note check"><span class="lbl">then</span><b>Reboot the box once.</b> Confirm it comes back (health <code>ok</code>) and the heartbeat resumes at healthchecks.io &mdash; that is the only real proof of "leave it alone".</div>
+      </li>
+
+    </ol>
+  </section>
+
+  <section>
+    <h2>Know these going in</h2>
+    <div class="panel">
+      <ul class="check">
+        <li><b>Idle timeout 30&nbsp;min.</b> A session idle 30&nbsp;min with zero interaction is logged out; the keep-alive pings on any activity, so active use never expires. Recorded steps survive a logout (progress is server-side); only unsubmitted, in-progress input is lost. Tune with <code>SESSION_IDLE_MINUTES</code>.</li>
+        <li><b>norman / hicks-law</b> have thin tutor corpus (2023 decks). Reported separately; not H1 evidence.</li>
+        <li><b>Backups:</b> an hourly online-backup of the sink + accounts runs on its own &mdash; confirm it is writing.</li>
+        <li><b>A release window is five days wide</b>, not one morning. An hour of downtime is not a lost topic &mdash; do not panic-fix during a window.</li>
+      </ul>
+    </div>
+    <p class="foot">The same steps with the full reasoning are in <code>deploy&#92;3090-bringup.md</code> (in the repo after Step&nbsp;1). One command version of Steps&nbsp;3&ndash;5, once the Step&nbsp;2 files are in place: <code>deploy&#92;bootstrap.ps1 -SecretFingerprint &lt;16hex&gt;</code>.</p>
+  </section>
+</div>
+
+<script>
+  document.querySelectorAll(".cmd").forEach(function(block){
+    var btn = block.querySelector(".copy"), code = block.querySelector("code");
+    if(!btn||!code) return;
+    btn.addEventListener("click", async function(){
+      var text = code.innerText;
+      var done = false;
+      try{ await navigator.clipboard.writeText(text); done = true; }
+      catch(e){
+        try{
+          var r = document.createRange(); r.selectNodeContents(code);
+          var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+          done = document.execCommand("copy"); s.removeAllRanges();
+        }catch(_){}
+      }
+      btn.textContent = done ? "copied" : "select → copy";
+      setTimeout(function(){ btn.textContent = "copy"; }, 1600);
+    });
+  });
+</script>
