@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COMPGame — Student User Manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#006666; --teal-soft:#e6f0f0; --teal-ink:#004d4d;
+    --ink:#0f172a; --body:#334155; --muted:#64748b; --faint:#94a3b8;
+    --paper:#ffffff; --ground:#f9fafb; --raised:#f2f4f5;
+    --rule:#e5e7eb; --rule-strong:#d7dde3;
+    --ok:#0f766e; --warn:#b45309; --warn-soft:#fef3e2;
+    --shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
+  }
+  *{box-sizing:border-box}
+  html{-webkit-print-color-adjust:exact; print-color-adjust:exact}
+  body{
+    font-family:Inter,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    color:var(--body); background:var(--ground); margin:0;
+    font-size:15px; line-height:1.62; letter-spacing:-.005em;
+  }
+  .page{max-width:840px; margin:0 auto; padding:0 34px}
+  code,.mono{font-family:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+  h1,h2,h3{color:var(--ink); letter-spacing:-.02em; line-height:1.2; text-wrap:balance}
+  h2{font-size:26px; font-weight:800; margin:0 0 6px}
+  h3{font-size:18px; font-weight:700; margin:26px 0 4px}
+  p{margin:11px 0}
+  a{color:var(--teal); text-decoration:none}
+  strong{color:var(--ink); font-weight:650}
+  .mono.sid{background:var(--raised); padding:1px 7px; border-radius:6px; font-size:.9em; color:var(--teal-ink)}
+
+  /* Cover */
+  .cover{background:var(--paper); border-bottom:1px solid var(--rule); padding:60px 34px 46px; margin-bottom:0}
+  .cover .wrap{max-width:840px; margin:0 auto}
+  .brand{display:flex; align-items:center; gap:11px; font-weight:700; color:var(--ink); font-size:15px}
+  .brand .glyph{width:30px;height:30px;border-radius:9px;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:16px}
+  .eyebrow{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.16em; font-size:11px; color:var(--teal); font-weight:500}
+  .cover h1{font-size:44px; font-weight:800; margin:26px 0 10px; letter-spacing:-.03em}
+  .cover .lede{font-size:18px; color:var(--muted); max-width:600px; margin:0}
+  .meta{display:flex; gap:26px; flex-wrap:wrap; margin-top:30px; padding-top:22px; border-top:1px solid var(--rule)}
+  .meta div{font-size:13px}
+  .meta .k{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--faint); display:block; margin-bottom:3px}
+  .meta .v{color:var(--ink); font-weight:600}
+
+  /* Section band */
+  section{padding:34px 0 6px; border-top:1px solid var(--rule)}
+  section:first-of-type{border-top:none}
+  .snum{font-family:"Roboto Mono",monospace; color:var(--teal); font-weight:500; font-size:13px; letter-spacing:.05em}
+
+  /* Figures */
+  figure{margin:20px 0 6px; break-inside:avoid; page-break-inside:avoid}
+  figure img{display:block; width:100%; border:1px solid var(--rule-strong); border-radius:12px; box-shadow:var(--shadow); background:var(--paper)}
+  figure.narrow img{max-width:520px; margin-inline:auto}
+  figcaption{margin-top:9px; font-size:12.5px; color:var(--muted); line-height:1.5}
+  figcaption .fl{font-family:"Roboto Mono",monospace; color:var(--teal); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:11px; margin-right:7px}
+
+  /* Callouts */
+  .note{border:1px solid var(--rule); border-left:3px solid var(--teal); background:var(--paper); border-radius:10px; padding:13px 16px; margin:16px 0; font-size:14px; break-inside:avoid}
+  .note.warn{border-left-color:var(--warn); background:var(--warn-soft)}
+  .note .t{font-weight:700; color:var(--ink); display:block; margin-bottom:2px; font-size:13px}
+  .note.warn .t{color:var(--warn)}
+
+  /* Step strip */
+  .steps{display:flex; flex-wrap:wrap; gap:8px; margin:18px 0}
+  .steps .s{flex:1 1 0; min-width:96px; background:var(--paper); border:1px solid var(--rule); border-radius:10px; padding:11px 12px}
+  .steps .s .n{font-family:"Roboto Mono",monospace; font-size:10px; color:var(--teal); letter-spacing:.08em}
+  .steps .s .l{display:block; margin-top:3px; font-weight:650; color:var(--ink); font-size:13px}
+  .steps .s .d{font-size:11.5px; color:var(--muted); line-height:1.4}
+
+  ul.clean{margin:11px 0; padding-left:20px}
+  ul.clean li{margin:6px 0}
+  .lead-in{font-size:16px; color:var(--body)}
+  hr.soft{border:none; border-top:1px solid var(--rule); margin:30px 0}
+  .end{padding:26px 0 50px; color:var(--faint); font-size:12px; font-family:"Roboto Mono",monospace}
+  @media print{ .cover{padding-top:30px} body{background:#fff} }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="wrap">
+    <div class="brand"><span class="glyph">▚</span> COMPGame</div>
+    <div class="eyebrow" style="margin-top:24px">COMP3423 · Human–Computer Interaction</div>
+    <h1>Student User Manual</h1>
+    <p class="lede">How to sign in, work through a topic, and use the AI tutor — a screen-by-screen guide to the whole learning journey.</p>
+    <div class="meta">
+      <div><span class="k">Audience</span><span class="v">Students</span></div>
+      <div><span class="k">Time per topic</span><span class="v">About 12 minutes</span></div>
+      <div><span class="k">You need</span><span class="v">Your student ID + a password</span></div>
+      <div><span class="k">Screens shown</span><span class="v">Captured from the live app</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+<section>
+  <div class="snum">01</div>
+  <h2>What this is</h2>
+  <p class="lead-in">COMPGame flips the usual order. Instead of a lecture and then an exam, you <strong>play with an idea first</strong> in a short game, and <strong>then</strong> find out what stuck. Each of your thirteen topics is one small, self-contained unit that takes about twelve minutes, and everything you do is saved to your account as you go — so you can stop any time and pick up later, even on a different device.</p>
+  <figure>
+    <img src="img/s01-landing.png" alt="COMPGame welcome screen with the tagline: Play with the idea first. Then find out what stuck.">
+    <figcaption><span class="fl">Figure 1</span> The welcome screen. Everything starts here — choose <strong>Sign in</strong> if you already have an account, or <strong>Create account</strong> for your first visit.</figcaption>
+  </figure>
+  <div class="note">
+    <span class="t">None of this affects your grade</span>
+    The checks and games are there to help you learn and to help the course see whether learning-by-playing works. There are no marks riding on any of it.
+  </div>
+</section>
+
+<section>
+  <div class="snum">02</div>
+  <h2>Creating your account &amp; signing in</h2>
+  <p>Your login is your <strong>student ID</strong> and a <strong>password you choose</strong>. On your first visit, go to <strong>Create account</strong> and enter your student ID, pick a password, and — if the course has not pre-loaded a class list — choose your section (A, B or C). If the class list is already loaded, your section is filled in for you.</p>
+  <figure class="narrow">
+    <img src="img/s02-signup.png" alt="Create your account form: student ID and password fields.">
+    <figcaption><span class="fl">Figure 2</span> Creating an account. Use your real student ID — it is how your progress is kept and, later, how the course links your work together anonymously.</figcaption>
+  </figure>
+  <div class="note warn">
+    <span class="t">Keep your password</span>
+    Passwords are stored one-way and <strong>cannot be looked up</strong> by anyone — not even the course team. If you forget it, a teacher can reset it for you from the course-team panel; nobody can tell you your old one.
+  </div>
+  <p>After that first time, you just <strong>Sign in</strong> with the same student ID and password. If you ever get a single "that didn't work" message, it is deliberately vague for privacy — check the ID and password and try again.</p>
+</section>
+
+<section>
+  <div class="snum">03</div>
+  <h2>Agreeing to take part</h2>
+  <p>The first screen after your first sign-in is a short consent page. It explains, in plain language, what is recorded and why. Read it, tick the box, and choose <strong>Agree</strong> to continue. Taking part is voluntary — you can <strong>withdraw at any time</strong> from <em>Account &amp; my data</em>, which removes your account and ends every session.</p>
+  <figure>
+    <img src="img/s03-consent.png" alt="Consent screen explaining what is recorded, with an agree checkbox.">
+    <figcaption><span class="fl">Figure 3</span> The consent screen. Nothing is recorded against you until you agree here.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="snum">04</div>
+  <h2>Setting up — avatar, name, and a warm-up</h2>
+  <p>A quick three-step setup gives your account a face and a name, and asks a short warm-up quiz. The warm-up is <strong>not graded</strong> and you are not expected to know the answers — it simply gives the course a starting point to measure against.</p>
+  <div class="steps">
+    <div class="s"><span class="n">SET-UP 1</span><span class="l">Pick an avatar</span><span class="d">Your character across the whole journey.</span></div>
+    <div class="s"><span class="n">SET-UP 2</span><span class="l">Choose a name</span><span class="d">What the app calls you.</span></div>
+    <div class="s"><span class="n">SET-UP 3</span><span class="l">Warm-up quiz</span><span class="d">A few questions. Answer as best you can.</span></div>
+  </div>
+  <figure><img src="img/s04-avatar.png" alt="Avatar picker."><figcaption><span class="fl">Figure 4</span> Choosing an avatar.</figcaption></figure>
+  <figure><img src="img/s06-baseline.png" alt="Warm-up baseline quiz with multiple-choice questions."><figcaption><span class="fl">Figure 5</span> The warm-up quiz. Just pick the option that seems right — a guess is fine.</figcaption></figure>
+</section>
+
+<section>
+  <div class="snum">05</div>
+  <h2>Your topics — the home screen</h2>
+  <p>After setup you land on <strong>Your topics</strong>. This is your home base. Topics arrive in the order they are lectured, roughly a week before the class they belong to, so at any moment <strong>one topic is open</strong> and the rest are waiting.</p>
+  <ul class="clean">
+    <li><strong>Next up</strong> — the card that matters right now. It tells you the topic, roughly how long it takes, and when it closes. Press <strong>Start</strong> to begin.</li>
+    <li><strong>The progress strip</strong> — the row of segments shows all thirteen topics and how far you have come.</li>
+    <li><strong>How this works</strong> — a short explainer you can open any time.</li>
+    <li><strong>The sidebar</strong> — your avatar, badges so far, and <em>Account &amp; my data</em> (export or withdraw).</li>
+  </ul>
+  <figure>
+    <img src="img/s07-dashboard.png" alt="Your topics dashboard with a Next up card, progress strip and lecture groups.">
+    <figcaption><span class="fl">Figure 6</span> The topics home screen. Work through whatever is open; the rest unlock on their own as the term goes on.</figcaption>
+  </figure>
+  <div class="note">
+    <span class="t">The tutor is always one tap away</span>
+    The dark chat button in the bottom-right corner opens the AI tutor from any screen — including in the middle of a game.
+  </div>
+</section>
+
+<section>
+  <div class="snum">06</div>
+  <h2>Inside a topic — the learning path</h2>
+  <p>Opening a topic shows a short brief and then walks you through a fixed path. A small strip at the top always shows which step you are on (for example, <em>Step 3 of 7</em>), so you are never lost. Each step is recorded the moment you finish it, and <strong>Continue</strong> appears once it has — you do not have to declare yourself done.</p>
+  <div class="steps">
+    <div class="s"><span class="n">STEP 1</span><span class="l">Brief</span><span class="d">What the topic is about.</span></div>
+    <div class="s"><span class="n">STEP 2</span><span class="l">First check</span><span class="d">A few questions, before you learn.</span></div>
+    <div class="s"><span class="n">STEP 3</span><span class="l">Activity</span><span class="d">Play the game.</span></div>
+    <div class="s"><span class="n">STEP 4</span><span class="l">Second check</span><span class="d">The same idea, new questions.</span></div>
+    <div class="s"><span class="n">STEP 5</span><span class="l">Short answer</span><span class="d">Explain it in your words.</span></div>
+    <div class="s"><span class="n">STEP 6</span><span class="l">Tutor</span><span class="d">Talk it through.</span></div>
+    <div class="s"><span class="n">STEP 7</span><span class="l">Done</span><span class="d">Badge + replay.</span></div>
+  </div>
+  <figure>
+    <img src="img/s08-unit-brief.png" alt="Topic brief screen for Fitts' Law.">
+    <figcaption><span class="fl">Figure 7</span> A topic brief. The order of the game and the checks can vary slightly between students — that is by design, and you always just follow the path in front of you.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="snum">07</div>
+  <h2>The two checks</h2>
+  <p>Every topic has the same short quiz <strong>twice</strong>: once before the activity and once after. You get <strong>one attempt</strong> at each, but you can change your mind freely until you press <strong>Submit</strong>.</p>
+  <ul class="clean">
+    <li><strong>First check</strong> — reveals nothing. No score, no right answers. That is on purpose, so the second check is a fair measure of what you learned.</li>
+    <li><strong>Second check</strong> — reveals everything: your score, and the correct answer marked on every question.</li>
+  </ul>
+  <figure>
+    <img src="img/s09-pre-check.png" alt="First check with one option selected per question.">
+    <figcaption><span class="fl">Figure 8</span> The first check. Select one option per question, then <strong>Submit</strong>. You will not see how you did until the very end of the topic.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s11-post-check.png" alt="Second check showing the score two out of six with correct answers marked.">
+    <figcaption><span class="fl">Figure 9</span> The second check, after submitting. A green tick marks the correct answer; a cross marks an option you picked that was wrong. Your score is at the bottom.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="snum">08</div>
+  <h2>The activity — playing the game</h2>
+  <p>The heart of each topic is a small game that lets you feel the idea rather than read about it. Read the short intro on the game's start screen, then play. For the best experience, use the <strong>fullscreen</strong> button in the game's bottom-right corner.</p>
+  <figure>
+    <img src="img/s10-game.png" alt="Fitts' Law learning game start screen with two mode buttons.">
+    <figcaption><span class="fl">Figure 10</span> A game start screen. Pick a mode and play — the game shows you the concept in action.</figcaption>
+  </figure>
+  <div class="note">
+    <span class="t">If a game will not load or record</span>
+    Games are the one place a browser can occasionally misbehave. If one genuinely will not record after you have tried it, the unit offers a small <em>continue anyway</em> link so you are never stuck — using it is logged, and it will not cost you anything. When the game records normally, a full <strong>Continue</strong> appears instead.
+  </div>
+</section>
+
+<section>
+  <div class="snum">09</div>
+  <h2>The AI tutor</h2>
+  <p>The tutor is woven through the whole journey, not bolted on. Open it from the chat button any time — including during a game or a check — and ask it about the current topic. It teaches the <strong>Socratic</strong> way, nudging you toward the answer with questions rather than just handing it over; if you would rather see a worked example, <strong>ask it for one</strong> and it will give you it.</p>
+  <figure>
+    <img src="img/s12-tutor.png" alt="AI tutor conversation open over a topic.">
+    <figcaption><span class="fl">Figure 11</span> The tutor in conversation. It answers from the actual course material, so its help lines up with your lectures.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="snum">10</div>
+  <h2>Finishing a topic</h2>
+  <p>When you reach the end you get a short close screen: how your two checks compared, the <strong>badge</strong> you earned, and the chance to <strong>replay both games</strong> as free play. Then it is back to your topics, where the next one is waiting.</p>
+  <figure>
+    <img src="img/s13-close.png" alt="Topic complete screen with badge and replay.">
+    <figcaption><span class="fl">Figure 12</span> The close screen. Your badge records what you did, and the games stay open to play again with no pressure.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s14-badges.png" alt="Badges collection page.">
+    <figcaption><span class="fl">Figure 13</span> Your badges collect on their own page, one story per topic.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/s15-dashboard-after.png" alt="Topics dashboard after finishing a topic, showing the next topic queued up.">
+    <figcaption><span class="fl">Figure 14</span> Back home, your progress has moved and the next topic is queued up.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="snum">11</div>
+  <h2>Good to know</h2>
+  <ul class="clean">
+    <li><strong>It saves as you go.</strong> Close the tab whenever — your place is kept on your account, not just this browser.</li>
+    <li><strong>Any device.</strong> Sign in on a laptop today and a phone tomorrow; your progress follows you.</li>
+    <li><strong>Signed out after 30 minutes idle.</strong> If you walk away, you will be asked to sign in again. While you are actually using the app — even typing a long answer — you stay signed in.</li>
+    <li><strong>A topic stays open for about five days.</strong> Miss it and it opens anyway; late just means late, and nothing is graded.</li>
+    <li><strong>Your data is yours.</strong> Export a copy or withdraw entirely from <em>Account &amp; my data</em> at any time.</li>
+  </ul>
+  <div class="note">
+    <span class="t">Stuck on anything?</span>
+    The tutor (chat button, bottom-right) is the fastest help for the material itself. For anything about your account or access, ask your course team.
+  </div>
+</section>
+
+<div class="end">COMPGame · COMP3423 Human–Computer Interaction · Student User Manual · Screens captured from the live application.</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COMPGame — Teacher User Manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#006666; --teal-soft:#e6f0f0; --teal-ink:#004d4d;
+    --ink:#0f172a; --body:#334155; --muted:#64748b; --faint:#94a3b8;
+    --paper:#ffffff; --ground:#f9fafb; --raised:#f2f4f5;
+    --rule:#e5e7eb; --rule-strong:#d7dde3;
+    --ok:#0f766e; --warn:#b45309; --warn-soft:#fef3e2;
+    --shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
+  }
+  *{box-sizing:border-box}
+  html{-webkit-print-color-adjust:exact; print-color-adjust:exact}
+  body{font-family:Inter,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--body); background:var(--ground); margin:0; font-size:15px; line-height:1.62; letter-spacing:-.005em}
+  .page{max-width:840px; margin:0 auto; padding:0 34px}
+  code,.mono{font-family:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+  h1,h2,h3{color:var(--ink); letter-spacing:-.02em; line-height:1.2; text-wrap:balance}
+  h2{font-size:26px; font-weight:800; margin:0 0 6px}
+  h3{font-size:17px; font-weight:700; margin:24px 0 4px}
+  p{margin:11px 0}
+  a{color:var(--teal); text-decoration:none}
+  strong{color:var(--ink); font-weight:650}
+  .mono.k{background:var(--raised); padding:1px 7px; border-radius:6px; font-size:.88em; color:var(--teal-ink)}
+
+  .cover{background:var(--paper); border-bottom:1px solid var(--rule); padding:60px 34px 46px}
+  .cover .wrap{max-width:840px; margin:0 auto}
+  .brand{display:flex; align-items:center; gap:11px; font-weight:700; color:var(--ink); font-size:15px}
+  .brand .glyph{width:30px;height:30px;border-radius:9px;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:16px}
+  .eyebrow{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.16em; font-size:11px; color:var(--teal); font-weight:500}
+  .cover h1{font-size:44px; font-weight:800; margin:26px 0 10px; letter-spacing:-.03em}
+  .cover .lede{font-size:18px; color:var(--muted); max-width:620px; margin:0}
+  .meta{display:flex; gap:26px; flex-wrap:wrap; margin-top:30px; padding-top:22px; border-top:1px solid var(--rule)}
+  .meta .k{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--faint); display:block; margin-bottom:3px}
+  .meta .v{color:var(--ink); font-weight:600; font-size:13px}
+
+  section{padding:34px 0 6px; border-top:1px solid var(--rule)}
+  section:first-of-type{border-top:none}
+  .snum{font-family:"Roboto Mono",monospace; color:var(--teal); font-weight:500; font-size:13px; letter-spacing:.05em}
+
+  figure{margin:20px 0 6px; break-inside:avoid; page-break-inside:avoid}
+  figure img{display:block; width:100%; border:1px solid var(--rule-strong); border-radius:12px; box-shadow:var(--shadow); background:var(--paper)}
+  figure.narrow img{max-width:560px; margin-inline:auto}
+  figcaption{margin-top:9px; font-size:12.5px; color:var(--muted); line-height:1.5}
+  figcaption .fl{font-family:"Roboto Mono",monospace; color:var(--teal); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:11px; margin-right:7px}
+
+  .note{border:1px solid var(--rule); border-left:3px solid var(--teal); background:var(--paper); border-radius:10px; padding:13px 16px; margin:16px 0; font-size:14px; break-inside:avoid}
+  .note.warn{border-left-color:var(--warn); background:var(--warn-soft)}
+  .note .t{font-weight:700; color:var(--ink); display:block; margin-bottom:2px; font-size:13px}
+  .note.warn .t{color:var(--warn)}
+
+  ul.clean{margin:11px 0; padding-left:20px}
+  ul.clean li{margin:6px 0}
+  .lead-in{font-size:16px; color:var(--body)}
+
+  table.can{width:100%; border-collapse:collapse; margin:16px 0; font-size:13.5px; break-inside:avoid}
+  table.can th,table.can td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--rule); vertical-align:top}
+  table.can th{font-family:"Roboto Mono",monospace; text-transform:uppercase; letter-spacing:.06em; font-size:10.5px; color:var(--faint); font-weight:500}
+  table.can td:first-child{color:var(--ink); font-weight:600; white-space:nowrap}
+  .end{padding:26px 0 50px; color:var(--faint); font-size:12px; font-family:"Roboto Mono",monospace}
+  @media print{ .cover{padding-top:30px} body{background:#fff} }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="wrap">
+    <div class="brand"><span class="glyph">▚</span> COMPGame</div>
+    <div class="eyebrow" style="margin-top:24px">COMP3423 · Course-team panel</div>
+    <h1>Teacher User Manual</h1>
+    <p class="lede">Reaching the course-team panel, reading the tutorial briefs, managing accounts, and moving a lecture date — with a clear line around what the panel can and cannot see.</p>
+    <div class="meta">
+      <div><span class="k">Audience</span><span class="v">Course team</span></div>
+      <div><span class="k">Access</span><span class="v">Your ID must be on the staff list</span></div>
+      <div><span class="k">Panel address</span><span class="v mono">/admin</span></div>
+      <div><span class="k">Screens shown</span><span class="v">Captured from the live app</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+<section>
+  <div class="snum">01</div>
+  <h2>Reaching the panel</h2>
+  <p class="lead-in">There is <strong>no separate teacher login</strong>. You sign in with an ordinary account — your student/staff ID and a password — and the panel unlocks only because your ID is on the staff list the server keeps. That means a course-team member goes through the same door as everyone else.</p>
+  <figure class="narrow">
+    <img src="img/t01-login.png" alt="Sign-in screen with an admin ID and password entered.">
+    <figcaption><span class="fl">Figure 1</span> Sign in as normal. The account behaves like a student account everywhere except the panel.</figcaption>
+  </figure>
+  <p>Once you are signed in, your home screen gains a link students never see: a <strong>"You're on the course team"</strong> banner and a <strong>Course team →</strong> button. Either one opens the panel. If you would rather type it, the address is <span class="mono k">/admin</span>.</p>
+  <figure>
+    <img src="img/t02-dashboard-banner.png" alt="Dashboard showing the staff-only course-team banner and Open the panel button.">
+    <figcaption><span class="fl">Figure 2</span> The staff-only entry point. A student signing in sees the plain dashboard with no banner, and a student who guesses the <span class="mono">/admin</span> address is refused by the server.</figcaption>
+  </figure>
+  <div class="note">
+    <span class="t">Being on the staff list is the only thing that grants access</span>
+    The link is hidden from students as a courtesy, but the real boundary is on the server: every panel action re-checks that your ID is on the staff list, so nothing here can be reached by hiding or forging a link.
+  </div>
+</section>
+
+<section>
+  <div class="snum">02</div>
+  <h2>Accounts</h2>
+  <p>The <strong>Accounts</strong> view is your roster at a glance. Across the top you see how many accounts exist, how many have signed up, and how many have withdrawn. Below is a searchable list — find anyone by ID or name — with each student's section and whether they have signed up yet.</p>
+  <figure>
+    <img src="img/t03-accounts.png" alt="Accounts view with counts, a search box, and a list of students each with a Manage button.">
+    <figcaption><span class="fl">Figure 3</span> Accounts. Search for a student, then use <strong>Manage</strong> to act on one row.</figcaption>
+  </figure>
+  <p><strong>Manage</strong> opens the two things a teacher occasionally needs to do for one student:</p>
+  <ul class="clean">
+    <li><strong>Correct a section</strong> — move a student between A, B and C if they were placed wrongly.</li>
+    <li><strong>Reset a password</strong> — for a student who has lost theirs. You set a new one; you can never see the old one.</li>
+  </ul>
+  <figure class="narrow">
+    <img src="img/t07-manage.png" alt="Manage panel for one student with section and password-reset controls.">
+    <figcaption><span class="fl">Figure 4</span> Managing one student. Both actions are written to the audit trail with your ID.</figcaption>
+  </figure>
+  <div class="note warn">
+    <span class="t">If a class list is loaded, edit the list, not the row</span>
+    When a roster file is configured it decides every student's section and is re-read at each sign-in — so a section changed here would be silently undone. In that case, correct the roster file instead. The panel tells you when this applies.
+  </div>
+</section>
+
+<section>
+  <div class="snum">03</div>
+  <h2>Tutorial briefs — what to teach today</h2>
+  <p>This is the part built for the thirty minutes before a tutorial. For any lectured topic you can generate a short <strong>brief</strong> that reads the class's own answers and tells you where they actually landed — so you spend the hour on what they got wrong, not what you guessed they might.</p>
+  <p>Each brief comes in <strong>two versions</strong>, and the panel labels them clearly:</p>
+  <table class="can">
+    <tr><th>Version</th><th>Label</th><th>Use it for</th></tr>
+    <tr><td>Anonymised</td><td>Safe to project</td><td>Showing on screen. Quotes are verbatim but unattributed; no student IDs anywhere in the file.</td></tr>
+    <tr><td>Full</td><td>Has student IDs</td><td>Your eyes only. Names the students behind the numbers so you can follow up.</td></tr>
+  </table>
+  <figure>
+    <img src="img/t04-reports.png" alt="Tutorial reports list with Safe to project and Has student IDs labels and Read buttons.">
+    <figcaption><span class="fl">Figure 5</span> The briefs list. Generate one per topic; the coloured label tells you at a glance which version is safe to put on a projector.</figcaption>
+  </figure>
+  <p>Press <strong>Read</strong> to open a brief in place. It walks through where the class landed (the before-and-after check scores and the learning gain), whether they actually did the activity, and a short "who to spend the hour on" read of the short-answer responses.</p>
+  <figure>
+    <img src="img/t05-report-open.png" alt="An opened tutorial brief showing pre and post scores, activity uptake, and guidance.">
+    <figcaption><span class="fl">Figure 6</span> An opened brief. The numbers are counted in code; the plain-language read is written from the anonymised text only.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="snum">04</div>
+  <h2>Lecture dates</h2>
+  <p>Topics open about a week before their lecture and close a couple of days before the next one, <strong>per section</strong>. If a class moves, you can move the matching lecture date here and the release window follows it — you do not edit any files.</p>
+  <figure>
+    <img src="img/t06-schedule.png" alt="Lecture dates section for adjusting when a topic opens.">
+    <figcaption><span class="fl">Figure 7</span> Moving one lecture date. The panel previews the effect first and refuses a date that would create a problem — a clash with a no-class day, or a timing that would undermine the study.</figcaption>
+  </figure>
+  <div class="note">
+    <span class="t">It changes one date, safely</span>
+    A move previews before it commits, is written atomically, and is recorded in the audit trail. It will not let you set a date that breaks the schedule.
+  </div>
+</section>
+
+<section>
+  <div class="snum">05</div>
+  <h2>The audit trail</h2>
+  <p>Every change made in the panel — a section fix, a password reset, a moved date — is written to an <strong>audit trail</strong> stamped with your ID and the time. Nothing a course-team member does here is silent, which protects both the students and you.</p>
+  <figure>
+    <img src="img/t08-audit.png" alt="Audit trail listing recent course-team actions.">
+    <figcaption><span class="fl">Figure 8</span> The audit trail. A running record of who did what, and when.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="snum">06</div>
+  <h2>What the panel deliberately cannot do</h2>
+  <p>The panel is built to help you run the class without becoming a way to see things a teacher should not. By design it <strong>cannot</strong>:</p>
+  <ul class="clean">
+    <li><strong>Read any student's answers or scores.</strong> Those live only in the anonymised research export, never on these screens.</li>
+    <li><strong>Show or return a password.</strong> Passwords are stored one-way — you can reset one, never reveal one.</li>
+    <li><strong>Delete anything.</strong> Records are corrected or added to, not erased, so the audit trail stays whole.</li>
+  </ul>
+  <div class="note">
+    <span class="t">Where the research data lives</span>
+    Marks, gains and short-answer text for the study come out through a separate, pseudonymised export — real student IDs never leave the server. The operational details (exports, backups, grading passes) are in the project runbook, not in this panel.
+  </div>
+</section>
+
+<div class="end">COMPGame · COMP3423 Human–Computer Interaction · Teacher User Manual · Screens captured from the live application.</div>
+
+</div>
+</body>
+</html>
