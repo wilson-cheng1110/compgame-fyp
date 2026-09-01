@@ -20,16 +20,21 @@ export function middleware(request: NextRequest) {
   const userCookie = request.cookies.get("user")
   if (userCookie) return NextResponse.next()
 
-  // HOST-LESS relative redirect: the browser resolves a Location with no host
-  // against the origin it is actually on. Behind the Tailscale Funnel, request.url's
-  // host is the loopback the funnel proxies to (localhost:3000), so an absolute
-  // redirect built from it sent every signed-out student to their OWN machine
-  // (https://localhost:3000/login). A relative Location also keeps ONE ORIGIN's
-  // rule that nothing shipped names a host. `next` = where they were headed, so a
-  // deep-link to a topic returns there after login, not the dashboard.
-  const next = request.nextUrl.pathname
-  const location = `/login?next=${encodeURIComponent(next)}`
-  return new NextResponse(null, { status: 307, headers: { Location: location } })
+  // Behind the Tailscale Funnel the Host header is the loopback the funnel proxies
+  // to (localhost:3000), so a redirect built from request.url pointed signed-out
+  // students at their OWN machine. The funnel forwards the real public host in
+  // X-Forwarded-Host — prefer it, and fall back to the request origin for direct/
+  // localhost access. NextResponse.redirect needs an ABSOLUTE URL: Next validates
+  // the Location with `new URL(location)` and a host-less/relative value throws
+  // (500). So build an absolute URL against the forwarded origin.
+  const fwdHost = request.headers.get("x-forwarded-host")
+  const fwdProto = request.headers.get("x-forwarded-proto") ?? "https"
+  const base = fwdHost ? `${fwdProto}://${fwdHost}` : request.nextUrl.origin
+  const url = new URL("/login", base)
+  // Come back where they were headed once they're in — a student who deep-links
+  // to a topic from the release announcement shouldn't land on the dashboard.
+  url.searchParams.set("next", request.nextUrl.pathname)
+  return NextResponse.redirect(url)
 }
 
 export const config = {
