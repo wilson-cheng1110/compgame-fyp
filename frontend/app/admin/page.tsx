@@ -27,7 +27,7 @@ export default function AdminPage() {
   const router = useRouter()
   const [state, setState] = useState<"checking" | "denied" | "ok">("checking")
   const [rows, setRows] = useState<AdminParticipant[]>([])
-  const [counts, setCounts] = useState<{ total: number; withdrawn: number; claimed: number } | null>(null)
+  const [counts, setCounts] = useState<{ total: number; withdrawn: number; disabled: number; claimed: number } | null>(null)
   const [roster, setRoster] = useState(true)
   const [sections, setSections] = useState<SectionOption[]>([])
   const [entries, setEntries] = useState<AuditEntry[]>([])
@@ -35,6 +35,7 @@ export default function AdminPage() {
   const [open, setOpen] = useState<string | null>(null)
   const [pw, setPw] = useState("")
   const [endSessions, setEndSessions] = useState(false)
+  const [uname, setUname] = useState("")
   const [note, setNote] = useState<{ kind: "ok" | "bad"; text: string } | null>(null)
 
   const load = useCallback(async () => {
@@ -98,6 +99,39 @@ export default function AdminPage() {
     })
     setPw("")
     setEndSessions(false)
+    setOpen(null)
+    await load()
+  }
+
+  const toggleDisabled = async (sid: string, disabled: boolean) => {
+    setNote(null)
+    const res = await admin.setDisabled(sid, disabled)
+    if (!res.ok) {
+      setNote({ kind: "bad", text: res.message ?? "Couldn't change that." })
+      return
+    }
+    setNote({
+      kind: "ok",
+      text: disabled
+        ? `${sid} disabled — signed out and blocked from signing in. Their data is untouched.`
+        : `${sid} re-enabled — they can sign in again.`,
+    })
+    await load()
+  }
+
+  const saveUsername = async (sid: string) => {
+    setNote(null)
+    if (!uname.trim()) {
+      setNote({ kind: "bad", text: "The display name can't be empty." })
+      return
+    }
+    const res = await admin.setUsername(sid, uname.trim())
+    if (!res.ok) {
+      setNote({ kind: "bad", text: res.message ?? "Couldn't change that." })
+      return
+    }
+    setNote({ kind: "ok", text: `${sid} is now shown as "${uname.trim()}".` })
+    setUname("")
     setOpen(null)
     await load()
   }
@@ -214,12 +248,14 @@ export default function AdminPage() {
                   <span className="u-chip u-chip-open">Section {r.section ?? "—"}</span>
                   {!r.has_password && <span className="u-chip u-chip-locked">Not signed up</span>}
                   {!!r.withdrawn && <span className="u-chip u-chip-late">Withdrawn</span>}
+                  {!!r.disabled && <span className="u-chip u-chip-locked">Disabled</span>}
                   <button
                     className="u-btn"
                     data-testid="admin-manage"
                     onClick={() => {
                       setOpen(open === r.sid ? null : r.sid)
                       setPw("")
+                      setUname(r.username ?? "")
                       setNote(null)
                     }}
                   >
@@ -276,6 +312,49 @@ export default function AdminPage() {
                     <p className="u-faint mt-2">
                       A forgotten password is not a compromise, so their existing sessions
                       stay alive unless you tick the box.
+                    </p>
+
+                    <p className="u-eyebrow mt-5 mb-2">Display name</p>
+                    <div className="flex gap-2 flex-wrap items-center">
+                      <input
+                        type="text"
+                        value={uname}
+                        onChange={(e) => setUname(e.target.value)}
+                        placeholder="display name"
+                        className="u-field"
+                        style={{ maxWidth: "18rem" }}
+                        data-testid="admin-username"
+                      />
+                      <button
+                        className="u-btn"
+                        onClick={() => saveUsername(r.sid)}
+                        data-testid="admin-username-save"
+                      >
+                        Save name
+                      </button>
+                    </div>
+
+                    <p className="u-eyebrow mt-5 mb-2">Access</p>
+                    {r.disabled ? (
+                      <button
+                        className="u-btn u-btn-primary"
+                        onClick={() => toggleDisabled(r.sid, false)}
+                        data-testid="admin-enable"
+                      >
+                        Re-enable this account
+                      </button>
+                    ) : (
+                      <button
+                        className="u-btn"
+                        onClick={() => toggleDisabled(r.sid, true)}
+                        data-testid="admin-disable"
+                      >
+                        Disable this account
+                      </button>
+                    )}
+                    <p className="u-faint mt-2">
+                      Disabling blocks sign-in and signs them out now, but keeps their data.
+                      Removing a participant from the study is withdrawal, not this.
                     </p>
                   </div>
                 )}

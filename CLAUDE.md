@@ -191,9 +191,12 @@ allowlist became **OPTIONAL**. `backend/enrolled_sids.txt` is still gitignored �
   DOES name its refusals, because a signup form that will not say why is unusable. Do not "improve" the
   login error message.
 - **Teacher panel** at `/admin` (`backend/admin_api.py`), gated on a session AND `backend/admin_sids.txt`
-  (gitignored; `.example` is committed). Section correction + password reset, every mutation audited to
-  `admin_audit`. It could not exist before the password did — both auth modules forbade it in their own
-  docstrings. It cannot read answers or scores, return password material, or delete anything.
+  (gitignored; `.example` is committed). Section correction, password reset, reversible disable/enable, and
+  display-name edit (the last two added 2026-09-03), every mutation audited to `admin_audit`. It could not
+  exist before the password did — both auth modules forbade it in their own docstrings. It cannot read answers
+  or scores, return password material, or delete anything — **disable is a REVERSIBLE off switch** (blocks
+  sign-in via all three gates: `resolve_session` / `start_session` / `create_account`, and keeps their data),
+  distinct from withdrawal, which is the study-exit tombstone.
 - Still NOT strong identity: a password can be shared, and with no roster an unenrolled person can create
   an account. Both belong in the paper.
 - Cookie `user` = `{ sid, username, avatarId }` — **shape unchanged**, so all 15 `Cookies.get("user")`
@@ -289,6 +292,8 @@ See `docs/experiment-design.md` + `docs/quiz-item-banks.md` (validated instrumen
 Goal: measure whether the Understanding-then-Assessment (flip) sequence improves learning vs assessment-only.
 - **Design — Stage 2 is CURRENT as of 2026-08-16. Full plan: `docs/revamp.md`.** Within-subjects,
   **13 topics × 300 students** (3 sections of ~100, Tue/Wed/Thu), released in **lecture-notes order**.
+  *(A 4th **MSc** section — COMP5517, Mondays — was added to `topic_schedule.json` 2026-09-03 for a
+  cross-population read; its inclusion in the study analysis is HSESC-gated, `docs/ethics-amendment-stage2.md`.)*
   FLIP/CONTROL is **randomised per topic per participant** (~half each), counterbalanced across the
   cohort, **assigned and recorded server-side at release time** — not inferred from completion order.
   A Latin square does not extend to 13 topics.

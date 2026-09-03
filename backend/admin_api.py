@@ -85,9 +85,21 @@ class PasswordReset(BaseModel):
     end_sessions: bool = False
 
 
+class DisableChange(BaseModel):
+    sid: str
+    disabled: bool
+
+
+class UsernameChange(BaseModel):
+    sid: str
+    username: str
+
+
 MESSAGES = {
     "bad_section": "That isn't a section this cohort runs.",
     "no_such_user": "No account with that student ID.",
+    "cannot_disable_admin": "That account is a teacher — disabling it could lock the panel out.",
+    "bad_username": "The display name can't be empty.",
     "weak_password": f"Pick a password of at least {auth_store.MIN_PASSWORD} characters.",
     "no_such_session": "There is no lecture with that number in the schedule.",
     "no_such_section": "That isn't a section this cohort runs.",
@@ -143,6 +155,7 @@ async def participants(response: Response, session: str | None = Cookie(default=
         "counts": {
             "total": len(rows),
             "withdrawn": sum(1 for r in rows if r["withdrawn"]),
+            "disabled": sum(1 for r in rows if r["disabled"]),
             "claimed": sum(1 for r in rows if r["has_password"]),
         },
     }
@@ -180,6 +193,40 @@ async def reset_password(body: PasswordReset, response: Response,
     auth_store.audit(sid, "reset_password", body.sid,
                      f"sessions_ended={ended}" if body.end_sessions else None)
     return {"ok": True, "sessions_ended": ended}
+
+
+@router.post("/disable")
+async def disable_account(body: DisableChange, response: Response,
+                          session: str | None = Cookie(default=None)):
+    """Reversible off switch. Disabling drops the student's live sessions and refuses
+    their next sign-in; re-enabling lets them back in. It does NOT touch their recorded
+    data -- withdrawal is the study-exit path -- and it refuses to disable a teacher."""
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    ok, reason = auth_store.set_disabled(body.sid, body.disabled)
+    if not ok:
+        response.status_code = 409 if reason == "cannot_disable_admin" else 400
+        return {"error": reason, "message": MESSAGES.get(reason, "Couldn't change that.")}
+    auth_store.audit(sid, "set_disabled", body.sid,
+                     "disabled" if body.disabled else "enabled")
+    return {"ok": True}
+
+
+@router.post("/username")
+async def change_username(body: UsernameChange, response: Response,
+                          session: str | None = Cookie(default=None)):
+    """Edit the display name a student shows on the roster -- cookie decoration only,
+    never a security boundary. Audited like every other mutation."""
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    ok, reason = auth_store.set_username(body.sid, body.username)
+    if not ok:
+        response.status_code = 400
+        return {"error": reason, "message": MESSAGES.get(reason, "Couldn't change that.")}
+    auth_store.audit(sid, "set_username", body.sid, body.username)
+    return {"ok": True}
 
 
 @router.get("/audit")

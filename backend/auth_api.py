@@ -117,6 +117,7 @@ SIGNUP_MESSAGES = {
     "bad_section": "Choose which session you attend.",
     "exists": "There's already an account for that student ID — sign in instead.",
     "withdrawn": "That account was withdrawn from the study and can't be reopened.",
+    "disabled": "That account has been disabled by the course team. Contact them to be re-enabled.",
 }
 
 
@@ -162,7 +163,7 @@ async def signup(req: SignupRequest, response: Response):
         auth_store.create_account,
         req.sid, req.password, req.section, req.username, req.avatar_id)
     if result is None:
-        response.status_code = (409 if reason in ("exists", "withdrawn")
+        response.status_code = (409 if reason in ("exists", "withdrawn", "disabled")
                                 else 403 if reason == "not_enrolled" else 400)
         return {"error": reason, "message": SIGNUP_MESSAGES.get(reason, "Couldn't create that account.")}
 

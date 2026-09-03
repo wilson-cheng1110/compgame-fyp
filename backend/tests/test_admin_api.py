@@ -161,5 +161,53 @@ check("a research '(1)' duplicate is not served",
 check("a case-variant research copy is refused (403)",
       _read("memory-2026-08-31-RESEARCH.md").status_code == 403)
 
+print("\n-- disable is a REVERSIBLE off switch, not a tombstone (three gates) --")
+victim = TestClient(app)                          # an earlier test emptied the roster => signup takes a section
+victim.post("/api/auth/signup", json={"sid": "24STUDENT2C", "password": PW, "section": "C"})
+check("the student is in before disable", victim.get("/api/auth/me").status_code == 200)
+nonadmin = TestClient(app)
+nonadmin.post("/api/auth/signup", json={"sid": "24NOADM99Z", "password": PW, "section": "A"})
+check("a student cannot disable anyone (403)",
+      nonadmin.post("/api/admin/disable", json={"sid": "24STUDENT2C", "disabled": True}).status_code == 403)
+
+_rd = teacher.post("/api/admin/disable", json={"sid": "24STUDENT2C", "disabled": True})
+check("the teacher disables the student (200)", _rd.status_code == 200, _rd.text)
+# Gate 1: resolve_session — the LIVE session is dropped immediately.
+check("the disabled student's live session is now dead (401)",
+      victim.get("/api/auth/me").status_code == 401)
+# Gate 2: start_session — a fresh sign-in is refused.
+check("the disabled student cannot sign in again (401)",
+      TestClient(app).post("/api/auth/session", json={"sid": "24STUDENT2C", "password": PW}).status_code == 401)
+# Gate 3: create_account — cannot be re-claimed via signup.
+_rc = TestClient(app).post("/api/auth/signup", json={"sid": "24STUDENT2C", "password": PW, "section": "C"})
+check("a disabled account cannot be re-claimed via signup (409 disabled)",
+      _rc.status_code == 409 and _rc.json().get("error") == "disabled", _rc.json())
+check("disabled shows on the roster",
+      any(p["sid"] == "24STUDENT2C" and p["disabled"]
+          for p in teacher.get("/api/admin/participants").json()["participants"]))
+
+_re = teacher.post("/api/admin/disable", json={"sid": "24STUDENT2C", "disabled": False})
+check("the teacher re-enables (200)", _re.status_code == 200, _re.text)
+check("the re-enabled student can sign in again (200)",
+      TestClient(app).post("/api/auth/session", json={"sid": "24STUDENT2C", "password": PW}).status_code == 200)
+
+_rt = teacher.post("/api/admin/disable", json={"sid": "24TEACH01A", "disabled": True})
+check("disabling a teacher is refused (409 cannot_disable_admin)",
+      _rt.status_code == 409 and _rt.json().get("error") == "cannot_disable_admin", _rt.json())
+check("the teacher is still in after that refusal", teacher.get("/api/admin/whoami").status_code == 200)
+
+print("\n-- username edit touches the label, nothing else --")
+_ru = teacher.post("/api/admin/username", json={"sid": "24STUDENT2C", "username": "Ada L"})
+check("the teacher sets a display name (200)", _ru.status_code == 200, _ru.text)
+check("the new name shows on the roster",
+      any(p["sid"] == "24STUDENT2C" and p["username"] == "Ada L"
+          for p in teacher.get("/api/admin/participants").json()["participants"]))
+check("an empty name is refused (bad_username)",
+      teacher.post("/api/admin/username", json={"sid": "24STUDENT2C", "username": "   "}).json().get("error") == "bad_username")
+check("a student cannot rename anyone (403)",
+      nonadmin.post("/api/admin/username", json={"sid": "24STUDENT2C", "username": "x"}).status_code == 403)
+_acts = {e["action"] for e in teacher.get("/api/admin/audit").json()["entries"]}
+check("disable + username edits were audited", {"set_disabled", "set_username"} <= _acts, _acts)
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

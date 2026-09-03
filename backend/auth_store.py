@@ -277,7 +277,8 @@ def init_db() -> None:
                 """
             )
             have = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
-            for col, decl in (("pw_salt", "BLOB"), ("pw_hash", "BLOB")):
+            for col, decl in (("pw_salt", "BLOB"), ("pw_hash", "BLOB"),
+                              ("disabled", "INTEGER NOT NULL DEFAULT 0")):
                 if col not in have:
                     conn.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
             conn.commit()
@@ -328,6 +329,8 @@ def create_account(sid: str, password: str, section: str | None = None,
             row = conn.execute("SELECT * FROM users WHERE sid = ?", (sid,)).fetchone()
             if row and row["withdrawn"]:
                 return None, "withdrawn"
+            if row and row["disabled"]:
+                return None, "disabled"
             if row and row["pw_hash"]:
                 return None, "exists"
 
@@ -404,7 +407,7 @@ def start_session(sid: str, password: str) -> dict | None:
     # So exactly one scrypt runs on every path, against the real hash when there
     # is one and a decoy when there is not. `usable` is checked AFTER the hash so
     # the work happens either way -- do not reorder this into an early return.
-    usable = (row is not None and not row["withdrawn"]
+    usable = (row is not None and not row["withdrawn"] and not row["disabled"]
               and row["pw_salt"] and row["pw_hash"])
     salt = row["pw_salt"] if usable else _DECOY_SALT
     expected = row["pw_hash"] if usable else _DECOY_HASH
@@ -493,7 +496,7 @@ def list_participants() -> list[dict]:
         try:
             rows = conn.execute(
                 "SELECT sid, username, section, created_at, last_seen_at, withdrawn,"
-                " (pw_hash IS NOT NULL) AS has_password FROM users ORDER BY sid"
+                " disabled, (pw_hash IS NOT NULL) AS has_password FROM users ORDER BY sid"
             ).fetchall()
         finally:
             conn.close()
@@ -519,6 +522,30 @@ def set_section(sid: str, section: str) -> tuple[bool, str | None]:
         conn = _connect()
         try:
             cur = conn.execute("UPDATE users SET section = ? WHERE sid = ?", (section, sid))
+            conn.commit()
+            if cur.rowcount == 0:
+                return False, "no_such_user"
+        finally:
+            conn.close()
+    return True, None
+
+
+def set_username(sid: str, username: str) -> tuple[bool, str | None]:
+    """Teacher-side display-name edit (ok, reason). The username is the `user` cookie's
+    decoration (docs/revamp.md Part 0), never a security boundary, so this touches only
+    the label a teacher sees on the roster. Rejects an empty name; `update_profile` is
+    not reusable here (it coalesces a blank back to the old value and returns no ok
+    signal). Refuses on a withdrawn account, as password reset does."""
+    sid = (sid or "").strip().upper()
+    username = (username or "").strip()
+    if not username:
+        return False, "bad_username"
+    with _lock:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                "UPDATE users SET username = ? WHERE sid = ? AND withdrawn = 0",
+                (username, sid))
             conn.commit()
             if cur.rowcount == 0:
                 return False, "no_such_user"
@@ -584,7 +611,7 @@ def resolve_session(token: str) -> dict | None:
         finally:
             conn.close()
 
-    if row is None or row["withdrawn"]:
+    if row is None or row["withdrawn"] or row["disabled"]:
         return None
     if datetime.fromisoformat(row["expires_at"]) < now:
         return None
@@ -676,6 +703,33 @@ def withdraw(sid: str) -> bool:
             return cur.rowcount > 0
         finally:
             conn.close()
+
+
+def set_disabled(sid: str, disabled: bool) -> tuple[bool, str | None]:
+    """Teacher-side REVERSIBLE off switch (ok, reason).
+
+    Unlike withdrawal this carries NO research meaning and is not a tombstone: a
+    disabled account cannot sign in (start_session refuses it) and its live sessions
+    are dropped so it is out immediately (resolve_session also refuses it), but its
+    recorded events stay and are STILL exported -- withdrawal, not this, is how a
+    participant leaves the study. Refuses to disable a teacher so the panel cannot
+    lock itself out. Re-enabling is just disabled=0; the student signs in fresh."""
+    sid = (sid or "").strip().upper()
+    if disabled and is_admin(sid):
+        return False, "cannot_disable_admin"
+    with _lock:
+        conn = _connect()
+        try:
+            cur = conn.execute("UPDATE users SET disabled = ? WHERE sid = ?",
+                               (1 if disabled else 0, sid))
+            if disabled:
+                conn.execute("DELETE FROM sessions WHERE sid = ?", (sid,))
+            conn.commit()
+            if cur.rowcount == 0:
+                return False, "no_such_user"
+        finally:
+            conn.close()
+    return True, None
 
 
 def stats() -> dict:

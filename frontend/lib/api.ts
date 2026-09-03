@@ -255,6 +255,7 @@ export interface AdminParticipant {
   created_at: string
   last_seen_at: string | null
   withdrawn: number
+  disabled: number
   has_password: number
 }
 
@@ -275,10 +276,14 @@ export const admin = {
     api.get<{
       participants: AdminParticipant[]
       roster: boolean
-      counts: { total: number; withdrawn: number; claimed: number }
+      counts: { total: number; withdrawn: number; disabled: number; claimed: number }
     }>("/api/admin/participants"),
   setSection: (sid: string, section: string) =>
     api.post<{ ok: true }>("/api/admin/section", { sid, section }),
+  setDisabled: (sid: string, disabled: boolean) =>
+    api.post<{ ok: true }>("/api/admin/disable", { sid, disabled }),
+  setUsername: (sid: string, username: string) =>
+    api.post<{ ok: true }>("/api/admin/username", { sid, username }),
   resetPassword: (sid: string, password: string, endSessions = false) =>
     api.post<{ ok: true; sessions_ended: number }>("/api/admin/password", {
       sid,
