@@ -67,7 +67,11 @@ def _meta(row) -> dict:
 def gather(topic: str, section: str) -> dict:
     """Every number in the report. No model involved, by design."""
     rows = [r for r in research_store.fetch_all() if r.get("topic_id") == topic]
-    rows = [r for r in rows if _meta(r).get("section") == section] or rows
+    # Only fall back to unfiltered rows when NO row carries a section stamp (genuinely
+    # old, pre-section data). A valid section with zero matching rows is an empty brief,
+    # NOT a licence to silently blend every section together (audit finding 2026-09-05).
+    _filtered = [r for r in rows if _meta(r).get("section") == section]
+    rows = _filtered if any(_meta(r).get("section") for r in rows) else rows
 
     roster = [sid for sid, sec in _roster().items() if sec == section]
 
@@ -481,6 +485,15 @@ def main() -> int:
     ap.add_argument("--cohort", default=os.environ.get("COHORT", "COMP3423"))
     ap.add_argument("--no-llm", action="store_true")
     args = ap.parse_args()
+
+    # Validate + normalise the section against the schedule BEFORE gathering, mirroring
+    # the browser endpoint. Without this a mistyped `--section msc` matched zero rows and
+    # (via the old `or rows`) silently blended every section into one brief (audit 2026-09-05).
+    import schedule
+    args.section = args.section.strip().upper()
+    if args.section not in schedule.sections():
+        print(f"  section not one this cohort runs. Valid: {', '.join(schedule.sections())}")
+        return 1
 
     data = gather(args.topic, args.section)
     if data["started_n"] == 0:

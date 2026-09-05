@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { admin, type ReportRow } from "@/lib/api"
+import { admin, auth, type ReportRow, type SectionOption } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
 
 // The teacher's actual weekly job, finally reachable by clicking.
@@ -29,6 +29,7 @@ export default function ReportsPanel() {
   const [busy, setBusy] = useState(false)
   const [genTopic, setGenTopic] = useState(TOPICS[0]?.id ?? "")
   const [genSection, setGenSection] = useState("A")
+  const [sections, setSections] = useState<SectionOption[]>([])
   const [genMsg, setGenMsg] = useState<string | null>(null)
   // The generator can run up to 120 s server-side (ops.run_report_job is serial, off
   // the loop). Without a busy guard the button stays clickable and an impatient admin
@@ -55,6 +56,15 @@ export default function ReportsPanel() {
 
   useEffect(() => {
     admin.reports().then((r) => setRows(r.ok && r.data ? r.data.reports : []))
+    // Sections come from the schedule config (auth.sections), so a new section — MSc —
+    // appears here the moment it is added. Hardcoding A/B/C is exactly what left MSc
+    // without a tutor summary.
+    auth.sections().then((r) => {
+      if (r.ok && r.data) {
+        setSections(r.data.sections)
+        if (r.data.sections[0]) setGenSection(r.data.sections[0].code)
+      }
+    })
   }, [])
 
   const view = async (path: string) => {
@@ -90,7 +100,7 @@ export default function ReportsPanel() {
           <span className="u-eyebrow">Section</span>
           <select className="u-field mt-1" value={genSection}
                   onChange={(e) => setGenSection(e.target.value)} data-testid="gen-section">
-            {["A", "B", "C"].map((x) => <option key={x} value={x}>{x}</option>)}
+            {sections.map((s) => <option key={s.code} value={s.code}>{s.code}</option>)}
           </select>
         </label>
         <button className="u-btn u-btn-primary" onClick={generate} disabled={genBusy} data-testid="gen-submit">
@@ -105,7 +115,7 @@ export default function ReportsPanel() {
           <p className="u-faint mt-1.5">
             On the study machine:{" "}
             <code>python backend/generate_tutorial_report.py --topic &lt;id&gt; --section
-            &lt;A|B|C&gt;</code>
+            &lt;section&gt;</code>
           </p>
         </div>
       ) : (

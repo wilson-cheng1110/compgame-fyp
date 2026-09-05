@@ -28,7 +28,7 @@
       "day": "Thu",
       "size": 100
     },
-    "MSc": {
+    "MSC": {
       "day": "Mon",
       "size": 150
     }
@@ -94,7 +94,7 @@
     },
     {
       "id": "language",
-      "session": 8
+      "session": 7
     },
     {
       "id": "ergonomics",
@@ -122,7 +122,7 @@
     "2026-10-19": {
       "why": "General holiday (day following Chung Yeung) -- Monday",
       "acknowledged": true,
-      "decision": "Accepted 2026-09-03 (Wilson): the MSc (COMP5517) meets Mondays, so its session 8 (language topic) lands here. Same call as National Day -- the release window opens 12 Oct / closes 17 Oct, so the unit still runs that week; only the holiday lecture is missing. No date moved."
+      "decision": "Accepted 2026-09-05 (Wilson): MSC (COMP5517) meets Mondays, so its session-8 date is this holiday -- but after the 2026-09-05 timeline update (language moved to week 7) session 8 carries NO flipped topic, so no release window derives from it. The Monday holiday is inert. Only Mondays are affected and no A/B/C (Tue/Wed/Thu) window touches it."
     }
   },
   "sessions": {
@@ -130,79 +130,79 @@
       "A": "2026-09-01",
       "B": "2026-09-02",
       "C": "2026-09-03",
-      "MSc": "2026-08-31"
+      "MSC": "2026-08-31"
     },
     "2": {
       "A": "2026-09-08",
       "B": "2026-09-09",
       "C": "2026-09-10",
-      "MSc": "2026-09-07"
+      "MSC": "2026-09-07"
     },
     "3": {
       "A": "2026-09-15",
       "B": "2026-09-16",
       "C": "2026-09-17",
-      "MSc": "2026-09-14"
+      "MSC": "2026-09-14"
     },
     "4": {
       "A": "2026-09-22",
       "B": "2026-09-23",
       "C": "2026-09-24",
-      "MSc": "2026-09-21"
+      "MSC": "2026-09-21"
     },
     "5": {
       "A": "2026-09-29",
       "B": "2026-09-30",
       "C": "2026-10-01",
-      "MSc": "2026-09-28"
+      "MSC": "2026-09-28"
     },
     "6": {
       "A": "2026-10-06",
       "B": "2026-10-07",
       "C": "2026-10-08",
-      "MSc": "2026-10-05"
+      "MSC": "2026-10-05"
     },
     "7": {
       "A": "2026-10-13",
       "B": "2026-10-14",
       "C": "2026-10-15",
-      "MSc": "2026-10-12"
+      "MSC": "2026-10-12"
     },
     "8": {
       "A": "2026-10-20",
       "B": "2026-10-21",
       "C": "2026-10-22",
-      "MSc": "2026-10-19"
+      "MSC": "2026-10-19"
     },
     "9": {
       "A": "2026-10-27",
       "B": "2026-10-28",
       "C": "2026-10-29",
-      "MSc": "2026-10-26"
+      "MSC": "2026-10-26"
     },
     "10": {
       "A": "2026-11-03",
       "B": "2026-11-04",
       "C": "2026-11-05",
-      "MSc": "2026-11-02"
+      "MSC": "2026-11-02"
     },
     "11": {
       "A": "2026-11-10",
       "B": "2026-11-11",
       "C": "2026-11-12",
-      "MSc": "2026-11-09"
+      "MSC": "2026-11-09"
     },
     "12": {
       "A": "2026-11-17",
       "B": "2026-11-18",
       "C": "2026-11-19",
-      "MSc": "2026-11-16"
+      "MSC": "2026-11-16"
     },
     "13": {
       "A": "2026-11-24",
       "B": "2026-11-25",
       "C": "2026-11-26",
-      "MSc": "2026-11-23"
+      "MSC": "2026-11-23"
     }
   }
 }

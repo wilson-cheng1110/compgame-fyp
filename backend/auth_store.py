@@ -134,6 +134,19 @@ def _refresh_enrolment() -> None:
     # "Application startup failed"). A log decoration must never be able to take
     # the server down, least of all on an unattended box.
     print(f"[auth] Enrolment list loaded: {len(parsed)} SID(s) from {ENROLMENT_PATH}")
+    # A roster section that is not one the schedule runs -- a typo like 'MCS', or a
+    # comma-less line that silently defaulted to 'A' -- gives those students NO release
+    # window on every topic, with no error to them or the teacher. Flag it loudly at
+    # load; the fix is editing the roster file (audit finding 2026-09-05).
+    try:
+        import schedule
+        known = set(schedule.sections())
+        bad = sorted({sec for sec in parsed.values() if sec not in known})
+        if bad:
+            print(f"[auth] WARNING: roster names section(s) the schedule does not run: "
+                  f"{bad} -- those students would get no release windows. Known: {sorted(known)}.")
+    except Exception:
+        pass  # schedule config absent/unreadable: a diagnostic must never crash startup
 
 
 def enrolled_section(sid: str) -> str | None:

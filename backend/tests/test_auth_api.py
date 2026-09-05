@@ -42,7 +42,9 @@ check("an unknown SID is INDISTINGUISHABLE from a wrong password",
       (unknown.status_code, unknown.json()["error"]) == (bad.status_code, bad.json()["error"]),
       (unknown.status_code, unknown.json()))
 sec = c.get("/api/auth/sections").json()
-check("sections are public for the signup picker", len(sec["sections"]) == 3, sec)
+import schedule as _sched
+check("sections are public for the signup picker (mirror the config, not a magic count)",
+      {x["code"] for x in sec["sections"]} == set(_sched.sections()), sec)
 check("and carry the lecture day", all(x["day"] for x in sec["sections"]), sec)
 r = c.post("/api/auth/session", json={"sid": "24012345D", "password": "hunter2xyz"})
 check("enrolled SID gets 200", r.status_code == 200, r.status_code)
