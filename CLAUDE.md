@@ -197,6 +197,18 @@ allowlist became **OPTIONAL**. `backend/enrolled_sids.txt` is still gitignored �
   or scores, return password material, or delete anything — **disable is a REVERSIBLE off switch** (blocks
   sign-in via all three gates: `resolve_session` / `start_session` / `create_account`, and keeps their data),
   distinct from withdrawal, which is the study-exit tombstone.
+- **Researcher panel** at `/researcher` (`backend/researcher_api.py`), gated on a session AND
+  `backend/researcher_sids.txt` (gitignored; `.example` committed) — a SEPARATE allowlist from the teacher one,
+  added 2026-09-05. This is where the manipulation lives: FLIP/CONTROL arm balance + compliance, coverage
+  (incl. the `no_activity` silent-failure signal — the 2026 completion-events loss looked exactly like a spike
+  there), N per section (MSc included), questionnaire completion, the **pseudonymised export** (session-gated,
+  sharing research_api's ONE pseudonymisation boundary — `pseudonymised_rows` — with the `X-Export-Token` path so
+  they cannot drift), and the **participant-forget** the consent form promises. The teacher (`/admin`) is
+  **BLIND to all of it**: `is_researcher` is INDEPENDENT of `is_admin` (a PI who also teaches is on both lists),
+  so a lecturer cannot teach to the condition — differential instruction by arm is a confound on H1 that cannot
+  be undone. `is_staff` = admin OR researcher; both skip the participant gates (consent/baseline) and are dropped
+  from the sink. Blind grading STAYS the offline `grade_batch.py` pass — there is deliberately no grading route
+  on this surface. The monitor reads the sink via `measures.py` (no Ollama), off the event loop.
 - Still NOT strong identity: a password can be shared, and with no roster an unenrolled person can create
   an account. Both belong in the paper.
 - Cookie `user` = `{ sid, username, avatarId }` — **shape unchanged**, so all 15 `Cookies.get("user")`

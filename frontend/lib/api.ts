@@ -335,6 +335,73 @@ export interface SessionDateResult {
   message?: string
 }
 
+// ── researcher (PI) surface ─────────────────────────────────────────────────
+//
+// A SEPARATE gate from `admin`, on purpose. The teacher surface is blind to
+// arms/scores/export (research integrity); this one shows exactly those, so it is
+// gated on `researcher_sids.txt` — a list the teacher need not be on. This client only
+// asks; the backend (researcher_api.py) enforces both the session and the allowlist.
+
+export interface ResearcherMonitor {
+  sink: { total_events: number; participants: number }
+  accounts: {
+    total: number
+    claimed: number
+    withdrawn: number
+    disabled: number
+    by_section: Record<
+      string,
+      { total: number; claimed: number; withdrawn: number; disabled: number }
+    >
+  }
+  coverage: {
+    pairs: number
+    determinable: number
+    complied: number
+    no_activity: number
+    no_posttest: number
+    took_escape: number
+  }
+  /** Per topic, in release order. Counts are over participants with any event on that
+   *  topic, by their ASSIGNED arm — the operational "is my data filling in balanced". */
+  arms: {
+    topic_id: string
+    order: number
+    flip: number
+    control: number
+    determinable: number
+    complied: number
+    no_activity: number
+    no_posttest: number
+  }[]
+  /** Distinct participants who finished each questionnaire instrument. */
+  questionnaires: Record<string, number>
+  roster_active: boolean
+  /** Rows dropped as non-roster (test/e2e) traffic, or null when no roster is gating. */
+  test_traffic_excluded: number | null
+}
+
+export interface ForgetPreview {
+  sid: string
+  events: number
+  withdrawn: boolean
+  pseudonym: string
+}
+
+export const researcher = {
+  whoami: () => api.get<{ ok: true; sid: string }>("/api/researcher/whoami"),
+  monitor: () => api.get<ResearcherMonitor>("/api/researcher/monitor"),
+  /** Preview a forget: how many rows it would erase, before erasing them. */
+  participant: (sid: string) =>
+    api.get<ForgetPreview>(`/api/researcher/participant?sid=${encodeURIComponent(sid)}`),
+  forget: (sid: string) =>
+    api.post<{ ok: true; sid: string; removed: number }>("/api/researcher/forget", { sid }),
+  /** The export is a file download: a same-origin GET so the HttpOnly session cookie
+   *  rides along (no token in the bundle). One source of truth for the path. */
+  exportUrl: (format: "json" | "csv") =>
+    `${API_BASE}/api/researcher/export?format=${format}`,
+}
+
 export const topics = {
   journey: () => api.get<Journey>("/api/topics"),
   detail: (topicId: string) => api.get<JourneyTopic>(`/api/topics/${topicId}`),

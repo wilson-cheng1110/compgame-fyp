@@ -45,5 +45,8 @@ export const config = {
     "/badges/:path*",
     "/consent/:path*",
     "/onboarding/:path*",
+    // Convenience only, like the rest. The real gate is server-side is_researcher —
+    // this just sends a signed-out visitor to /login instead of a page that errors.
+    "/researcher/:path*",
   ],
 }

@@ -175,11 +175,11 @@ async def signup(req: SignupRequest, response: Response):
         "section": result["section"],
         "needsOnboarding": result["needs_onboarding"],
         # STAFF SKIP THE PARTICIPANT GATES. Consent and the prior-knowledge baseline
-        # are instruments aimed at participants; a teacher is not one, and making
-        # them agree to an information sheet about their own study before the app
-        # will open is both absurd and how their rows ended up in the sink.
-        "needsConsent": not auth_store.is_admin(result["sid"]) and not await _has_consented(result["sid"]),
-        "needsBaseline": not auth_store.is_admin(result["sid"])
+        # are instruments aimed at participants; staff (a teacher, or the researcher)
+        # are not, and making them agree to an information sheet about their own study
+        # before the app will open is both absurd and how their rows ended up in the sink.
+        "needsConsent": not auth_store.is_staff(result["sid"]) and not await _has_consented(result["sid"]),
+        "needsBaseline": not auth_store.is_staff(result["sid"])
                          and not await asyncio.to_thread(research_store.has_event, result["sid"], baseline.EVENT_TYPE),
     }
 
@@ -226,11 +226,11 @@ async def create_session(req: SessionRequest, response: Response):
         "section": result["section"],
         "needsOnboarding": result["needs_onboarding"],
         # STAFF SKIP THE PARTICIPANT GATES. Consent and the prior-knowledge baseline
-        # are instruments aimed at participants; a teacher is not one, and making
-        # them agree to an information sheet about their own study before the app
-        # will open is both absurd and how their rows ended up in the sink.
-        "needsConsent": not auth_store.is_admin(result["sid"]) and not await _has_consented(result["sid"]),
-        "needsBaseline": not auth_store.is_admin(result["sid"])
+        # are instruments aimed at participants; staff (a teacher, or the researcher)
+        # are not, and making them agree to an information sheet about their own study
+        # before the app will open is both absurd and how their rows ended up in the sink.
+        "needsConsent": not auth_store.is_staff(result["sid"]) and not await _has_consented(result["sid"]),
+        "needsBaseline": not auth_store.is_staff(result["sid"])
                          and not await asyncio.to_thread(research_store.has_event, result["sid"], baseline.EVENT_TYPE),
     }
 
@@ -247,8 +247,8 @@ async def whoami(response: Response, session: str | None = Cookie(default=None))
         "avatarId": user["avatar_id"],
         "section": user["section"],
         "needsOnboarding": user["needs_onboarding"],
-        "needsConsent": not auth_store.is_admin(user["sid"]) and not await _has_consented(user["sid"]),
-        "needsBaseline": not auth_store.is_admin(user["sid"])
+        "needsConsent": not auth_store.is_staff(user["sid"]) and not await _has_consented(user["sid"]),
+        "needsBaseline": not auth_store.is_staff(user["sid"])
                          and not await asyncio.to_thread(research_store.has_event, user["sid"], baseline.EVENT_TYPE),
     }
 

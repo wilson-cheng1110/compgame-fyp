@@ -114,6 +114,11 @@ test("the tutorial brief is readable in the browser, and the research copy is no
   await go(page, "/admin")
   await ready(page, 2500)
 
+  // The panel is tabbed now (Accounts · Tutorial briefs · Lecture dates). The brief
+  // lives under its own tab; open it before asserting the panel renders.
+  await page.locator('[data-testid="admin-tab-briefs"]').click()
+  await ready(page, 1500)
+
   t.check("the briefs panel renders",
     (await page.locator('[data-testid="admin-reports"]').count()) === 1)
 

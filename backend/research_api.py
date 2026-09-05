@@ -49,6 +49,44 @@ EXPORT_COLUMNS = [
 ]
 
 
+# ── the pseudonymisation boundary, in ONE place ───────────────────────────────
+#
+# Both export paths -- the token-gated /api/research/export here and the
+# session-gated /api/researcher/export -- go through these two helpers, so the two
+# study-critical properties are decided once and cannot drift apart:
+#
+#   * REAL SIDs NEVER LEAVE. participant_id is replaced by a stable HMAC pseudonym;
+#     there is deliberately no way to ask for identified data over HTTP (that split
+#     is the whole point of docs/revamp.md Part 13). The HMAC is stable for the life
+#     of backend/.participant_secret, so pre/post rows still join per participant.
+#   * WITHDRAWN PARTICIPANTS ARE EXCLUDED. Withdrawal tombstones the account, but the
+#     append-only sink is purged only by the manual --forget CLI, so between the two
+#     the rows still exist -- filter them here so every export honours the consent-form
+#     promise by default, whoever triggered it.
+
+def pseudonymised_rows() -> list[dict]:
+    """Every event, withdrawn participants dropped, participant_id pseudonymised."""
+    withdrawn = auth_store.withdrawn_sids()
+    rows = []
+    for r in research_store.fetch_all():
+        row = dict(r)
+        sid = row.get("participant_id")
+        if sid in withdrawn:
+            continue
+        row["participant_id"] = auth_store.pseudonym(sid) if sid else None
+        rows.append(row)
+    return rows
+
+
+def rows_as_csv(rows: list[dict]) -> str:
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=EXPORT_COLUMNS)
+    writer.writeheader()
+    for r in rows:
+        writer.writerow({c: r.get(c) for c in EXPORT_COLUMNS})
+    return buf.getvalue()
+
+
 class ResearchEvent(BaseModel):
     # Optional and IGNORED — identity is taken from the session cookie. Kept in the
     # model so an older client that still sends it gets a clear 401 from the handler
@@ -134,30 +172,12 @@ async def research_export(format: str = "json",
     if not x_export_token or not secrets.compare_digest(x_export_token, expected):
         raise HTTPException(status_code=401, detail="bad_export_token")
 
-    # EXCLUDE WITHDRAWN PARTICIPANTS. Withdrawal tombstones the account and kills
-    # sessions, but the append-only sink is purged only by a manual operator CLI
-    # (research_store.py --forget), so between a withdrawal and that purge the export
-    # would still ship the person's rows — breaking the consent-form promise if
-    # nobody remembers to run it per SID. Filter here so the export honours the
-    # promise by default; the CLI purge remains for hard erasure from disk.
-    withdrawn = auth_store.withdrawn_sids()
-    rows = []
-    for r in research_store.fetch_all():
-        row = dict(r)
-        sid = row.get("participant_id")
-        if sid in withdrawn:
-            continue
-        row["participant_id"] = auth_store.pseudonym(sid) if sid else None
-        rows.append(row)
-
+    # Pseudonymisation + withdrawn-exclusion live in one shared helper (above), used by
+    # this token path and the session-gated /api/researcher/export alike.
+    rows = pseudonymised_rows()
     if format == "csv":
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=EXPORT_COLUMNS)
-        writer.writeheader()
-        for r in rows:
-            writer.writerow({c: r.get(c) for c in EXPORT_COLUMNS})
         return PlainTextResponse(
-            buf.getvalue(),
+            rows_as_csv(rows),
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=research_events.csv"},
         )

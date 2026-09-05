@@ -17,6 +17,7 @@ const SUITES = [
   ["unhappy-path", "./unhappy-path.mjs"],
   ["resilience", "./resilience.mjs"],
   ["teacher-path", "./teacher-path.mjs"],
+  ["researcher-path", "./researcher-path.mjs"],
 ].filter(([n]) => !only || n === only || n === only + "-path")   // "happy" must not match "unhappy-path"
 
 // ── preflight ─────────────────────────────────────────────────────────────────

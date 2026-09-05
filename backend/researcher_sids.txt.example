@@ -1,0 +1,12 @@
+# Researchers (the study's PI). One SID per line; everything after # is a comment.
+# Copy to researcher_sids.txt (gitignored) and fill in the real one(s).
+#
+# A SEPARATE list from admin_sids.txt on purpose. Anyone listed here can, through
+# /researcher: see FLIP/CONTROL arm balance and compliance, the coverage figures,
+# download the pseudonymised export, and erase a withdrawn participant's data.
+#
+# The TEACHER surface (/admin, admin_sids.txt) is deliberately BLIND to all of that,
+# so a lecturer cannot teach to the manipulation. Keep a teacher-only SID OFF this
+# list. The PI who also teaches goes on BOTH lists -- the gates are independent.
+#
+# 22000000D   # Wilson, PI

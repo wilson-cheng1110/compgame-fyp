@@ -68,6 +68,11 @@ POSTTEST = "topic_posttest"
 def _rows(db_path=None):
     conn = sqlite3.connect(db_path or DB)
     conn.row_factory = sqlite3.Row
+    # Wait for a momentary write lock rather than raising "database is locked" instantly.
+    # Harmless for the offline CLI, load-bearing now that /api/researcher/monitor reaches
+    # this from a live endpoint while students concurrently write to the sink (ops.py
+    # documents this exact hazard for its own separate connection).
+    conn.execute("PRAGMA busy_timeout = 5000")
     try:
         return conn.execute(
             "SELECT participant_id, event_type, topic_id, score, server_ts"
@@ -187,6 +192,7 @@ def effort(db_path=None) -> list[dict]:
     """One row per check submission, with time set against accuracy."""
     conn = sqlite3.connect(db_path or DB)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")   # see _rows(): live callers now exist
     try:
         rows = conn.execute(
             "SELECT participant_id, event_type, topic_id, duration_ms, server_ts, meta"

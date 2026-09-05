@@ -6,7 +6,7 @@ import SchedulePanel from "./schedule-panel"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { admin, auth, type AdminParticipant, type AuditEntry, type SectionOption } from "@/lib/api"
+import { admin, auth, researcher, type AdminParticipant, type AuditEntry, type SectionOption } from "@/lib/api"
 
 // The teacher surface. Everything here is enforced server-side (admin_api.py: a valid
 // session AND membership of the allowlist file) — this page only ASKS. It draws three
@@ -23,6 +23,17 @@ import { admin, auth, type AdminParticipant, type AuditEntry, type SectionOption
 // that file every time, so a change made here would be silently reverted at the
 // student's next login. Saying so beats appearing to work.
 
+// The three jobs this panel does, at three different cadences: everyday account fixes,
+// the weekly tutorial brief, the rare lecture-date move. They were one long scroll; they
+// are now three tabs. Accounts is the default — which is also where the teacher/unhappy
+// e2e suites expect to land.
+const TABS = [
+  ["accounts", "Accounts"],
+  ["briefs", "Tutorial briefs"],
+  ["schedule", "Lecture dates"],
+] as const
+type AdminTab = (typeof TABS)[number][0]
+
 export default function AdminPage() {
   const router = useRouter()
   const [state, setState] = useState<"checking" | "denied" | "ok">("checking")
@@ -37,6 +48,11 @@ export default function AdminPage() {
   const [endSessions, setEndSessions] = useState(false)
   const [uname, setUname] = useState("")
   const [note, setNote] = useState<{ kind: "ok" | "bad"; text: string } | null>(null)
+  // Shown ONLY to a researcher. A teacher-only admin (Jeff) never sees this link — the
+  // researcher surface must stay off the teacher's radar, or knowing the manipulation
+  // exists is itself the confound. is_researcher is a separate allowlist from is_admin.
+  const [isResearcher, setIsResearcher] = useState(false)
+  const [tab, setTab] = useState<AdminTab>("accounts")
 
   const load = useCallback(async () => {
     const res = await admin.participants()
@@ -62,6 +78,8 @@ export default function AdminPage() {
       setState("ok")
       const s = await auth.sections()
       if (s.ok && s.data) setSections(s.data.sections)
+      // Is this teacher ALSO the researcher? Only then does the researcher link appear.
+      researcher.whoami().then((r) => setIsResearcher(r.ok))
       await load()
     })
   }, [router, load])
@@ -179,14 +197,47 @@ export default function AdminPage() {
             <Image src="/images/logo.png" alt="" width={26} height={26} priority />
             <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
           </Link>
-          <span className="u-chip u-chip-open">Course team</span>
+          <div className="flex items-center gap-3">
+            {isResearcher && (
+              <Link href="/researcher" className="u-btn" data-testid="researcher-link">
+                Researcher tools →
+              </Link>
+            )}
+            <span className="u-chip u-chip-open">Course team</span>
+          </div>
         </div>
       </header>
 
       <div className="mx-auto w-full max-w-5xl px-5 py-8 pb-20">
         <p className="u-eyebrow">Admin</p>
-        <h1 className="u-h1 mt-1">Accounts</h1>
-        <p className="u-stem u-muted mt-2">
+        <h1 className="u-h1 mt-1">Course team</h1>
+
+        <div role="tablist" aria-label="Course-team sections"
+             className="flex gap-1 mt-5" style={{ borderBottom: "1px solid var(--rule)" }}>
+          {TABS.map(([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={tab === key}
+              data-testid={`admin-tab-${key}`}
+              onClick={() => setTab(key)}
+              className="u-btn"
+              style={{
+                border: "none",
+                borderRadius: 0,
+                borderBottom: tab === key ? "2px solid var(--accent)" : "2px solid transparent",
+                color: tab === key ? "var(--accent)" : undefined,
+                fontWeight: tab === key ? 600 : 400,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "accounts" && (
+        <div>
+        <p className="u-stem u-muted mt-4">
           Correct a section, or reset a password for a student who has lost theirs. Every
           change here is logged with your SID. Answers and scores are not on this page —
           those come out of the pseudonymised export.
@@ -382,14 +433,16 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Lecture dates last: it is the rarest job on this page and the one with
-            the widest blast radius, so it sits below the everyday ones rather than
-            competing with them. `refresh` pulls the audit log back so a date change
-            shows up in the same log as a section change, which is the point. */}
-        {/* The weekly job first; lecture dates are the rare one. */}
-        <ReportsPanel />
+        </div>
+        )}
 
-        <SchedulePanel onDone={() => void load()} />
+        {/* The weekly job. Its own tab now, not a scroll past the account list. */}
+        {tab === "briefs" && <ReportsPanel />}
+
+        {/* Lecture dates: the rarest job and the widest blast radius, so it is a
+            deliberate tab rather than the bottom of a long page. `refresh` pulls the
+            audit log back so a date change shows up beside a section change. */}
+        {tab === "schedule" && <SchedulePanel onDone={() => void load()} />}
       </div>
     </main>
   )

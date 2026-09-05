@@ -9,7 +9,7 @@ import { getUsers } from "@/lib/user-store"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
-import { topics as topicsApi, auth, admin, type JourneyTopic } from "@/lib/api"
+import { topics as topicsApi, auth, admin, researcher, type JourneyTopic } from "@/lib/api"
 import { nextStep } from "@/lib/session-handoff"
 import { badgesFromJourney, completedCount } from "@/lib/badges"
 import JourneyPath from "@/components/journey-path"
@@ -53,12 +53,18 @@ export default function DashboardPage() {
   // itself makes; this only decides whether to draw a link, and a student who
   // forges it still meets a 403 from the server.
   const [isStaff, setIsStaff] = useState(false)
+  // Is this the researcher (PI)? A SEPARATE gate from the teacher one, so a teacher-only
+  // account (Jeff) never sees the researcher link — the monitoring surface is kept off
+  // the teacher's radar on purpose. A researcher-only account has no admin-link and this
+  // is their only way into /researcher from the UI.
+  const [isResearcher, setIsResearcher] = useState(false)
   // No page may hang forever — see lib/use-slow-load.ts.
   const slowToLoad = useSlowLoad(!user)
 
   useEffect(() => {
     let alive = true
     admin.whoami().then((r) => { if (alive && r.ok) setIsStaff(true) }).catch(() => {})
+    researcher.whoami().then((r) => { if (alive && r.ok) setIsResearcher(true) }).catch(() => {})
     return () => { alive = false }
   }, [])
 
@@ -572,6 +578,16 @@ export default function DashboardPage() {
                   data-testid="admin-link"
                 >
                   Course team →
+                </Link>
+              )}
+
+              {isResearcher && (
+                <Link
+                  href="/researcher"
+                  className="u-btn u-btn-block mt-2"
+                  data-testid="researcher-link"
+                >
+                  Researcher →
                 </Link>
               )}
 

@@ -86,6 +86,7 @@ from auth_api import router as auth_router          # noqa: E402
 from topic_api import router as topic_router        # noqa: E402
 from research_api import router as research_router  # noqa: E402
 from admin_api import router as admin_router        # noqa: E402
+from researcher_api import router as researcher_router  # noqa: E402
 import grade                                       # noqa: E402
 import game_keys                                   # noqa: E402
 
@@ -95,6 +96,10 @@ app.include_router(research_router)
 # Teacher surface. Its own router with its own allowlist file -- see admin_api.py for
 # why it could not exist before passwords did.
 app.include_router(admin_router)
+# Researcher (PI) surface. A SECOND allowlist the teacher need not be on: it exposes
+# arms/compliance/export, which the teacher surface is deliberately blind to so a
+# lecturer cannot teach to the manipulation. See researcher_api.py.
+app.include_router(researcher_router)
 
 # H2/H3/H4 had no way into the app at all until 2026-08-30 -- three of the four
 # co-equal constructs existed only as paper forms. OFF unless QUESTIONNAIRES_ENABLED=1,

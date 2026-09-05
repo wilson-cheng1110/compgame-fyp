@@ -179,7 +179,9 @@ def is_staff(sid: str) -> bool:
     """
     try:
         import auth_store
-        return auth_store.is_admin(sid or "")
+        # is_staff, not is_admin: the researcher (PI) is not a participant either, so
+        # their activity must be dropped from the sink just like a teacher's.
+        return auth_store.is_staff(sid or "")
     except Exception:
         return False
 
@@ -384,6 +386,29 @@ def summary() -> dict:
             return {"total_events": total, "participants": participants}
         finally:
             conn.close()
+
+def event_counts_by_type(prefix: str | None = None) -> dict:
+    """Distinct participants per event_type, optionally only types starting `prefix`.
+
+    For the researcher monitor's "how many people finished each questionnaire" -- one
+    GROUP BY off idx_events_participant, not a fetch_all() scan folded in Python. Counts
+    DISTINCT participants (not rows) because the question is how many PEOPLE completed
+    an instrument, and a stray duplicate row must not inflate that.
+    """
+    sql = ("SELECT event_type, COUNT(DISTINCT participant_id) AS n FROM events"
+           " WHERE participant_id IS NOT NULL")
+    args: list = []
+    if prefix:
+        sql += " AND event_type LIKE ?"
+        args.append(prefix + "%")
+    sql += " GROUP BY event_type ORDER BY event_type"
+    with _lock:
+        conn = _connect()
+        try:
+            return {r["event_type"]: r["n"] for r in conn.execute(sql, args).fetchall()}
+        finally:
+            conn.close()
+
 
 def count_for(participant_id: str) -> int:
     """How many rows this participant has. Lets an operator see what a forget

@@ -63,6 +63,16 @@ SESSION_IDLE_MINUTES = int(os.environ.get("SESSION_IDLE_MINUTES", "30"))
 # per line, `#` comments, re-read on mtime. Gitignored -- it names real people.
 ADMIN_PATH = os.environ.get("ADMIN_PATH", os.path.join(_HERE, "admin_sids.txt"))
 
+# Researcher (PI) accounts. A SEPARATE allowlist from the teacher one, on purpose:
+# the teacher (admin) surface is deliberately BLIND to arms/scores/export so a
+# lecturer cannot teach to the manipulation (differential instruction by condition
+# is a confound on H1 that cannot be removed afterwards -- see admin_api.py). The
+# researcher surface shows exactly those things, so it must gate on membership the
+# teacher does NOT have. Same file/mtime pattern as ADMIN_PATH; gitignored; a SID may
+# be on BOTH lists (the PI who also teaches), which is why the gates are independent
+# rather than one being a superset of the other.
+RESEARCHER_PATH = os.environ.get("RESEARCHER_PATH", os.path.join(_HERE, "researcher_sids.txt"))
+
 # stdlib scrypt. n=2**14, r=8, p=1 measures ~37 ms per verify on the dev box: dear
 # enough that an offline guess costs, cheap enough that a section of 100 signing in
 # at once is not a self-inflicted DoS. 16 MiB of working memory per call.
@@ -197,6 +207,51 @@ def is_admin(sid: str) -> bool:
         with _lock:
             _admins, _admins_mtime = parsed, mtime
     return sid.strip().upper() in _admins
+
+
+_researchers: set[str] = set()
+_researchers_mtime: float | None = None
+
+
+def is_researcher(sid: str) -> bool:
+    """PI? Read from RESEARCHER_PATH, re-read on mtime -- exactly like is_admin.
+
+    Kept a byte-for-byte parallel of is_admin (own module-level cache, own lock-guarded
+    two-name assignment, OSError -> empty set + False) rather than parameterising one
+    helper: the failure mode of getting the concurrency wrong is a reader seeing a new
+    set against an old mtime, and the two lists must fail that way independently. A SID
+    on this list sees arms/scores/export; the teacher (admin) list does NOT grant it.
+    """
+    global _researchers, _researchers_mtime
+    try:
+        mtime = os.path.getmtime(RESEARCHER_PATH)
+    except OSError:
+        with _lock:
+            _researchers, _researchers_mtime = set(), None
+        return False
+    if mtime != _researchers_mtime:
+        parsed = set()
+        with open(RESEARCHER_PATH, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.split("#", 1)[0].strip()
+                if line:
+                    parsed.add(line.split(",")[0].strip().upper())
+        with _lock:
+            _researchers, _researchers_mtime = parsed, mtime
+    return sid.strip().upper() in _researchers
+
+
+def is_staff(sid: str) -> bool:
+    """Course team OR researcher -- anyone who is NOT a study participant.
+
+    The single predicate the participant gates key off: a staff SID skips consent and
+    the baseline pre-test, and their activity is dropped from the research sink. Written
+    as one function so the answer to "is this person a participant?" lives in ONE place
+    -- adding the researcher list meant the teacher-only `is_admin` check was no longer
+    the whole of it, and a PI signing in would otherwise be forced to consent to their
+    own study and have their rows counted as a student's.
+    """
+    return is_admin(sid) or is_researcher(sid)
 
 
 # -- passwords ----------------------------------------------------------------
