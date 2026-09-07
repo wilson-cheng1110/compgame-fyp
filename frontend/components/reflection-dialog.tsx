@@ -26,6 +26,11 @@ interface Turn {
    *  ignored by both endpoints (each reads role/content with .get), so it rides
    *  along in the history harmlessly and survives a sessionStorage round-trip. */
   direct?: boolean
+  /** ISO timestamp the turn was created, client-side — turn-level timing for the paper.
+   *  Rides along exactly like `direct`: ignored by both endpoints (never reaches the
+   *  model prompt), kept in sessionStorage, and preserved in the transcript that goes
+   *  to the research sink. Optional so transcripts saved before this stay valid. */
+  ts?: string
 }
 
 // In-session resume: keep the live reflection in sessionStorage (per tab,
@@ -117,7 +122,7 @@ export function ReflectionDialog() {
         setTurnQuality(saved.turnQuality ?? [])
         setDirectAnswers(saved.directAnswers ?? 0)
       } else {
-        setHistory([{ role: "assistant", content: topic.reflectionQuestion }])
+        setHistory([{ role: "assistant", content: topic.reflectionQuestion, ts: new Date().toISOString() }])
         setCountedTurns(0)
         setInsight(false)
         setTurnQuality([])
@@ -181,7 +186,7 @@ export function ReflectionDialog() {
   const send = useCallback(
     async (text: string) => {
       if (!text.trim() || isLoading) return
-      const studentTurn: Turn = { role: "human", content: text.trim() }
+      const studentTurn: Turn = { role: "human", content: text.trim(), ts: new Date().toISOString() }
       const nextHistory = [...history, studentTurn]
       setHistory(nextHistory)
       setInput("")
@@ -196,7 +201,7 @@ export function ReflectionDialog() {
         })
         if (!res.ok) throw new Error("backend error")
         const data = await res.json()
-        setHistory((prev) => [...prev, { role: "assistant", content: data.response }])
+        setHistory((prev) => [...prev, { role: "assistant", content: data.response, ts: new Date().toISOString() }])
         if (data.understood === true) setInsight(true)
         // Quality gate: advance the floor only when the turn is a genuine on-topic
         // reflection. Only an EXPLICIT `counts === false` blocks the increment, so
@@ -246,7 +251,7 @@ export function ReflectionDialog() {
     const asked =
       input.trim() ||
       `I am stuck. Explain ${topicTitle} in plain language, with one everyday example.`
-    const nextHistory: Turn[] = [...history, { role: "human", content: asked, direct: true }]
+    const nextHistory: Turn[] = [...history, { role: "human", content: asked, direct: true, ts: new Date().toISOString() }]
     setHistory(nextHistory)
     setInput("")
     setErrorMsg(null)
@@ -267,7 +272,7 @@ export function ReflectionDialog() {
       })
       if (!res.ok) throw new Error("backend error")
       const data = await res.json()
-      setHistory((prev) => [...prev, { role: "assistant", content: data.answer, direct: true }])
+      setHistory((prev) => [...prev, { role: "assistant", content: data.answer, direct: true, ts: new Date().toISOString() }])
     } catch {
       setErrorMsg(
         "⚠️ The AI tutor is offline right now, so it couldn't answer that. Your question was saved — try again in a moment, or carry on and come back from your dashboard later.",

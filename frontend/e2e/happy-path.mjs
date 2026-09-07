@@ -439,9 +439,11 @@ test("the shared debrief withdraws the assessment jump inside a unit", async (pa
 // still runs when Ollama is down, which it was for most of this suite's life.
 test("the tutor step opens the Socratic surface, not the explain path", async (page, t) => {
   const socratic = []
+  const socraticBodies = []
   const ask = []
   await page.route("**/api/socratic", async (route) => {
     socratic.push(route.request().url())
+    try { socraticBodies.push(route.request().postDataJSON()) } catch { socraticBodies.push(null) }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -528,6 +530,16 @@ test("the tutor step opens the Socratic surface, not the explain path", async (p
   t.check("and never to the explain path", ask.length === 0, { socratic, ask })
   const afterTurn = await page.locator('[role="dialog"]').innerText()
   t.check("the reflection floor advanced", /1\/3/.test(afterTurn), afterTurn.match(/\d\/3/)?.[0])
+
+  // Per-turn timestamps: the transcript the browser builds stamps every turn with an
+  // ISO `ts`, and that same history object is what goes to the research sink on finish
+  // (meta.transcript). Assert it here on the REAL turn the browser just sent, in-browser
+  // — the sink then stores meta verbatim (test_research_api), so the exported transcript
+  // carries the timestamps.
+  const sentHistory = socraticBodies[0]?.history ?? []
+  t.check("every turn in the sent transcript carries an ISO ts",
+    sentHistory.length > 0 && sentHistory.every((h) => typeof h.ts === "string" && !Number.isNaN(Date.parse(h.ts))),
+    sentHistory.map((h) => ({ role: h.role, ts: h.ts })))
 
   // The way out of the loop goes to the EXPLAIN endpoint, and does not buy progress.
   t.require("a visible way out of the loop exists", (await page.locator('[data-testid="tell-me"]').count()) > 0)
