@@ -13,6 +13,36 @@ try:
 except Exception:
     pass
 
+
+# ── deployment config: load deploy/.env.local into THIS process ────────────────
+# start.ps1 also parses this file, but it relies on Start-Process to pass its env down
+# to uvicorn -- which proved fragile on the box (2026-09-10: QUESTIONNAIRES_ENABLED=1
+# sat in .env.local and never reached the running process). Loading it here makes a flag
+# in that file authoritative regardless of the launcher. Runs BEFORE the routers below
+# import (topic_api / questionnaire_api read their flags at module scope). It NEVER
+# overrides an already-set variable (an explicit env override, or a test's own setup,
+# still wins), tolerates a Notepad-saved BOM (utf-8-sig), and is a silent no-op when the
+# file is absent -- so the fail-closed defaults (questionnaires + telemetry OFF) hold on
+# any box, dev, or clone that has not deliberately turned them on.
+def _load_env_local() -> None:
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "deploy", ".env.local")
+    try:
+        with open(path, encoding="utf-8-sig") as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key, val = key.strip(), val.strip()
+                if key and key not in os.environ:
+                    os.environ[key] = val
+    except OSError:
+        pass
+
+
+_load_env_local()
+
 from typing import Optional, Any
 import secrets
 from fastapi import FastAPI, HTTPException, Cookie, Header, Request, Response
