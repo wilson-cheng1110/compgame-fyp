@@ -51,6 +51,16 @@ if (Test-Path $envFile) {
     }
 }
 
+# Study data collection is ON for a real deployment: the HSESC amendment is cleared
+# (Wilson, 2026-09-10), and hand-toggling this in .env.local on the box proved
+# error-prone. Set AFTER the .env.local load and only when unset, so a box can still
+# force either OFF with =0 in deploy\.env.local (loaded above; already-set wins). Tests
+# and e2e do NOT go through this launcher, so their fail-closed module defaults stand --
+# this is a deployment decision that lives in deployment code, exactly where it belongs.
+foreach ($flag in 'QUESTIONNAIRES_ENABLED', 'TELEMETRY_ENABLED') {
+    if (-not [Environment]::GetEnvironmentVariable($flag)) { Set-Item -Path "env:$flag" -Value '1' }
+}
+
 $Py = Join-Path $Backend ".venv\Scripts\python.exe"
 if (-not (Test-Path $Py)) { $Py = "python" }
 
