@@ -296,6 +296,12 @@ export const admin = {
   report: (path: string) =>
     api.get<{ path: string; markdown: string }>(
       `/api/admin/reports/file?path=${encodeURIComponent(path)}`),
+  /** The tutorial DECKS (.pptx) — what the report page surfaces now. Always blind
+   *  and SID-free, so every row is safe to project. Download via a same-origin GET
+   *  (see deckDownloadUrl) so the HttpOnly session cookie rides along. */
+  decks: () => api.get<{ reports: ReportRow[] }>("/api/admin/reports/decks"),
+  deckDownloadUrl: (path: string) =>
+    `/api/admin/reports/download?path=${encodeURIComponent(path)}`,
   generateReport: (topic: string, section: string) =>
     api.post<{ ok: true; topic: string; section: string }>(
       "/api/admin/reports/generate", { topic, section }),
@@ -313,6 +319,11 @@ export interface ReportRow {
   projectable: boolean
   bytes: number
   modified: string
+  /** Deck rows carry structured parts so the page can show a human title.
+   *  (Absent on the older .md brief rows.) */
+  topic?: string | null
+  section?: string | null
+  date?: string | null
 }
 
 export interface ScheduleGrid {

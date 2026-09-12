@@ -109,7 +109,7 @@ test("a teacher can reach the panel by clicking, and a student cannot see it", a
   await studentCtx.close()
 })
 
-test("the tutorial brief is readable in the browser, and the research copy is not", async (page, t) => {
+test("the tutorial deck is downloadable in the browser, and the research copy stays blind", async (page, t) => {
   await teacherIn(page)
   await go(page, "/admin")
   await ready(page, 2500)
@@ -143,25 +143,35 @@ test("the tutorial brief is readable in the browser, and the research copy is no
     t.check(`traversal is refused: ${bad.slice(0, 28)}`, r.status === 400 || r.status === 404, r.status)
   }
 
-  if (reports.length) {
-    const safe = reports.find((r) => r.projectable) ?? reports[0]
-    const one = await apiFromPage(page,
-      "/api/admin/reports/file?path=" + encodeURIComponent(safe.path))
-    t.check("a brief can actually be read", one.status === 200 && !!one.body?.markdown,
-      one.status)
-    t.check("and it is the tutorial brief, not some other file",
-      /tutorial brief|Where the class landed/i.test(one.body?.markdown ?? ""),
-      (one.body?.markdown ?? "").slice(0, 80))
-    // Clicking it in the UI, not just fetching it.
-    const openBtn = page.locator('[data-testid="report-open"]').first()
-    if (await openBtn.count()) {
-      await openBtn.click()
-      await page.waitForTimeout(1800)
-      t.check("clicking Read shows it on the page",
-        (await page.locator('[data-testid="report-view"]').count()) === 1)
-    }
-    t.check("every listed brief says whether it is safe to project",
-      reports.every((r) => typeof r.projectable === "boolean"))
+  // THE PAGE SURFACES DECKS NOW, not the .md brief. The deck is the .pptx the teacher
+  // runs; the .md endpoints tested above still exist and stay blinded. Every deck is
+  // blind + SID-free by construction, so the list marks them all safe to project.
+  const decks = await apiFromPage(page, "/api/admin/reports/decks")
+  t.check("the API lists tutorial decks", decks.status === 200, decks.status)
+  const deckRows = decks.body?.reports ?? []
+  t.note(`${deckRows.length} deck(s) on disk`)
+  t.check("every listed deck is a .pptx marked safe to project",
+    deckRows.every((r) => r.path.toLowerCase().endsWith("-tutorial.pptx") && r.projectable === true),
+    deckRows.map((r) => r.path).slice(0, 3))
+
+  // The download endpoint carries the SAME allowlist + traversal defences as the
+  // brief reader: only a -tutorial.pptx can ever come back, never a -research copy
+  // and never a file outside reports/.
+  const notDeck = await apiFromPage(page,
+    "/api/admin/reports/download?path=" + encodeURIComponent("COMP3423/section-A/x-research.md"))
+  t.check("the deck download refuses a non-deck file", notDeck.status === 403, notDeck.status)
+  for (const bad of ["../../backend/enrolled_sids.txt", "..%2F..%2Fbackend%2Fauth_store.db"]) {
+    const r = await apiFromPage(page, "/api/admin/reports/download?path=" + encodeURIComponent(bad))
+    t.check(`deck traversal is refused: ${bad.slice(0, 28)}`, r.status === 400 || r.status === 404, r.status)
+  }
+
+  if (deckRows.length) {
+    const one = deckRows[0]
+    const dl = await apiFromPage(page,
+      "/api/admin/reports/download?path=" + encodeURIComponent(one.path))
+    t.check("a deck can actually be downloaded", dl.status === 200, dl.status)
+    t.check("the page offers a Download control",
+      (await page.locator('[data-testid="report-download"]').count()) >= 1)
   } else {
     t.check("with nothing generated it says so rather than showing an empty list",
       (await page.locator('[data-testid="reports-empty"]').count()) === 1)

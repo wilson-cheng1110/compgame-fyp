@@ -8,12 +8,14 @@
     the harder half. A study server that needs a human to restart it after Windows
     Update is a study server that is down every second Tuesday.
 
-    This registers three Scheduled Tasks -- built in to Windows, nothing to download,
+    This registers these Scheduled Tasks -- built in to Windows, nothing to download,
     unlike NSSM:
 
       COMPGame-Boot       at startup, runs deploy\start.ps1
       COMPGame-Watchdog   every 5 minutes, restarts anything that stopped answering
       COMPGame-Heartbeat  every 5 minutes, pings OUT to a dead-man's switch
+      COMPGame-Checks     daily 6am, runs the measurement/corpus/schedule checks
+      COMPGame-Decks      daily 5am, builds the tutorial deck due before each class
 
     The heartbeat is the one people skip and it is the one that matters. Inbound
     monitoring cannot tell you a box is off, because nothing answers either way. A
@@ -37,7 +39,8 @@ param([switch]$Remove)
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Start = Join-Path $Root "deploy\start.ps1"
-$Names = @("COMPGame-Boot", "COMPGame-Watchdog", "COMPGame-Heartbeat")
+$Names = @("COMPGame-Boot", "COMPGame-Watchdog", "COMPGame-Heartbeat",
+           "COMPGame-Checks", "COMPGame-Decks")
 
 function Ok($m)   { Write-Host "  [ok]   $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "  [warn] $m" -ForegroundColor Yellow }
@@ -145,6 +148,27 @@ if ($fails.Count -eq 0) {
 '@ | Set-Content -Path $checks -Encoding utf8
 Ok "wrote deploy\daily-checks.ps1"
 
+# ---------------------------------------------------------------- tutorial decks
+# A fresh tutorial deck waiting for the teacher before every class, without anyone
+# remembering to click Generate. make_tutorial_decks.py builds only the decks whose
+# lecture is within the next ~30 h, skips a topic with no data, and always exits 0
+# (no classes today is not a failure). The deck's teaching is authored, so no Ollama
+# is needed; add --llm to the line below to also cluster short answers into a themes
+# slide.
+$decks = Join-Path $Root "deploy\make-decks.ps1"
+@'
+# Build the tutorial decks due before class. Registered by install-services.ps1.
+$root = Split-Path -Parent $PSScriptRoot
+$be = Join-Path $root "backend"
+$log = Join-Path $PSScriptRoot "logs\decks.log"
+New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
+"$(Get-Date -Format s)  building due tutorial decks" | Add-Content $log
+Push-Location $be
+& python make_tutorial_decks.py *>> $log
+Pop-Location
+'@ | Set-Content -Path $decks -Encoding utf8
+Ok "wrote deploy\make-decks.ps1"
+
 # ------------------------------------------------------------------ register
 function Register($name, $script, $trigger) {
     if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
@@ -176,6 +200,11 @@ Register "COMPGame-Heartbeat" $heartbeat $every5
 # Daily, early, so a failure is on the file before anyone opens a brief.
 $daily = New-ScheduledTaskTrigger -Daily -At 6am
 Register "COMPGame-Checks"    $checks    $daily
+
+# Daily, before class. The module closes 48 h before the lecture, so the data is
+# complete; 5am leaves the deck on the /admin page well before a 9am tutorial.
+$deckTrigger = New-ScheduledTaskTrigger -Daily -At 5am
+Register "COMPGame-Decks"     $decks     $deckTrigger
 
 # ------------------------------------------------------------------- tunnel
 Write-Host ""

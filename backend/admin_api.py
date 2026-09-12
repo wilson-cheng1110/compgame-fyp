@@ -53,6 +53,7 @@ import sys
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Cookie, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import auth_store
@@ -296,6 +297,11 @@ REPORTS_DIR = os.environ.get(
     "REPORTS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reports"))
 
 _SAFE = re.compile(r"^[A-Za-z0-9._-]+$")
+# Pull the human parts out of a deck path so the page can show "Miller's Law · Section
+# A · built 2 h ago" instead of a raw filename. Topic ids contain hyphens and the date
+# is hyphenated too, so anchor on the trailing -<date>-tutorial.pptx.
+_DECK_RE = re.compile(r"^(?P<topic>.+)-(?P<date>\d{4}-\d{2}-\d{2})-tutorial\.pptx$", re.I)
+_SECTION_RE = re.compile(r"section-([A-Za-z0-9]+)", re.I)
 
 
 @router.get("/reports")
@@ -382,19 +388,85 @@ async def read_report(path: str, response: Response,
         return {"path": "/".join(parts), "markdown": fh.read()}
 
 
+@router.get("/reports/decks")
+async def list_decks(response: Response, session: str | None = Cookie(default=None)):
+    """Every tutorial DECK on disk, newest first — the .pptx the teacher runs in the
+    tutorial hour, one blind deck per (topic, section).
+
+    generate_tutorial_deck.py writes ONLY `<topic>-<date>-tutorial.pptx`, and asserts
+    before saving that the file is blind to FLIP/CONTROL and carries no SID. So the
+    single-suffix allowlist here cannot surface a copy that names a student or the
+    study conditions — the same allowlist-not-denylist reasoning as the briefs above,
+    and the reason a deck is safe to both list and hand to the browser."""
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    out = []
+    for root, _dirs, files in os.walk(REPORTS_DIR):
+        for fn in sorted(files):
+            if not fn.lower().endswith("-tutorial.pptx"):
+                continue
+            full = os.path.join(root, fn)
+            rel = os.path.relpath(full, REPORTS_DIR).replace(os.sep, "/")
+            m = _DECK_RE.match(fn)
+            sec = _SECTION_RE.search(rel)
+            out.append({
+                "path": rel,
+                "name": fn.rsplit(".", 1)[0],
+                # Structured parts so the page shows a human title, not a filename.
+                "topic": m.group("topic") if m else None,
+                "date": m.group("date") if m else None,
+                "section": sec.group(1).upper() if sec else None,
+                "projectable": True,   # blind + SID-free by construction
+                "bytes": os.path.getsize(full),
+                "modified": datetime.fromtimestamp(
+                    os.path.getmtime(full), timezone.utc).isoformat(),
+            })
+    out.sort(key=lambda r: r["modified"], reverse=True)
+    return {"reports": out[:200]}
+
+
+@router.get("/reports/download")
+async def download_deck(path: str, response: Response,
+                        session: str | None = Cookie(default=None)):
+    """One tutorial deck, as a .pptx download. Same traversal defences as the brief
+    reader, and an allowlist of the ONE safe suffix -- a request can only ever resolve
+    to a `-tutorial.pptx`, which the generator guarantees is blind and SID-free."""
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    parts = [p for p in path.split("/") if p]
+    if not parts or any(not _SAFE.match(p) or p in ("..", ".") for p in parts):
+        response.status_code = 400
+        return {"error": "bad_path"}
+    if not parts[-1].lower().endswith("-tutorial.pptx"):
+        response.status_code = 403
+        return {"error": "not_a_deck",
+                "message": "Only tutorial decks are downloadable here."}
+    full = os.path.abspath(os.path.join(REPORTS_DIR, *parts))
+    if not full.startswith(os.path.abspath(REPORTS_DIR)) or not os.path.isfile(full):
+        response.status_code = 404
+        return {"error": "no_such_deck"}
+    # Last-line defence: whatever the query string cased, verify the file the OS
+    # actually opened is a deck (realpath is case-corrected, trailing dots stripped).
+    if not os.path.basename(os.path.realpath(full)).lower().endswith("-tutorial.pptx"):
+        response.status_code = 403
+        return {"error": "not_a_deck"}
+    return FileResponse(
+        full, filename=os.path.basename(full),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+
+
 @router.post("/reports/generate")
 async def generate_report(body: GenerateReport, response: Response,
                           session: str | None = Cookie(default=None)):
-    """Generate this week's tutorial brief from the browser — the affordance the
-    sweep found missing (Defect 3 was only half-closed: a teacher could READ a brief
-    but not PRODUCE one without shell access, so the empty state handed a
-    non-technical lecturer a raw CLI command).
-
-    Runs the SAME generator as the CLI, in a subprocess with --no-llm so it never
-    blocks on Ollama and always returns the numeric report the teacher needs. The
-    three files (teacher / discussion / research) are written as always; the
-    -research copy is still never served to the browser. Audited like every mutation.
-    """
+    """Generate this week's tutorial DECK from the browser (the affordance the sweep
+    found missing: a teacher could read a brief but not produce one without shell
+    access). Runs generate_tutorial_deck.py in a subprocess -- the deck's teaching is
+    authored, so it never blocks on Ollama and always returns the runnable .pptx the
+    teacher stands up with. The deck is blind and SID-free by construction (the
+    generator asserts both before saving), which is why it is safe to list and
+    download on this page. Audited like every mutation."""
     sid, err = _admin(session, response)
     if err:
         return err
@@ -422,13 +494,13 @@ async def generate_report(body: GenerateReport, response: Response,
     here = os.path.dirname(os.path.abspath(__file__))
     proc = await ops.run_report_job(
         subprocess.run,
-        [sys.executable, os.path.join(here, "generate_tutorial_report.py"),
-         "--topic", topic, "--section", section, "--no-llm"],
+        [sys.executable, os.path.join(here, "generate_tutorial_deck.py"),
+         "--topic", topic, "--section", section],
         capture_output=True, text=True, cwd=here, timeout=120,
     )
     if proc.returncode != 0:
         response.status_code = 500
         return {"error": "generate_failed",
                 "message": (proc.stderr or proc.stdout or "").strip()[-300:]}
-    auth_store.audit(sid, "generate_report", None, f"{topic}/{section}")
+    auth_store.audit(sid, "generate_deck", None, f"{topic}/{section}")
     return {"ok": True, "topic": topic, "section": section}
