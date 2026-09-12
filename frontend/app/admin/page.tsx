@@ -1,12 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import ReportsPanel from "./reports-panel"
-import SchedulePanel from "./schedule-panel"
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import ReportsPanel from "./reports-panel"
+import SchedulePanel from "./schedule-panel"
 import { admin, auth, researcher, type AdminParticipant, type AuditEntry, type SectionOption } from "@/lib/api"
+import { StaffHeader, StatCard, StatGrid, Banner, ConsoleSkeleton } from "@/components/staff"
 
 // The teacher surface. Everything here is enforced server-side (admin_api.py: a valid
 // session AND membership of the allowlist file) — this page only ASKS. It draws three
@@ -22,14 +22,19 @@ import { admin, auth, researcher, type AdminParticipant, type AuditEntry, type S
 // is shown verbatim rather than being swallowed: sign-in re-reads the section from
 // that file every time, so a change made here would be silently reverted at the
 // student's next login. Saying so beats appearing to work.
+//
+// Revamp (2026-09): stat cards for the counts, the account "Manage" panel de-crammed
+// into labelled sub-cards, the audit trail behind a collapsible, and a deck callout up
+// top — this is the lecturer's real weekly job. Presentation only; still BLIND to the
+// study (no arms/sequence anywhere on this surface).
 
 // The three jobs this panel does, at three different cadences: everyday account fixes,
-// the weekly tutorial brief, the rare lecture-date move. They were one long scroll; they
+// the weekly tutorial deck, the rare lecture-date move. They were one long scroll; they
 // are now three tabs. Accounts is the default — which is also where the teacher/unhappy
 // e2e suites expect to land.
 const TABS = [
   ["accounts", "Accounts"],
-  ["briefs", "Tutorial briefs"],
+  ["briefs", "Tutorial decks"],
   ["schedule", "Lecture dates"],
 ] as const
 type AdminTab = (typeof TABS)[number][0]
@@ -156,8 +161,9 @@ export default function AdminPage() {
 
   if (state === "checking") {
     return (
-      <main className="shell min-h-screen flex items-center justify-center">
-        <p className="u-muted">Checking…</p>
+      <main className="shell min-h-screen">
+        <StaffHeader chip="Course team" />
+        <ConsoleSkeleton />
       </main>
     )
   }
@@ -191,29 +197,40 @@ export default function AdminPage() {
 
   return (
     <main className="shell min-h-screen">
-      <header className="u-nav">
-        <div className="mx-auto w-full max-w-5xl px-5 h-14 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <Image src="/images/logo.png" alt="" width={26} height={26} priority />
-            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
+      <StaffHeader chip="Course team">
+        {isResearcher && (
+          <Link href="/researcher" className="u-btn" data-testid="researcher-link">
+            Researcher tools →
           </Link>
-          <div className="flex items-center gap-3">
-            {isResearcher && (
-              <Link href="/researcher" className="u-btn" data-testid="researcher-link">
-                Researcher tools →
-              </Link>
-            )}
-            <span className="u-chip u-chip-open">Course team</span>
-          </div>
-        </div>
-      </header>
+        )}
+      </StaffHeader>
 
       <div className="mx-auto w-full max-w-5xl px-5 py-8 pb-20">
         <p className="u-eyebrow">Admin</p>
         <h1 className="u-h1 mt-1">Course team</h1>
 
-        <div role="tablist" aria-label="Course-team sections"
-             className="flex gap-1 mt-5" style={{ borderBottom: "1px solid var(--rule)" }}>
+        {/* The lecturer's real weekly job, one click away from wherever they land. */}
+        {tab !== "briefs" && (
+          <div className="u-card mt-5 p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <p style={{ fontWeight: 600 }}>This week&apos;s tutorial decks are ready</p>
+              <p className="u-faint mt-0.5">
+                A slide deck is built automatically before each class — concept recap,
+                discussion questions to project, and how the class actually did.
+              </p>
+            </div>
+            <button className="u-btn u-btn-primary" onClick={() => setTab("briefs")}>
+              Open decks →
+            </button>
+          </div>
+        )}
+
+        <div
+          role="tablist"
+          aria-label="Course-team sections"
+          className="flex gap-1 mt-6"
+          style={{ borderBottom: "1px solid var(--rule)" }}
+        >
           {TABS.map(([key, label]) => (
             <button
               key={key}
@@ -225,6 +242,7 @@ export default function AdminPage() {
               style={{
                 border: "none",
                 borderRadius: 0,
+                background: "transparent",
                 borderBottom: tab === key ? "2px solid var(--accent)" : "2px solid transparent",
                 color: tab === key ? "var(--accent)" : undefined,
                 fontWeight: tab === key ? 600 : 400,
@@ -236,207 +254,224 @@ export default function AdminPage() {
         </div>
 
         {tab === "accounts" && (
-        <div>
-        <p className="u-stem u-muted mt-4">
-          Correct a section, or reset a password for a student who has lost theirs. Every
-          change here is logged with your SID. Answers and scores are not on this page —
-          those come out of the pseudonymised export.
-        </p>
-
-        {counts && (
-          <div className="flex gap-6 mt-6 flex-wrap" data-testid="admin-counts">
-            {[
-              ["Accounts", counts.total],
-              ["Signed up", counts.claimed],
-              ["Withdrawn", counts.withdrawn],
-            ].map(([label, n]) => (
-              <div key={String(label)}>
-                <p className="u-eyebrow">{label}</p>
-                <p className="u-h2 u-num mt-1">{n}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {roster && (
-          <p className="u-faint mt-5" style={{ borderLeft: "3px solid var(--rule-strong)", paddingLeft: ".75rem" }}>
-            A class list is configured, so it decides each student&apos;s section. Sign-in
-            re-reads it every time, so changing a section here would be undone —
-            edit <span className="u-num">enrolled_sids.txt</span> instead.
-          </p>
-        )}
-
-        {note && (
-          <div
-            className="u-card p-4 mt-5"
-            data-testid="admin-note"
-            style={{
-              borderColor: note.kind === "ok" ? "var(--state-done)" : "var(--state-late)",
-              color: note.kind === "ok" ? "var(--state-done)" : "var(--state-late)",
-            }}
-          >
-            {note.text}
-          </div>
-        )}
-
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Find a student by ID or name"
-          className="u-field mt-6"
-          data-testid="admin-search"
-        />
-
-        <ol className="mt-4 space-y-2" data-testid="admin-list">
-          {filtered.map((r) => (
-            <li key={r.sid}>
-              <div className="u-row p-4">
-                <div className="flex items-baseline gap-4 flex-wrap">
-                  <span className="u-num" style={{ fontWeight: 600 }}>
-                    {r.sid}
-                  </span>
-                  <span className="flex-1 min-w-0 truncate">{r.username ?? <span className="u-faint">no name yet</span>}</span>
-                  <span className="u-chip u-chip-open">Section {r.section ?? "—"}</span>
-                  {!r.has_password && <span className="u-chip u-chip-locked">Not signed up</span>}
-                  {!!r.withdrawn && <span className="u-chip u-chip-late">Withdrawn</span>}
-                  {!!r.disabled && <span className="u-chip u-chip-locked">Disabled</span>}
-                  <button
-                    className="u-btn"
-                    data-testid="admin-manage"
-                    onClick={() => {
-                      setOpen(open === r.sid ? null : r.sid)
-                      setPw("")
-                      setUname(r.username ?? "")
-                      setNote(null)
-                    }}
-                  >
-                    {open === r.sid ? "Close" : "Manage"}
-                  </button>
-                </div>
-
-                {open === r.sid && (
-                  <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--rule)" }}>
-                    <p className="u-eyebrow mb-2">Section</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {sections.map((s) => (
-                        <button
-                          key={s.code}
-                          disabled={roster}
-                          onClick={() => changeSection(r.sid, s.code)}
-                          data-testid="admin-section"
-                          className="u-btn"
-                          style={{ opacity: roster ? 0.45 : 1 }}
-                        >
-                          {s.code} · {s.day}
-                        </button>
-                      ))}
-                    </div>
-
-                    <p className="u-eyebrow mt-5 mb-2">Reset password</p>
-                    <div className="flex gap-2 flex-wrap items-center">
-                      <input
-                        type="text"
-                        value={pw}
-                        onChange={(e) => setPw(e.target.value)}
-                        placeholder="new password, 8+ characters"
-                        className="u-field"
-                        style={{ maxWidth: "18rem" }}
-                        data-testid="admin-newpw"
-                      />
-                      <label className="u-faint flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={endSessions}
-                          onChange={(e) => setEndSessions(e.target.checked)}
-                          data-testid="admin-endsessions"
-                        />
-                        also sign them out everywhere
-                      </label>
-                      <button
-                        className="u-btn u-btn-primary"
-                        onClick={() => resetPassword(r.sid)}
-                        data-testid="admin-reset"
-                      >
-                        Set it
-                      </button>
-                    </div>
-                    <p className="u-faint mt-2">
-                      A forgotten password is not a compromise, so their existing sessions
-                      stay alive unless you tick the box.
-                    </p>
-
-                    <p className="u-eyebrow mt-5 mb-2">Display name</p>
-                    <div className="flex gap-2 flex-wrap items-center">
-                      <input
-                        type="text"
-                        value={uname}
-                        onChange={(e) => setUname(e.target.value)}
-                        placeholder="display name"
-                        className="u-field"
-                        style={{ maxWidth: "18rem" }}
-                        data-testid="admin-username"
-                      />
-                      <button
-                        className="u-btn"
-                        onClick={() => saveUsername(r.sid)}
-                        data-testid="admin-username-save"
-                      >
-                        Save name
-                      </button>
-                    </div>
-
-                    <p className="u-eyebrow mt-5 mb-2">Access</p>
-                    {r.disabled ? (
-                      <button
-                        className="u-btn u-btn-primary"
-                        onClick={() => toggleDisabled(r.sid, false)}
-                        data-testid="admin-enable"
-                      >
-                        Re-enable this account
-                      </button>
-                    ) : (
-                      <button
-                        className="u-btn"
-                        onClick={() => toggleDisabled(r.sid, true)}
-                        data-testid="admin-disable"
-                      >
-                        Disable this account
-                      </button>
-                    )}
-                    <p className="u-faint mt-2">
-                      Disabling blocks sign-in and signs them out now, but keeps their data.
-                      Removing a participant from the study is withdrawal, not this.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </li>
-          ))}
-          {!filtered.length && <p className="u-muted mt-4">No accounts match that.</p>}
-        </ol>
-
-        {entries.length > 0 && (
-          <div className="mt-10">
-            <p className="u-eyebrow">Recent changes</p>
-            <p className="u-faint mt-1 mb-3">
-              An audit trail nobody can read is decoration, so it is here.
+          <div>
+            <p className="u-stem u-muted mt-4">
+              Correct a section, or reset a password for a student who has lost theirs. Every
+              change here is logged with your SID. Answers and scores are not on this page —
+              those come out of the pseudonymised export.
             </p>
-            <ol className="space-y-1" data-testid="admin-audit">
-              {entries.slice(0, 20).map((e) => (
-                <li key={e.id} className="u-faint u-num">
-                  {new Date(e.at).toLocaleString()} · {e.admin_sid} · {e.action}
-                  {e.target_sid ? ` · ${e.target_sid}` : ""}
-                  {e.detail ? ` · ${e.detail}` : ""}
+
+            {counts && (
+              <div className="mt-6">
+                <StatGrid cols={3} testid="admin-counts">
+                  <StatCard label="Accounts" value={counts.total} />
+                  <StatCard label="Signed up" value={counts.claimed} />
+                  <StatCard label="Withdrawn" value={counts.withdrawn} />
+                </StatGrid>
+              </div>
+            )}
+
+            {roster && (
+              <div className="mt-5">
+                <Banner tone="info">
+                  A class list is configured, so it decides each student&apos;s section. Sign-in
+                  re-reads it every time, so changing a section here would be undone — edit{" "}
+                  <span className="u-num">enrolled_sids.txt</span> instead.
+                </Banner>
+              </div>
+            )}
+
+            {note && (
+              <div className="mt-5">
+                <Banner tone={note.kind === "ok" ? "ok" : "warn"} testid="admin-note">
+                  {note.text}
+                </Banner>
+              </div>
+            )}
+
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Find a student by ID or name"
+              className="u-field mt-6"
+              data-testid="admin-search"
+            />
+
+            <ol className="mt-4 space-y-2" data-testid="admin-list">
+              {filtered.map((r) => (
+                <li key={r.sid}>
+                  <div className="u-row p-4">
+                    <div className="flex items-baseline gap-4 flex-wrap">
+                      <span className="u-num" style={{ fontWeight: 600 }}>
+                        {r.sid}
+                      </span>
+                      <span className="flex-1 min-w-0 truncate">
+                        {r.username ?? <span className="u-faint">no name yet</span>}
+                      </span>
+                      <span className="u-chip u-chip-open">Section {r.section ?? "—"}</span>
+                      {!r.has_password && <span className="u-chip u-chip-locked">Not signed up</span>}
+                      {!!r.withdrawn && <span className="u-chip u-chip-late">Withdrawn</span>}
+                      {!!r.disabled && <span className="u-chip u-chip-locked">Disabled</span>}
+                      <button
+                        className="u-btn"
+                        data-testid="admin-manage"
+                        onClick={() => {
+                          setOpen(open === r.sid ? null : r.sid)
+                          setPw("")
+                          setUname(r.username ?? "")
+                          setNote(null)
+                        }}
+                      >
+                        {open === r.sid ? "Close" : "Manage"}
+                      </button>
+                    </div>
+
+                    {open === r.sid && (
+                      <div
+                        className="mt-4 pt-4 grid gap-3 sm:grid-cols-2"
+                        style={{ borderTop: "1px solid var(--rule)" }}
+                      >
+                        {/* Section */}
+                        <div className="u-card-quiet" style={{ padding: "0.9rem 1rem" }}>
+                          <p className="u-eyebrow mb-2">Section</p>
+                          <div className="flex gap-2 flex-wrap">
+                            {sections.map((s) => (
+                              <button
+                                key={s.code}
+                                disabled={roster}
+                                onClick={() => changeSection(r.sid, s.code)}
+                                data-testid="admin-section"
+                                className="u-btn"
+                              >
+                                {s.code} · {s.day}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Access */}
+                        <div className="u-card-quiet" style={{ padding: "0.9rem 1rem" }}>
+                          <p className="u-eyebrow mb-2">Access</p>
+                          {r.disabled ? (
+                            <button
+                              className="u-btn u-btn-primary"
+                              onClick={() => toggleDisabled(r.sid, false)}
+                              data-testid="admin-enable"
+                            >
+                              Re-enable this account
+                            </button>
+                          ) : (
+                            <button
+                              className="u-btn"
+                              onClick={() => toggleDisabled(r.sid, true)}
+                              data-testid="admin-disable"
+                            >
+                              Disable this account
+                            </button>
+                          )}
+                          <p className="u-faint mt-2">
+                            Disabling blocks sign-in and signs them out now, but keeps their data.
+                            Removing a participant from the study is withdrawal, not this.
+                          </p>
+                        </div>
+
+                        {/* Reset password */}
+                        <div className="u-card-quiet" style={{ padding: "0.9rem 1rem" }}>
+                          <p className="u-eyebrow mb-2">Reset password</p>
+                          <div className="flex gap-2 flex-wrap items-center">
+                            <input
+                              type="text"
+                              value={pw}
+                              onChange={(e) => setPw(e.target.value)}
+                              placeholder="new password, 8+ characters"
+                              className="u-field"
+                              style={{ maxWidth: "18rem" }}
+                              data-testid="admin-newpw"
+                            />
+                            <button
+                              className="u-btn u-btn-primary"
+                              onClick={() => resetPassword(r.sid)}
+                              data-testid="admin-reset"
+                            >
+                              Set it
+                            </button>
+                          </div>
+                          <label className="u-faint flex items-center gap-2 mt-2">
+                            <input
+                              type="checkbox"
+                              checked={endSessions}
+                              onChange={(e) => setEndSessions(e.target.checked)}
+                              data-testid="admin-endsessions"
+                            />
+                            also sign them out everywhere
+                          </label>
+                          <p className="u-faint mt-2">
+                            A forgotten password is not a compromise, so their existing sessions
+                            stay alive unless you tick the box.
+                          </p>
+                        </div>
+
+                        {/* Display name */}
+                        <div className="u-card-quiet" style={{ padding: "0.9rem 1rem" }}>
+                          <p className="u-eyebrow mb-2">Display name</p>
+                          <div className="flex gap-2 flex-wrap items-center">
+                            <input
+                              type="text"
+                              value={uname}
+                              onChange={(e) => setUname(e.target.value)}
+                              placeholder="display name"
+                              className="u-field"
+                              style={{ maxWidth: "18rem" }}
+                              data-testid="admin-username"
+                            />
+                            <button
+                              className="u-btn"
+                              onClick={() => saveUsername(r.sid)}
+                              data-testid="admin-username-save"
+                            >
+                              Save name
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </li>
               ))}
+              {!filtered.length && <p className="u-muted mt-4">No accounts match that.</p>}
             </ol>
+
+            {entries.length > 0 && (
+              // Open by default: a collapsed details element hides its content from
+              // innerText, breaking the "audit trail nobody can read is decoration"
+              // invariant. Still collapsible, just visible by default.
+              <details className="u-group mt-10" open>
+                <summary className="u-group-head">
+                  <span className="u-eyebrow" style={{ color: "var(--ink-body)" }}>
+                    Recent changes
+                  </span>
+                  <span className="u-faint">{entries.length} logged</span>
+                </summary>
+                <div className="u-group-body">
+                  <p className="u-faint mb-3">
+                    An audit trail nobody can read is decoration, so it is here.
+                  </p>
+                  <ol className="space-y-1" data-testid="admin-audit">
+                    {entries.slice(0, 20).map((e) => (
+                      <li key={e.id} className="u-faint u-num">
+                        {new Date(e.at).toLocaleString()} · {e.admin_sid} · {e.action}
+                        {e.target_sid ? ` · ${e.target_sid}` : ""}
+                        {e.detail ? ` · ${e.detail}` : ""}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </details>
+            )}
           </div>
         )}
 
-        </div>
-        )}
-
-        {/* The weekly job. Its own tab now, not a scroll past the account list. */}
+        {/* The weekly job. Its own tab, not a scroll past the account list. */}
         {tab === "briefs" && <ReportsPanel />}
 
         {/* Lecture dates: the rarest job and the widest blast radius, so it is a

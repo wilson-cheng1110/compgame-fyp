@@ -79,11 +79,13 @@ function saveChat(messages: Message[]) {
 }
 
 export function AiChatWidget() {
-  // The tutor answers from the LECTURE corpus, for students. It has no purpose on
-  // the course-team panel or the signed-out pages, and showing it there is a false
-  // affordance (sweep). Hidden on those surfaces.
+  // The tutor answers from the LECTURE corpus, for students. It has no purpose on the
+  // staff consoles (the course-team panel OR the researcher monitor) or the signed-out
+  // pages, and showing it there is a false affordance (sweep). Hidden on those surfaces.
+  // Note: students never reach /researcher, so this suppression is inert for them.
   const pathname = usePathname()
   const hideOn = pathname === "/" || pathname?.startsWith("/admin") ||
+                 pathname?.startsWith("/researcher") ||
                  pathname?.startsWith("/login") || pathname?.startsWith("/signup")
   // gestalt-assessment runs the game in an iframe whose src is a /games/* route, so
   // this widget mounts a SECOND time inside the frame, stacked on the outer one. Hide

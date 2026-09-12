@@ -3,22 +3,26 @@
 import { useEffect, useState } from "react"
 import { admin, type ScheduleGrid, type SessionDateResult } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
+import { DataTable, THEAD_ROW_STYLE, TROW_STYLE, Banner } from "@/components/staff"
 
 // MOVING A LECTURE, WITHOUT SSH.
 //
 // Until now the only way to move a lecture was to hand-edit backend/topic_schedule.json
-// on the deployment box. That is fine for the person who wrote the file and untenable
-// for a course team in week nine: a typhoon day, a room change, a public holiday
-// nobody had entered. The file's own comment says holiday displacements are edited
-// there "and nowhere else", and every release window derives from those dates, so
-// exactly one field is exposed here -- sessions[n][section] -- and the derivation
-// stays in schedule.py where it can be tested.
+// on the deployment box. That is fine for the person who wrote the file and untenable for
+// a course team in week nine: a typhoon day, a room change, a public holiday nobody had
+// entered. The file's own comment says holiday displacements are edited there "and nowhere
+// else", and every release window derives from those dates, so exactly one field is
+// exposed here -- sessions[n][section] -- and the derivation stays in schedule.py where it
+// can be tested.
 //
 // TWO STEPS, ALWAYS. The date of a lecture is the timing of the independent variable.
-// Pushing one forward can put a topic a student is halfway through back behind a
-// lock; pulling one back marks topics late, which is still enterable by design. So
-// the panel previews first and shows precisely which topics change state, and the
-// teacher presses Apply against that list rather than against a date picker.
+// Pushing one forward can put a topic a student is halfway through back behind a lock;
+// pulling one back marks topics late, which is still enterable by design. So the panel
+// previews first and shows precisely which topics change state, and the teacher presses
+// Apply against that list rather than against a date picker.
+//
+// Revamp (2026-09): restyled onto the shared staff kit (DataTable / Banner). Logic,
+// preview→apply gating and testids unchanged.
 
 const title = (id: string) => TOPICS.find((t) => t.id === id)?.title ?? id
 
@@ -80,60 +84,51 @@ export default function SchedulePanel({ onDone }: { onDone: () => void }) {
   const secs = Object.keys(grid.sections)
 
   return (
-    <section className="mt-12" data-testid="admin-schedule">
+    <section className="mt-8" data-testid="admin-schedule">
       <h2 className="u-h2">Lecture dates</h2>
       <p className="u-stem u-muted mt-2">
-        Topics open seven days before their lecture and close two days before the next
-        one, per section — so moving a date here moves that section&apos;s release
-        window and nothing else. Every change is logged with your SID.
+        Topics open seven days before their lecture and close two days before the next one, per
+        section — so moving a date here moves that section&apos;s release window and nothing else.
+        Every change is logged with your SID.
       </p>
 
       {grid.problems.length > 0 && (
-        <div
-          className="u-card p-4 mt-5"
-          style={{ borderColor: "var(--state-late)" }}
-          data-testid="schedule-problems"
-        >
-          <p style={{ fontWeight: 600 }}>The schedule has problems right now</p>
-          <ul className="u-faint mt-1.5 space-y-1">
-            {grid.problems.map((p) => (
-              <li key={p}>· {p}</li>
-            ))}
-          </ul>
+        <div className="mt-5">
+          <Banner tone="warn" testid="schedule-problems">
+            <p style={{ fontWeight: 600 }}>The schedule has problems right now</p>
+            <ul className="mt-1.5 space-y-1">
+              {grid.problems.map((p) => (
+                <li key={p}>· {p}</li>
+              ))}
+            </ul>
+          </Banner>
         </div>
       )}
 
       {note && (
-        <p
-          className="u-stem mt-5"
-          data-testid="schedule-note"
-          style={{
-            borderLeft: `3px solid ${
-              note.kind === "ok" ? "var(--state-done)" : "var(--state-late)"
-            }`,
-            paddingLeft: ".75rem",
-          }}
-        >
-          {note.text}
-        </p>
+        <div className="mt-5">
+          <Banner tone={note.kind === "ok" ? "ok" : "warn"} testid="schedule-note">
+            {note.text}
+          </Banner>
+        </div>
       )}
 
-      <div className="u-card mt-5" style={{ overflowX: "auto" }}>
-        <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 520 }}>
+      <div className="mt-5">
+        <DataTable minWidth={520}>
           <thead>
-            <tr>
-              <th className="u-eyebrow text-left p-3">Lecture</th>
+            <tr className="u-faint" style={THEAD_ROW_STYLE}>
+              <th className="text-left p-3">Lecture</th>
               {secs.map((s) => (
-                <th key={s} className="u-eyebrow text-left p-3">
+                <th key={s} className="text-left p-3">
                   {s} · {grid.sections[s].day}
                 </th>
               ))}
-              <th className="u-eyebrow text-left p-3">Topics</th>
+              <th className="text-left p-3">Topics</th>
             </tr>
           </thead>
           <tbody>
             {grid.sessions.map((row) => (
-              <tr key={row.session} style={{ borderTop: "1px solid var(--rule)" }}>
+              <tr key={row.session} style={TROW_STYLE}>
                 <td className="p-3 u-num" style={{ fontWeight: 600 }}>
                   {row.session}
                 </td>
@@ -141,7 +136,7 @@ export default function SchedulePanel({ onDone }: { onDone: () => void }) {
                   <td key={s} className="p-3">
                     <button
                       className="u-num hover:underline"
-                      style={{ color: "var(--ink)" }}
+                      style={{ color: "var(--ink)", background: "transparent" }}
                       onClick={() => start(row.session, s, row.dates[s] ?? "")}
                       aria-label={`Change the date of lecture ${row.session} for section ${s}`}
                     >
@@ -155,7 +150,7 @@ export default function SchedulePanel({ onDone }: { onDone: () => void }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
 
       {edit && (
@@ -180,8 +175,8 @@ export default function SchedulePanel({ onDone }: { onDone: () => void }) {
             <button className="u-btn" onClick={doPreview} disabled={busy || !date}>
               Check this date
             </button>
-            {/* Apply stays disabled until a preview has come back clean, so a date
-                nobody has checked cannot be committed. */}
+            {/* Apply stays disabled until a preview has come back clean, so a date nobody
+                has checked cannot be committed. */}
             <button
               className="u-btn u-btn-primary"
               onClick={doApply}
@@ -203,8 +198,7 @@ export default function SchedulePanel({ onDone }: { onDone: () => void }) {
 
           {!preview && (
             <p className="u-faint mt-3">
-              Check the date first — it will show which topics change before anything
-              is saved.
+              Check the date first — it will show which topics change before anything is saved.
             </p>
           )}
 
@@ -231,18 +225,14 @@ export default function SchedulePanel({ onDone }: { onDone: () => void }) {
                     <>
                       <p className="mt-2" style={{ fontWeight: 600 }}>
                         {preview.affected.length} topic
-                        {preview.affected.length === 1 ? "" : "s"} would change for
-                        section {edit.section} today:
+                        {preview.affected.length === 1 ? "" : "s"} would change for section{" "}
+                        {edit.section} today:
                       </p>
-                      <ul
-                        className="u-faint mt-1.5 space-y-1"
-                        data-testid="schedule-affected"
-                      >
+                      <ul className="u-faint mt-1.5 space-y-1" data-testid="schedule-affected">
                         {preview.affected.map((a) => (
                           <li key={a.topic_id}>
                             · {title(a.topic_id)}: {a.from} → <strong>{a.to}</strong>
-                            {a.to === "locked" &&
-                              " — a student part-way through would lose access"}
+                            {a.to === "locked" && " — a student part-way through would lose access"}
                           </li>
                         ))}
                       </ul>
