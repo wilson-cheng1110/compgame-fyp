@@ -93,7 +93,7 @@ export default function ConsentPage() {
             <p className="u-eyebrow">Consent</p>
             <h1 className="u-h1 mt-1">Before you start</h1>
             <p className="u-stem u-muted mt-3">
-              COMPGame is part of a study on how learning a concept <em>before</em> being tested
+              HCI Playground is part of a study on how learning a concept <em>before</em> being tested
               on it affects understanding. Taking part is voluntary and it does not affect your
               grade.
             </p>
@@ -160,9 +160,9 @@ export default function ConsentPage() {
                 student out to the landing page with no explanation, and signing in again
                 returned them straight here -- which reads as a bug rather than a choice. */}
             <p className="u-faint mt-6">
-              COMPGame is part of the study — there is no separate version without it. Declining
+              HCI Playground is part of the study — there is no separate version without it. Declining
               is completely fine and does not affect your grade, but it does mean not using
-              COMPGame. If you change your mind, sign in again and you will be asked once more.
+              HCI Playground. If you change your mind, sign in again and you will be asked once more.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mt-5">

@@ -264,3 +264,22 @@ deletion schedule; supervisor oversight.
    lecturer. It is written in two versions, one identifiable and one anonymised. Which
    version may the lecturer receive, and does its existence need to be in the consent
    text?
+
+---
+
+## Addendum — consent-wording change log
+
+**2026-09-13 — platform display name "COMPGame" -> "HCI Playground" (non-substantive).**
+The in-app consent screen (`frontend/app/consent/page.tsx`, three sentences) was updated to
+name the platform **"HCI Playground"**, the user-facing name adopted across the app UI in
+2026-09. Assessed **non-substantive** by the PI: this is the product's display name only --
+the study description, voluntariness, the no-grade-impact assurance, the "What gets recorded"
+data-handling clauses, and withdrawal rights are all unchanged, and no separate signed/paper
+consent artifact exists (`docs/study-pack/` names no platform). It aligns the consent wording
+with what participants actually see in the app. Already-consented participants' stored consent
+records are unaffected (this is a forward-looking page-text edit).
+
+**To reconcile before HSESC submission:** the title of this amendment and §3 (Revised consent
+text, "...will open on the COMPGame platform") still say "COMPGame" -- update to
+"HCI Playground" when finalising the amendment. Left untouched here because §3 is the formal
+submission text, the PI's to edit.
