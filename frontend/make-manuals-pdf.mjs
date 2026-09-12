@@ -41,7 +41,7 @@ for (const job of JOBS) {
     headerTemplate: "<div></div>",
     footerTemplate:
       '<div style="width:100%;font-size:8px;font-family:Inter,Arial;color:#6b7280;padding:0 12mm;display:flex;justify-content:space-between;">' +
-      '<span>COMPGame FYP</span><span class="pageNumber"></span>/<span class="totalPages"></span></div>',
+      '<span>HCI Playground FYP</span><span class="pageNumber"></span>/<span class="totalPages"></span></div>',
   })
   const kb = (statSync(outAbs).size / 1024).toFixed(0)
   console.log(`OK  ${job.out}  (${kb} KB)`)
