@@ -24,7 +24,7 @@ import Link from "next/link"
 // during an ethics-approved run.
 //
 // NOTE FOR THE PAPER, not for this file: removing the credit from the PRODUCT is a
-// data-hygiene fix, not a licence to drop it from the write-up. If COMPGame builds
+// data-hygiene fix, not a licence to drop it from the write-up. If HCI Playground builds
 // on a prior FYP, that still needs declaring in the report the same way the
 // WorldMonitor reference is (CLAUDE.md, "Academic integrity note").
 
@@ -35,7 +35,7 @@ export default function AboutPage() {
         <div className="mx-auto w-full max-w-3xl px-5 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <Image src="/images/logo.png" alt="" width={26} height={26} priority />
-            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>HCI Playground</span>
           </Link>
           <Link href="/login" className="u-faint hover:underline">
             Sign in
@@ -46,7 +46,7 @@ export default function AboutPage() {
       <div className="flex-1">
         <div className="mx-auto w-full max-w-3xl px-5 py-16">
           <p className="u-eyebrow">About</p>
-          <h1 className="u-h1 mt-1">COMPGame</h1>
+          <h1 className="u-h1 mt-1">HCI Playground</h1>
           <p className="u-stem u-muted mt-3">
             A flipped-learning platform for COMP3423 Human–Computer Interaction at PolyU: learn
             each concept by playing with it first, then test yourself, with an AI tutor available
@@ -58,7 +58,7 @@ export default function AboutPage() {
               <h2 className="u-h2">Why it exists</h2>
               <p className="u-stem u-muted mt-3">
                 Traditional teaching tests you on material you have already been lectured at.
-                COMPGame inverts that: you meet a concept inside an interactive activity, build an
+                HCI Playground inverts that: you meet a concept inside an interactive activity, build an
                 intuition for it, and only then check what you understood. Whether that ordering
                 actually helps is not assumed here — it is measured, topic by topic, and reported
                 honestly either way.
@@ -107,7 +107,7 @@ export default function AboutPage() {
 
       <footer style={{ borderTop: "1px solid var(--rule)" }}>
         <div className="mx-auto w-full max-w-3xl px-5 py-6">
-          <p className="u-faint">© {new Date().getFullYear()} COMPGame</p>
+          <p className="u-faint">© {new Date().getFullYear()} HCI Playground</p>
         </div>
       </footer>
     </main>

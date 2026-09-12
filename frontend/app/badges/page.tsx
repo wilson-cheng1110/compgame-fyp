@@ -87,7 +87,7 @@ export default function BadgesPage() {
         <div className="mx-auto w-full max-w-5xl px-5 h-14 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <Image src="/images/logo.png" alt="" width={26} height={26} priority />
-            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>HCI Playground</span>
           </Link>
           <div className="flex items-center gap-2">
             <button onClick={toggleDarkMode} className="u-btn" aria-label="Toggle theme">

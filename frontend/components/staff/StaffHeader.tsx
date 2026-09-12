@@ -4,8 +4,8 @@ import type { ReactNode } from "react"
 
 // The shared staff-console header: the wordmark that links home, a role chip, and an
 // optional slot for extra actions (the researcher⇄admin cross-link). One header for both
-// consoles so they read as one product. Wordmark stays "COMPGame" — the HCI Playground
-// rename is a separate, whole-app task.
+// consoles so they read as one product. The wordmark is "HCI Playground" (the app's
+// user-facing name; the internal code/repo name stays COMPGame).
 export function StaffHeader({ chip, children }: { chip: string; children?: ReactNode }) {
   return (
     <header className="u-nav">
@@ -13,7 +13,7 @@ export function StaffHeader({ chip, children }: { chip: string; children?: React
         <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
           <Image src="/images/logo.png" alt="" width={26} height={26} priority />
           {/* Hidden on narrow screens so the right-hand actions never overlap it. */}
-          <span className="hidden sm:inline" style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
+          <span className="hidden sm:inline" style={{ fontWeight: 600, letterSpacing: "-.01em" }}>HCI Playground</span>
         </Link>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {children}

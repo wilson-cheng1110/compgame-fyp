@@ -110,7 +110,7 @@ export default function BaselinePage() {
         <p className="u-eyebrow">Step 3 of 3</p>
         <h1 className="u-h1 mt-1">Before you start, five quick questions</h1>
         <p className="u-stem u-muted mt-3">
-          These tell us what people already know before using COMPGame at all. You are not
+          These tell us what people already know before using HCI Playground at all. You are not
           expected to know them, they do not affect your grade, and you will not be asked
           them again.
         </p>

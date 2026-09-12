@@ -103,7 +103,7 @@ export default function AccountPage() {
         <div className="mx-auto w-full max-w-3xl px-5 h-14 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <Image src="/images/logo.png" alt="" width={26} height={26} priority />
-            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>HCI Playground</span>
           </Link>
           <Link href="/dashboard" className="u-faint hover:underline">
             All topics

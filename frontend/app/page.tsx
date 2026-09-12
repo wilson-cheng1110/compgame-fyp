@@ -23,7 +23,7 @@ export default function Home() {
         <div className="mx-auto w-full max-w-5xl px-5 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Image src="/images/logo.png" alt="" width={26} height={26} priority />
-            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>HCI Playground</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/about" className="u-faint hover:underline">

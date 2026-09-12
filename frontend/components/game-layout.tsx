@@ -103,12 +103,12 @@ export default function GameLayout({ children, title, controls, className }: Gam
           <PreservedLink href="/dashboard" className="flex items-center">
             <Image
               src="/images/logo.png"
-              alt="COMPGame Logo"
+              alt="HCI Playground Logo"
               width={40}
               height={40}
               className="mr-3"
             />
-            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>HCI Playground</span>
           </PreservedLink>
 
           <div className="flex items-center gap-3">

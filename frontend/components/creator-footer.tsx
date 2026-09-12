@@ -12,7 +12,7 @@ export default function CreatorFooter() {
   return (
     <footer style={{ borderTop: "1px solid var(--rule)" }}>
       <div className="mx-auto w-full max-w-5xl px-5 py-6 flex items-center justify-between gap-4 flex-wrap">
-        <p className="u-faint">© {new Date().getFullYear()} COMPGame</p>
+        <p className="u-faint">© {new Date().getFullYear()} HCI Playground</p>
         <div className="flex items-center gap-4">
           <Link href="/about" className="u-faint hover:underline">
             About

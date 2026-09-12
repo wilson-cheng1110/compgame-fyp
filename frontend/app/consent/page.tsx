@@ -82,7 +82,7 @@ export default function ConsentPage() {
         <div className="mx-auto w-full max-w-3xl px-5 h-14 flex items-center">
           <Link href="/" className="flex items-center gap-2.5">
             <Image src="/images/logo.png" alt="" width={26} height={26} priority />
-            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>COMPGame</span>
+            <span style={{ fontWeight: 600, letterSpacing: "-.01em" }}>HCI Playground</span>
           </Link>
         </div>
       </header>

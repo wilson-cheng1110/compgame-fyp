@@ -1,7 +1,9 @@
 # COMPGame FYP — CLAUDE.md
 
 ## What this project is
-**COMPGame** — a flipped-learning platform for COMP3423 (Human-Computer Interaction) at PolyU.
+**COMPGame** (code/repo name; the **user-facing name is now "HCI Playground"** — renamed across the
+app UI 2026-09 at Jeff's request. Code identifiers, this file, and the `COMPGame-*` Scheduled Tasks keep
+the old name) — a flipped-learning platform for COMP3423 (Human-Computer Interaction) at PolyU.
 Pedagogical model: students go through an **Understanding** module (learn the concept via interactive game) → **Assessment** module (test themselves) → earn badges → AI tutor available throughout.
 FYP deliverable + EDC exhibition + academic paper (measuring flip-learning effectiveness).
 
@@ -49,8 +51,16 @@ FYP_Submission/
     grade.py             # Short-answer grading: rubric, null filter, BLINDING, kappa,
                          #   fail-closed /api/grade. temperature=0, offline by design
     grade_batch.py       # The offline blind pass + --sample-for-human / --kappa
-    generate_tutorial_report.py # Teacher brief. Pass 1 counts in CODE, pass 2 is the
-                         #   LLM on text only. Writes teacher + anonymised, always both
+    generate_tutorial_report.py # Teacher brief (.md). Pass 1 counts in CODE, pass 2 is the
+                         #   LLM on text only. Writes teacher + anonymised, always both. Now the
+                         #   CLI/research path; the /admin button makes DECKS (below) instead.
+    generate_tutorial_deck.py # Teacher tutorial DECK (.pptx): authored teaching + preloaded
+                         #   Socratic questions (answers in the speaker notes) with the Pass-1
+                         #   numbers filled in. Blind to arms, asserts no SID on any slide.
+                         #   One shared generate() serves the CLI, /admin, and the scheduler.
+    make_tutorial_decks.py # Builds the decks due before each class (schedule-driven). deploy's
+                         #   COMPGame-Decks Scheduled Task runs it daily; /admin GENERATES + SERVES
+                         #   these .pptx via /api/admin/reports/{decks,download} (was the .md brief).
     ops.py               # Concurrency gate (off the event loop), rate limit, health
     backup_sink.py       # Hourly sqlite online-backup of the sink + accounts
     check_corpus_coverage.py # Is the vector store still current? exits 1 if not

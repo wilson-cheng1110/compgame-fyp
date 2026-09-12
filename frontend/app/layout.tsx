@@ -17,7 +17,7 @@ import SessionKeepAlive from "@/components/session-keep-alive"
 const fontVars = `${inter.variable} ${robotoMono.variable} ${pixelifySans.variable} ${pressStart2P.variable}`
 
 export const metadata: Metadata = {
-  title: "COMPGame",
+  title: "HCI Playground",
   description:
     "Flipped-learning units for COMP3423 Human–Computer Interaction: learn the concept, then test yourself, with an AI tutor throughout.",
 }
