@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import GameDebrief from "@/components/game-debrief"
 
 // Stroop / Principle of Consistency
@@ -26,6 +26,11 @@ export default function StroopUnderstanding() {
   const [missed, setMissed] = useState(false)
   const startRef = useRef<number>(0)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The signal timeout below fires OUTSIDE React's closure over `round`, so mirror the
+  // current round into a ref. A missed round must advance to the correct next round;
+  // before this it dead-ended (nothing read `round`, nothing advanced).
+  const roundRef = useRef(0)
+  useEffect(() => { roundRef.current = round }, [round])
 
   const isConsistentBlock = round < CONSISTENT_ROUNDS
   // In consistent block: green=GO (correct=go), red=STOP (correct=stop)
@@ -44,6 +49,19 @@ export default function StroopUnderstanding() {
       setSignal(null)
       setMissed(true)
       setRts((prev) => [...prev, SIGNAL_TIMEOUT_MS])
+      // A miss is a SLOW round, not a dead end. Record the timeout as its RT (above)
+      // and ADVANCE, mirroring handleAction. Previously this branch left GO/STOP
+      // disabled with no "Next Round" button and nothing scheduled, so a single slow
+      // response stranded the student before the debrief -> the topic unit's
+      // activity_not_recorded escape. roundRef because this runs outside the closure.
+      const nextRound = roundRef.current + 1
+      if (nextRound >= CONSISTENT_ROUNDS + INCONSISTENT_ROUNDS) {
+        setPhase("results")
+      } else {
+        roundRef.current = nextRound
+        setRound(nextRound)
+        setTimeout(showSignal, FIXATION_MS + 400)
+      }
     }, SIGNAL_TIMEOUT_MS)
   }, [])
 
