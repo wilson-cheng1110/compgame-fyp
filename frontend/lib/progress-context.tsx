@@ -12,6 +12,7 @@ import {
   getDefaultTopicProgress,
 } from "@/lib/topic-definitions"
 import { logResearchEvent } from "@/lib/research-log"
+import { gameTelemetrySnapshot } from "@/lib/game-telemetry"
 
 interface ProgressContextType {
   progress: AllTopicProgress
@@ -106,6 +107,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           score: mode === "assessment" ? score : undefined,
           played_understanding_first:
             mode === "assessment" ? current.understandingCompleted : undefined,
+          // Snapshot of the game-route tracker, if the flag was on for this visit
+          // (lib/game-telemetry.tsx). markGameComplete runs on the game route via
+          // GameDebrief, so the tracker for THIS game is still the active one.
+          telemetry: gameTelemetrySnapshot() ?? undefined,
         })
       } catch (e) {
         console.error("markGameComplete error", e)

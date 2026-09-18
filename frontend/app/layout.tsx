@@ -8,6 +8,7 @@ import { ProgressProvider } from "@/lib/progress-context"
 import { AiChatWidget } from "@/components/ai-chat-widget"
 import { ReflectionDialog } from "@/components/reflection-dialog"
 import SessionKeepAlive from "@/components/session-keep-alive"
+import { GameTelemetry } from "@/lib/game-telemetry"
 
 // All four families are declared here so every route can reach any of them, but
 // they are used in two separate registers (see app/fonts.ts): Inter + Roboto Mono
@@ -40,6 +41,7 @@ export default function RootLayout({
         </BadgeProvider>
         <AiChatWidget />
         <SessionKeepAlive />
+        <GameTelemetry />
       </body>
     </html>
   )

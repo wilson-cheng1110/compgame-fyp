@@ -33,6 +33,12 @@ import research_store
 
 router = APIRouter(prefix="/api/research", tags=["research"])
 
+# Behavioural telemetry ships OFF until the HSESC amendment lands -- same flag,
+# same module-scope pattern as topic_api.py:34. Kept as its own module constant
+# (not imported from topic_api) so this router stays importable standalone, like
+# every other router split out of rag_api.py.
+TELEMETRY_ENABLED = os.environ.get("TELEMETRY_ENABLED", "0") == "1"
+
 
 def _known_topics() -> set:
     """The real topic ids, for validating a client-posted topic_id. Lazy import so
@@ -100,6 +106,9 @@ class ResearchEvent(BaseModel):
     duration_ms: Optional[int] = None
     client_ts: Optional[str] = None
     meta: Optional[Any] = None
+    # Board card #09 -- game-route behavioural telemetry (frontend/lib/game-telemetry.tsx),
+    # gated the same way topic_api.py gates the check/probe telemetry field (:275-279).
+    telemetry: Optional[dict] = None
 
 
 @router.post("/event")
@@ -131,6 +140,18 @@ async def research_event(event: ResearchEvent, session: Optional[str] = Cookie(d
 
     payload = event.model_dump()
     payload["participant_id"] = user["sid"]   # overwrite whatever the client claimed
+
+    # Telemetry is accepted only while the flag is on -- mirrors topic_api.py's
+    # gating (topic_api.py:275-279). Popped and dropped here rather than left for
+    # record_event_status's generic "unknown keys fold into meta" path, so an old
+    # client cannot keep sending it after the flag goes off, and nothing
+    # pre-approval reaches the sink even as a stray column.
+    telemetry = payload.pop("telemetry", None)
+    if TELEMETRY_ENABLED and telemetry:
+        meta = payload.get("meta")
+        meta = dict(meta) if isinstance(meta, dict) else {}
+        meta["telemetry"] = telemetry
+        payload["meta"] = meta
     try:
         return {"ok": True, "id": await asyncio.to_thread(research_store.record_event, payload)}
     except Exception:

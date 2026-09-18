@@ -19,6 +19,7 @@
 //   travel and every event is rejected as unauthenticated.
 
 import { API_BASE } from "@/lib/api"
+import type { ItemTelemetry } from "@/lib/telemetry"
 
 const RESEARCH_API = `${API_BASE}/api/research/event`
 
@@ -30,6 +31,11 @@ export interface ResearchEventInput {
   played_understanding_first?: boolean
   duration_ms?: number
   meta?: Record<string, unknown>
+  // Board card #09 -- game-route behavioural telemetry (lib/game-telemetry.tsx),
+  // forwarded as-is. Off by default: the caller only ever passes a value when
+  // the flag was on, and the backend strips it again while ITS flag is off
+  // (belt-and-braces, research_api.py).
+  telemetry?: ItemTelemetry
 }
 
 export function logResearchEvent(input: ResearchEventInput): void {
