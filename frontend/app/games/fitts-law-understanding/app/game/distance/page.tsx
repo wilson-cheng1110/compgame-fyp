@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Home, RotateCcw, BookOpen } from "lucide-react"
+import { Home, RotateCcw, BookOpen, ArrowRight } from "lucide-react"
 import GameCanvas from "./components/game-canvas"
 import Timer from "./components/timer"
 import TimeRecord from "./components/time-record"
@@ -26,6 +26,7 @@ export default function DistanceGame() {
   const [currentTime, setCurrentTime] = useState<number>(0)
   const [showExplanation, setShowExplanation] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
+  const [sizeDone, setSizeDone] = useState(false)
   const [resetKey, setResetKey] = useState(0)
 
   // Initialize sounds on component mount
@@ -41,10 +42,9 @@ export default function DistanceGame() {
     if (!showCompletion) return
     try {
       localStorage.setItem("fitts-understanding-distance-done", "1")
-      if (
-        localStorage.getItem("fitts-understanding-size-done") === "1" &&
-        localStorage.getItem("fitts-understanding-recorded") !== "1"
-      ) {
+      const otherDone = localStorage.getItem("fitts-understanding-size-done") === "1"
+      setSizeDone(otherDone)
+      if (otherDone && localStorage.getItem("fitts-understanding-recorded") !== "1") {
         markGameComplete("fitts-law-understanding")
         localStorage.setItem("fitts-understanding-recorded", "1")
       }
@@ -122,6 +122,10 @@ export default function DistanceGame() {
     router.push("/games/fitts-law-understanding/debrief")
   }
 
+  const navigateToSize = () => {
+    router.push("/games/fitts-law-understanding/app/game/size")
+  }
+
   return (
     <ResponsiveContainer>
       <main
@@ -193,17 +197,23 @@ export default function DistanceGame() {
                 fontSize: "30px",
               }}
             >
-              PLEASE SELECT:
+              {sizeDone ? "BOTH DONE — REVIEW:" : "1 OF 2 — ONE TO GO:"}
             </div>
+            {/* Guided forward path. Until BOTH sub-games are done the primary button
+                sends the student to the other one; once both are done it goes to the
+                debrief (which records the activity). Preserves the both-games
+                requirement while removing the co-equal HOME button that let a student
+                who finished one game leave with nothing recorded -> the topic unit's
+                activity_not_recorded escape (measured: fitts was the top escaper). */}
             <CustomButton
-              onClick={navigateToGameMenu}
-              icon={Home}
-              text="HOME"
+              onClick={sizeDone ? navigateToDebrief : navigateToSize}
+              icon={sizeDone ? BookOpen : ArrowRight}
+              text={sizeDone ? "DEBRIEF" : "NEXT: SIZE"}
               style={{
                 position: "absolute",
                 left: "1232px",
                 top: "34px",
-                width: "200px",
+                width: "260px",
                 height: "50px",
               }}
             />
@@ -215,19 +225,19 @@ export default function DistanceGame() {
                 position: "absolute",
                 left: "1232px",
                 top: "112px",
-                width: "200px",
+                width: "260px",
                 height: "50px",
               }}
             />
             <CustomButton
-              onClick={navigateToDebrief}
-              icon={BookOpen}
-              text="DEBRIEF"
+              onClick={navigateToGameMenu}
+              icon={Home}
+              text="HOME"
               style={{
                 position: "absolute",
                 left: "1232px",
                 top: "190px",
-                width: "200px",
+                width: "260px",
                 height: "50px",
               }}
             />
