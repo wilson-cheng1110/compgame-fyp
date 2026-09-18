@@ -89,6 +89,24 @@ export default function StroopUnderstanding() {
 
   const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
 
+  // #08 psychophysics capture: one trial per round played so far. `rt_ms` is
+  // the value already stored in `rts` -- a correct in-time response's RT, OR
+  // SIGNAL_TIMEOUT_MS for BOTH a missed round and a wrong-but-in-time answer
+  // (the existing game logic doesn't distinguish those two at the point it
+  // pushes into `rts`, so `timed_out` here is really "did not register a
+  // correct response in time", not strictly "the 2.5s clock ran out").
+  const stroopResult = {
+    game: "stroop",
+    trials: rts.map((rt_ms, round) => ({
+      round,
+      block: round < CONSISTENT_ROUNDS ? "consistent" : "inconsistent",
+      rt_ms,
+      timed_out: rt_ms === SIGNAL_TIMEOUT_MS,
+    })),
+    consistent_avg_ms: avg(rts.slice(0, CONSISTENT_ROUNDS)),
+    inconsistent_avg_ms: avg(rts.slice(CONSISTENT_ROUNDS)),
+  }
+
   // ── Learn ──────────────────────────────────────────────────────────────────
   if (phase === "learn") {
     return (
@@ -296,7 +314,7 @@ export default function StroopUnderstanding() {
   return (
     <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
-      <GameDebrief gameId="stroop-understanding" />
+      <GameDebrief gameId="stroop-understanding" result={stroopResult} />
     </div>
   )
 }

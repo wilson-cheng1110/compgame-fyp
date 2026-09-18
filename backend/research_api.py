@@ -109,6 +109,11 @@ class ResearchEvent(BaseModel):
     # Board card #09 -- game-route behavioural telemetry (frontend/lib/game-telemetry.tsx),
     # gated the same way topic_api.py gates the check/probe telemetry field (:275-279).
     telemetry: Optional[dict] = None
+    # Board card #08 -- per-trial psychophysics capture (frontend/lib/progress-context.tsx
+    # markGameComplete's optional `result` param, built by each game-client.tsx). Same
+    # TELEMETRY_ENABLED gate as `telemetry` above. Shape is game-specific and untyped here
+    # on purpose -- this API stays agnostic to individual games' trial schemas.
+    game_result: Optional[dict] = None
 
 
 @router.post("/event")
@@ -151,6 +156,16 @@ async def research_event(event: ResearchEvent, session: Optional[str] = Cookie(d
         meta = payload.get("meta")
         meta = dict(meta) if isinstance(meta, dict) else {}
         meta["telemetry"] = telemetry
+        payload["meta"] = meta
+
+    # Board card #08 -- same pop-and-gate as telemetry above, so game_result never
+    # reaches record_event's generic "unknown keys fold into meta" path and never
+    # lands in the sink while the flag is off.
+    game_result = payload.pop("game_result", None)
+    if TELEMETRY_ENABLED and game_result:
+        meta = payload.get("meta")
+        meta = dict(meta) if isinstance(meta, dict) else {}
+        meta["game_result"] = game_result
         payload["meta"] = meta
     try:
         return {"ok": True, "id": await asyncio.to_thread(research_store.record_event, payload)}

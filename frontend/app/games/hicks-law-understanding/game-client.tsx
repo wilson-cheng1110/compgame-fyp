@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import GameDebrief from "@/components/game-debrief"
 
 // ── Hick's Law Understanding
@@ -50,14 +50,48 @@ export default function HicksLawUnderstanding() {
   const [compareIdx, setCompareIdx] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<"A" | "B" | null>(null)
   const [compareResults, setCompareResults] = useState<boolean[]>([])
+  // #08 psychophysics capture: per-comparison RT, parallel to `compareResults`
+  // (both are pushed exactly once per comparison, in the same order).
+  const [compareRts, setCompareRts] = useState<number[]>([])
+  // When each comparison was PRESENTED, so RT = click time - presented time.
+  // Reset whenever a new comparison is shown (phase enters "compare", or
+  // compareIdx advances to the next one) -- not a ref updated inside render,
+  // so this can't drift from what's actually on screen.
+  const shownAtRef = useRef<number>(0)
 
   const rt = predictRT(sliderN)
   const currentComp = COMPARISONS[compareIdx]
+
+  useEffect(() => {
+    if (phase === "compare") shownAtRef.current = performance.now()
+  }, [phase, compareIdx])
+
+  // #08 psychophysics capture: Hick's Law IS a choice-RT law (RT = a + b·log2(n+1)),
+  // so `rt_ms` here is the actual measurement, not a nice-to-have -- see the timer
+  // above. `chosen` is still derived (not separately stored) from `correct` + the
+  // known answer, since it's a binary A/B choice.
+  const hicksResult = {
+    game: "hicks",
+    trials: COMPARISONS.map((comp, i) => {
+      const correct = compareResults[i] ?? null
+      const chosen =
+        correct === null ? null : correct ? comp.answer : comp.answer === "A" ? "B" : "A"
+      return {
+        comparison_id: comp.id,
+        n_choices_a: comp.optionA.n,
+        n_choices_b: comp.optionB.n,
+        chosen,
+        correct,
+        rt_ms: compareRts[i] ?? null,
+      }
+    }),
+  }
 
   const handleCompareSelect = useCallback(
     (choice: "A" | "B") => {
       if (selectedAnswer) return
       setSelectedAnswer(choice)
+      setCompareRts((prev) => [...prev, performance.now() - shownAtRef.current])
     },
     [selectedAnswer],
   )
@@ -223,7 +257,7 @@ export default function HicksLawUnderstanding() {
       <p className="font-pixelify-sans text-gray-600 text-sm mb-4">
         {compareResults.filter(Boolean).length} / {COMPARISONS.length} comparisons correct
       </p>
-      <GameDebrief gameId="hicks-law-understanding" />
+      <GameDebrief gameId="hicks-law-understanding" result={hicksResult} />
     </div>
   )
 }

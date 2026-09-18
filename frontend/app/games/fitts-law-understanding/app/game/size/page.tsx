@@ -42,6 +42,11 @@ export default function SizeGame() {
     if (!showCompletion) return
     try {
       localStorage.setItem("fitts-understanding-size-done", "1")
+      // #08 psychophysics capture: persist this sub-game's per-fish catch times
+      // ({ fishId -> catch time in ms }) so the debrief route (a separate page)
+      // can read both sub-games' records back out. Same localStorage pattern as
+      // the "-done" flags above; does not touch the recording/scoring flow.
+      localStorage.setItem("fitts-understanding-size-records", JSON.stringify(records))
       const otherDone = localStorage.getItem("fitts-understanding-distance-done") === "1"
       setDistanceDone(otherDone)
       if (otherDone && localStorage.getItem("fitts-understanding-recorded") !== "1") {
@@ -51,7 +56,7 @@ export default function SizeGame() {
     } catch {
       /* localStorage unavailable — non-fatal */
     }
-  }, [showCompletion, markGameComplete])
+  }, [showCompletion, markGameComplete, records])
 
   // Constants for fish sizes
   const FISH_SIZE_A = 100 // Increased from 60

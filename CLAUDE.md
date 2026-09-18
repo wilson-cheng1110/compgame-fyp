@@ -154,6 +154,12 @@ FYP_Submission/
       user-store.ts      # Zustand store (user, badges, login/signup/logout) — was store.ts
       badge-context.tsx  # React context for badge state
       progress-context.tsx # Per-topic progress + research-sink mirroring
+      game-telemetry.tsx # Behavioural telemetry ON game screens (#09 game-vs-no-game) +
+                         #   per-game trial `game_result` (#08 psychophysics: stroop RT,
+                         #   hicks RT x n, fitts MT x ID, weber JND). Global <GameTelemetry/>
+                         #   in layout.tsx runs one ItemTracker per /games/* visit; rides
+                         #   markGameComplete's completion event. OFF BY DEFAULT: client gated
+                         #   on the telemetry flag, backend strips it (research_api) when off.
       game-phase.tsx     # Where you are INSIDE a game. Two contexts, not one: games
                          #   subscribe only to the stable setter, so a chrome update can
                          #   never re-render a game subtree — hicks-law-assessment MEASURES

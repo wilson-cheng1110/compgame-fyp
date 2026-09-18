@@ -272,9 +272,14 @@ interface GameDebriefProps {
   score?: number          // 0-100, optional
   totalQuestions?: number
   onAskAI?: (prompt: string) => void  // callback to open the AI chat widget
+  // Board card #08 -- per-trial psychophysics blob built by the calling
+  // game-client (shape is game-specific, see each game-client.tsx). Threaded
+  // straight through to markGameComplete; only ever recorded server-side while
+  // TELEMETRY_ENABLED is on (research_api.py).
+  result?: unknown
 }
 
-export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: GameDebriefProps) {
+export default function GameDebrief({ gameId, score, totalQuestions, onAskAI, result }: GameDebriefProps) {
   const router = useRouter()
   const { markGameComplete } = useProgress()
   const { addBadge, refreshBadges } = useBadges()
@@ -293,7 +298,7 @@ export default function GameDebrief({ gameId, score, totalQuestions, onAskAI }: 
     // replay from the close screen times itself rather than reporting the original
     // session plus everything since.
     const durationMs = readGameClock(gameId)
-    markGameComplete(gameId, score, durationMs)
+    markGameComplete(gameId, score, durationMs, result)
     clearGameClock(gameId)
     if (isAssessment) {
       const stars = score === undefined ? 3 : score >= 85 ? 5 : score >= 70 ? 4 : score >= 50 ? 3 : 2

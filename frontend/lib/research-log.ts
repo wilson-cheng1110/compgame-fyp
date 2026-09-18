@@ -36,6 +36,12 @@ export interface ResearchEventInput {
   // the flag was on, and the backend strips it again while ITS flag is off
   // (belt-and-braces, research_api.py).
   telemetry?: ItemTelemetry
+  // Board card #08 -- per-trial psychophysics data built by the game-client
+  // (progress-context.tsx markGameComplete's `result` param). Shape is
+  // game-specific (see each game-client.tsx), forwarded as-is via the spread
+  // below. Same off-by-default gating as `telemetry`: only sent when the
+  // caller has a value, stripped server-side while TELEMETRY_ENABLED is off.
+  game_result?: unknown
 }
 
 export function logResearchEvent(input: ResearchEventInput): void {

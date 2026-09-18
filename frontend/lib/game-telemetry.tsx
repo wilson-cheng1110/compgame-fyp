@@ -36,6 +36,26 @@ export function gameTelemetrySnapshot(): ItemTelemetry | null {
   return activeTracker?.snapshot() ?? null
 }
 
+/** Synchronous, best-effort read of the SAME enabled flag `resolveEnabled()`
+ *  resolves asynchronously -- for callers (markGameComplete, building the
+ *  game_result event field) that run synchronously and cannot await it.
+ *  Prefers the in-memory cache (already resolved earlier this game-route
+ *  visit, since `GameTelemetry` mounts and calls `resolveEnabled()` as soon as
+ *  the student lands on `/games/*`); falls back to the sessionStorage mirror
+ *  `resolveEnabled` writes once resolved. Never itself triggers a fetch, and
+ *  defaults OFF when neither is available yet -- fail-closed, same as
+ *  everywhere else this flag is read. This is the client-side half of the
+ *  belt-and-braces gate: nothing behavioural is transmitted until the server
+ *  flag is confirmed on; the backend (research_api.py) still strips it too. */
+export function isGameTelemetryEnabled(): boolean {
+  if (cachedEnabled !== null) return cachedEnabled
+  try {
+    return sessionStorage.getItem(SESSION_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
 async function resolveEnabled(): Promise<boolean> {
   if (cachedEnabled !== null) return cachedEnabled
 
@@ -67,16 +87,34 @@ async function resolveEnabled(): Promise<boolean> {
   return enabled
 }
 
+/** The path segment right after `/games/` -- the game itself, independent of
+ *  which of its own sub-routes (understanding vs. assessment vs., for fitts,
+ *  its distance/size/debrief sub-pages) is currently showing. Returns null
+ *  off `/games/*` entirely. */
+function gameIdFromPathname(pathname: string | null): string | null {
+  if (!pathname || !pathname.startsWith("/games/")) return null
+  const rest = pathname.slice("/games/".length)
+  const segment = rest.split("/")[0]
+  return segment || null
+}
+
 /** Mount ONCE, globally (frontend/app/layout.tsx). Renders nothing. */
 export function GameTelemetry() {
   const pathname = usePathname()
+  // Key teardown on the GAME, not the full path. Fitts is the one multi-route
+  // game (.../app/game/distance -> .../app/game/size -> .../debrief, all under
+  // the same gameId): keying on `pathname` reset the tracker on every one of
+  // those internal navigations, so the completion snapshot (fired from the
+  // debrief route) was always empty. Keying on `gameId` keeps the SAME tracker
+  // alive across those hops and only tears down + recreates it when the game
+  // itself changes or the student leaves `/games/*`.
+  const gameId = gameIdFromPathname(pathname)
 
   useEffect(() => {
     let cancelled = false
     let detach: () => void = () => {}
-    const onGameRoute = !!pathname && pathname.startsWith("/games/")
 
-    if (onGameRoute) {
+    if (gameId) {
       resolveEnabled().then((enabled) => {
         if (cancelled || !enabled) return
 
@@ -110,15 +148,17 @@ export function GameTelemetry() {
       })
     }
 
-    // Leaving the game route (pathname change) or unmount: detach whatever was
-    // attached and drop the tracker so a completion event recorded after this
-    // point (e.g. from a different route) never picks up a stale snapshot.
+    // Leaving this game (gameId changed, including to null off `/games/*`) or
+    // unmount: detach whatever was attached and drop the tracker so a
+    // completion event recorded after this point (e.g. from a different game)
+    // never picks up a stale snapshot. A pathname change that keeps the same
+    // gameId does NOT reach here -- the effect simply doesn't re-run.
     return () => {
       cancelled = true
       detach()
       activeTracker = null
     }
-  }, [pathname])
+  }, [gameId])
 
   return null
 }

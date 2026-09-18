@@ -12,11 +12,11 @@ import {
   getDefaultTopicProgress,
 } from "@/lib/topic-definitions"
 import { logResearchEvent } from "@/lib/research-log"
-import { gameTelemetrySnapshot } from "@/lib/game-telemetry"
+import { gameTelemetrySnapshot, isGameTelemetryEnabled } from "@/lib/game-telemetry"
 
 interface ProgressContextType {
   progress: AllTopicProgress
-  markGameComplete: (gameId: string, score?: number, durationMs?: number) => void
+  markGameComplete: (gameId: string, score?: number, durationMs?: number, result?: unknown) => void
   recordReflection: (topicId: TopicId, summary: { turns: number; insight: boolean }) => void
   getTopicProgress: (topicId: TopicId) => TopicProgress
   refreshProgress: () => void
@@ -55,7 +55,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [readProgress])
 
   const markGameComplete = useCallback(
-    (gameId: string, score?: number, durationMs?: number) => {
+    (gameId: string, score?: number, durationMs?: number, result?: unknown) => {
       try {
         const userCookie = Cookies.get("user")
         if (!userCookie) return
@@ -111,6 +111,17 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           // (lib/game-telemetry.tsx). markGameComplete runs on the game route via
           // GameDebrief, so the tracker for THIS game is still the active one.
           telemetry: gameTelemetrySnapshot() ?? undefined,
+          // Board card #08 -- per-trial psychophysics blob built by the game-client
+          // itself (game-specific shape, see each game-client.tsx) and threaded
+          // through via GameDebrief's `result` prop. CLIENT-GATED on the same
+          // telemetry flag as `telemetry` above (honouring the "nothing
+          // behavioural is transmitted while the flag is off" rule -- this used
+          // to rely on the backend alone to drop it, which meant it still left
+          // the browser). `JSON.stringify` drops the key entirely when
+          // undefined, so with the flag off (or no result to send) it's absent
+          // from the wire, not just stripped after arrival. The backend
+          // (research_api.py) keeps its own gate too -- belt-and-braces.
+          game_result: isGameTelemetryEnabled() ? result : undefined,
         })
       } catch (e) {
         console.error("markGameComplete error", e)

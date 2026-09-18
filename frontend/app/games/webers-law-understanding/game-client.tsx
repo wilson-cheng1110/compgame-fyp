@@ -54,6 +54,29 @@ export default function WebersLawUnderstanding() {
   const currentVal = userSlider[attr]
   const personalJND = ((currentVal - refVal) / refVal * 100).toFixed(1)
 
+  // #08 psychophysics capture: the game only stores the FINAL "I notice it!"
+  // value per attribute (`noticed`), not a step-by-step slider-drag log -- so
+  // one trial per attribute (size/brightness/count), not per slider movement.
+  const weberResult = {
+    game: "weber",
+    trials: ATTRS.map((a) => {
+      const base = BASE[a]
+      const noticedValue = noticed[a]
+      const jndPct = noticedValue === null ? null : ((noticedValue - base) / base) * 100
+      return {
+        attribute: a,               // which stimulus dimension this trial tested
+        base_value: base,           // the fixed reference stimulus shown alongside
+        k_theory: WEBER_K[a],       // published/theoretical Weber fraction for this attribute
+        noticed_value: noticedValue, // stimulus value at which the student clicked "I notice it!"
+        jnd_pct: jndPct,            // student's empirical JND, as % change from base_value
+      }
+    }),
+    // Convenience map attribute -> empirical JND%, mirroring `trials` above.
+    jnd: Object.fromEntries(
+      ATTRS.map((a) => [a, noticed[a] === null ? null : ((noticed[a]! - BASE[a]) / BASE[a]) * 100]),
+    ),
+  }
+
   // ── Learn ──────────────────────────────────────────────────────────────────
   if (phase === "learn") {
     const refRadius = 60
@@ -289,7 +312,7 @@ export default function WebersLawUnderstanding() {
   return (
     <div className="min-h-screen bg-[#f9fafb] text-black flex flex-col items-center justify-start pt-10 p-6">
       <h2 className="font-press-start-2p text-xl text-black mb-6">Understanding Complete</h2>
-      <GameDebrief gameId="webers-law-understanding" />
+      <GameDebrief gameId="webers-law-understanding" result={weberResult} />
     </div>
   )
 }
