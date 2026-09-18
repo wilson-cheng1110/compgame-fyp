@@ -498,24 +498,17 @@ export default function TopicUnitClient({
                 </p>
               </>
             ) : (
-              <>
-                {/* Was "Done reflecting" -- always enabled, next to a tutor nobody
-                    had to open. */}
-                <p className="u-faint mt-3" data-testid="tutor-observed">
-                  Continue opens once you have talked it through. There is no length
-                  it has to reach.
-                </p>
-                {tried.tutor && (
-                  <button
-                    onClick={() => carryOn("tutor", "reflection_not_recorded")}
-                    data-testid="unit-carry-on"
-                    className="u-btn u-btn-block mt-3"
-                    style={{ fontSize: ".8125rem" }}
-                  >
-                    The tutor isn&apos;t responding — continue without it
-                  </button>
-                )}
-              </>
+              // Reflection is a REQUIRED step -- there is deliberately NO in-app skip
+              // (PI decision 2026-09-19, logged in docs/ethics-amendment-stage2.md):
+              // every participant does the same 3-turn reflection so it is analysable
+              // as its own measure. The only way past without finishing is to close
+              // the tab. This does NOT dead-end on a broken tutor -- the reflection
+              // dialog counts turns even when Ollama is down (reflection-dialog.tsx),
+              // so Finish still unlocks; only deliberate non-engagement stays stuck.
+              <p className="u-faint mt-3" data-testid="tutor-observed">
+                Continue opens once you have talked it through. There is no length it
+                has to reach.
+              </p>
             )}
           </div>
         )}

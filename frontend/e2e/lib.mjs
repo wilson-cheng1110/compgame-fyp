@@ -280,24 +280,46 @@ export async function passGatedStep(page, topicUrl) {
     return true
   }
 
-  // The tutor opens a DIALOG in place; the games are a navigation away. Both
-  // count as "they went and tried", which is what unlocks the escape.
+  // The tutor step no longer has an escape -- reflection is REQUIRED (PI decision
+  // 2026-09-19). So finish it for real: substantive turns unlock Finish (floor 3, or
+  // insight sooner). The dialog counts turns even if Ollama is down, so this
+  // terminates online or offline.
   const tutor = page.locator('[data-testid="open-reflection"]').first()
   if (await tutor.count()) {
     await tutor.click()
     await page.waitForTimeout(1200)
-    await page.keyboard.press("Escape").catch(() => {})
-    await page.waitForTimeout(800)
-  } else {
-    const opener = page
-      .getByRole("button", { name: /^(Open the activity|Open the assessment|Back into)/ })
-      .first()
-    if (!(await opener.count())) return false
-    await opener.click()
-    await page.waitForTimeout(2000)
-    await go(page, topicUrl)
-    await ready(page)
+    const dialog = page.locator('[role="dialog"]').first()
+    const finishBtn = () => dialog.getByRole("button", { name: /Finish/ }).first()
+    const seeds = [
+      "designing a form", "using a crowded menu", "comparing two layouts",
+      "clicking a tiny button", "reading an error message",
+    ]
+    for (let i = 0; i < 5; i++) {
+      if ((await finishBtn().count()) && (await finishBtn().isEnabled())) break
+      const input = dialog.locator('input[type="text"]').first()
+      if (!(await input.count())) break
+      await input.fill(
+        `Reflecting: this idea changes how a user reads the interface, and I noticed it when ${seeds[i % seeds.length]}.`,
+      )
+      await page.keyboard.press("Enter")
+      await page.waitForTimeout(9000) // socratic latency; offline it resolves fast
+    }
+    if ((await finishBtn().count()) && (await finishBtn().isEnabled())) {
+      await finishBtn().click()
+      await page.waitForTimeout(1500)
+      return true
+    }
+    return false
   }
+
+  const opener = page
+    .getByRole("button", { name: /^(Open the activity|Open the assessment|Back into)/ })
+    .first()
+  if (!(await opener.count())) return false
+  await opener.click()
+  await page.waitForTimeout(2000)
+  await go(page, topicUrl)
+  await ready(page)
 
   if (await carry().count()) {
     await carry().click()

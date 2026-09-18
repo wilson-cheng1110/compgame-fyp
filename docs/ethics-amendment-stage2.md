@@ -283,3 +283,23 @@ records are unaffected (this is a forward-looking page-text edit).
 text, "...will open on the COMPGame platform") still say "COMPGame" -- update to
 "HCI Playground" when finalising the amendment. Left untouched here because §3 is the formal
 submission text, the PI's to edit.
+
+**2026-09-19 — reflection step made MANDATORY (no in-app skip). PI decision.**
+The end-of-topic AI-tutor reflection was previously skippable in the app: a student who opened
+the tutor could press "continue without it" and advance (logged `reflection_not_recorded`).
+Per PI decision (2026-09-19) that in-app escape is **removed**, so every participant completes
+the same 3-turn reflection and it becomes a uniform, analysable measure
+(`frontend/app/topics/[topicId]/unit-client.tsx`). The only way past the step without finishing
+is to close the browser tab. Scope and safeguards the PI weighed:
+- **Placement.** The reflection is the LAST step, AFTER the post-test, so this cannot affect the
+  H1 pre->post gain or the FLIP/CONTROL arm balance -- it is confined to the reflection sub-study.
+- **Not a dead-end on a broken tutor.** The reflection dialog counts turns even when the Ollama
+  tutor is unreachable (`components/reflection-dialog.tsx`), so an outage never traps a student --
+  only a deliberate choice not to engage does.
+- **Voluntariness.** Participation stays voluntary: a student may stop by closing the tab, with no
+  penalty and no grade impact. A participant who does not finish keeps their earlier data
+  (pre/post/assessment) but receives no `topic_complete` record for that topic.
+
+**To reconcile before HSESC submission:** a mandatory data-collection step is a procedural change.
+The consent text's "you can stop any time" remains true (tab-close), but removing the graceful
+in-app exit should be disclosed. Wording is the PI's to finalise.

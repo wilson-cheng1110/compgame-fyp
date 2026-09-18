@@ -106,12 +106,18 @@ FYP_Submission/
         [gameId]/        # Dynamic route — wrappers per game
       topics/[topicId]/  # NO STEP IS SELF-DECLARED any more (2026-08-30): the activity,
                          #   assessment and tutor steps show Continue only once the thing has
-                         #   RECORDED, and offer a LOGGED escape (activity_not_recorded etc.)
-                         #   to someone who opened it and was let down. That escape is part of
-                         #   the design, not a softness in it: in FLIP the activity sits
-                         #   BETWEEN the two checks, so a hard gate would cost stuck FLIP
-                         #   students their post-check and cost CONTROL nothing --
-                         #   differential attrition by condition. The close screen now REPLAYS
+                         #   RECORDED. The activity and assessment steps offer a LOGGED escape
+                         #   (activity_not_recorded / assessment_not_recorded) to someone who
+                         #   opened it and was let down -- part of the design, not a softness:
+                         #   in FLIP the activity sits BETWEEN the two checks, so a hard gate
+                         #   would cost stuck FLIP students their post-check and cost CONTROL
+                         #   nothing -- differential attrition by condition. The TUTOR reflection
+                         #   step is the EXCEPTION: since 2026-09-19 (PI decision,
+                         #   docs/ethics-amendment-stage2.md) it is MANDATORY -- no escape, the
+                         #   only way past without finishing is closing the tab. It sits AFTER
+                         #   the post-test so a hard gate cannot bias H1 or arm balance, and the
+                         #   reflection dialog counts turns even when Ollama is down, so it never
+                         #   dead-ends on a broken tutor. The close screen now REPLAYS
                          #   both games (free play, no ?unit=), because "you have to do it" is
                          #   only fair beside "and you can do it again".
                          #   The old "I've finished it - continue" was masking a ten-week data
