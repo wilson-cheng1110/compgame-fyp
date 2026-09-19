@@ -210,6 +210,50 @@ export interface ProbePayload {
   telemetry_enabled: boolean
 }
 
+// ── questionnaires (IMI/CoI/ARCS/Paas, demographics, feedback) ─────────────────
+//
+// An item defaults to `likert` (no `type` on the wire) -- the shape topic-
+// questionnaire.tsx has always rendered. `single` (demographics: GENDER/GAMING/
+// AITOOL) carries its OWN `options`; `text` (demographics: AGE; feedback: all four)
+// is free text. The scoring key (`reverse`/`subscales`) never reaches this client.
+
+export type QuestionnaireItemType = "likert" | "single" | "text"
+
+export interface QuestionnaireItem {
+  id: string
+  text: string
+  type?: QuestionnaireItemType
+  /** Present only on a `single` item -- its own choices, answered as 1..length. */
+  options?: string[]
+}
+
+export interface QuestionnaireInstrument {
+  id: string
+  title: string
+  cite: string
+  /** The SHARED scale for `likert` items. Empty for an instrument with no likert
+   *  items at all (demographics, feedback) -- a `single` item's own `options` or a
+   *  `text` item answers independently of this. */
+  scale: string[]
+  when: string
+  items: QuestionnaireItem[]
+}
+
+export const questionnaires = {
+  get: (name: string) => api.get<QuestionnaireInstrument>(`/api/questionnaire/${name}`),
+  submit: (
+    name: string,
+    answers: Record<string, number | string>,
+    extra?: { topic_id?: string; duration_ms?: number },
+  ) => api.post<{ ok: true }>(`/api/questionnaire/${name}`, { answers, ...extra }),
+  /** Which instruments this session has already submitted -- the one-time
+   *  demographics gate and the end-of-study feedback prompt both need this so they
+   *  show exactly once. ADDED for that (no prior "have I submitted X" signal existed
+   *  on this client). Same three gates (session/ENABLED/consent) as every other
+   *  questionnaire route, so it 404s the same way while questionnaires are off. */
+  status: () => api.get<{ submitted: string[] }>("/api/questionnaire/_status"),
+}
+
 // ── calls ─────────────────────────────────────────────────────────────────────
 
 export interface SectionOption {

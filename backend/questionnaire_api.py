@@ -1,5 +1,7 @@
-"""The questionnaire surface: IMI, CoI, ARCS and the Paas load item.
+"""The questionnaire surface: IMI, CoI, ARCS, the Paas load item, demographics and
+end-of-study feedback.
 
+    GET  /api/questionnaire/_status               which instruments this SID has submitted
     GET  /api/questionnaire/{instrument}          the items, as a student sees them
     POST /api/questionnaire/{instrument}          record one set of responses
 
@@ -18,6 +20,14 @@ not (see checks.py). The pack is explicit that subscale membership and reverse-s
 items are researcher-only -- a student who can see that M9 is reverse-scored is being
 told which way "looks good", and that is exactly the response bias these instruments
 are built to avoid. GET strips both.
+
+ITEM TYPES. An item defaults to `likert` (answer 1..len(instrument scale), the original
+shape) but may declare `type: "single"` (a categorical choice; the item itself carries
+`options`, answer 1..len(options)) or `type: "text"` (free text, capped at TEXT_MAX_LEN,
+stored as-is). `demographics` mixes `text` (AGE -- typed, not bucketed) with `single`
+(GENDER/GAMING/AITOOL); `feedback` is all `text`. GET forwards `type`/`options`
+unchanged so the client can render the right control; POST validates per item against
+whichever shape that item declares.
 
 OFF BY DEFAULT. `QUESTIONNAIRES_ENABLED=1` turns it on, and that is a DEPLOYMENT
 decision tied to the HSESC amendment (docs/ethics-amendment-stage2.md), never a code
@@ -67,9 +77,20 @@ def instrument(name: str) -> dict | None:
     return _load().get("instruments", {}).get(name)
 
 
+def instrument_names() -> list[str]:
+    return list(_load().get("instruments", {}).keys())
+
+
+# Open text is capped, not unbounded -- a 500KB "answer" is either a bug (paste of
+# something else entirely) or an attempt to bloat the sink, and either way it is not
+# something the pack's read-and-quote-anonymously process (06_scoring-codebook-
+# analysis.md) is built to handle.
+TEXT_MAX_LEN = 2000
+
+
 class Responses(BaseModel):
-    # {item_id: 1..len(scale)}
-    answers: dict[str, int]
+    # {item_id: 1..len(scale-or-options) for likert/single, or a string for text}
+    answers: dict[str, int | str]
     topic_id: str | None = None      # set for per-topic instruments (paas)
     duration_ms: int | None = None
 
@@ -88,6 +109,39 @@ async def _consented(sid: str) -> bool:
     # consent first (topic_api, baseline, research_api) — the questionnaire surface
     # was the one that did not (findings F1/S2).
     return await asyncio.to_thread(research_store.has_event, sid, "consent_recorded")
+
+
+@router.get("/_status")
+async def status(response: Response, session: str | None = Cookie(default=None)):
+    """Which instruments this SID has already submitted.
+
+    ADDED for the demographics/feedback rollout: both are ONE-TIME, but at different
+    moments in the journey (demographics before the first topic, feedback once every
+    released topic is done) that the frontend has to recognise without re-deriving it
+    from the whole research sink. Registered ABOVE `/{name}` on purpose -- FastAPI
+    matches routes in registration order, and `_status` would otherwise be swallowed
+    by `/{name}` as name="_status".
+
+    Same three gates as every other route here (session, ENABLED, consent), so a
+    client cannot use this to probe submission state before it is allowed to see the
+    item bank at all.
+    """
+    user, err = await _who(session, response)
+    if err:
+        return err
+    if not ENABLED:
+        response.status_code = 404
+        return {"error": "not_available"}
+    if not await _consented(user["sid"]):
+        response.status_code = 403
+        return {"error": "no_consent",
+                "message": "Consent has to be recorded before anything is saved."}
+    submitted = []
+    for name in instrument_names():
+        if await asyncio.to_thread(research_store.has_event, user["sid"],
+                                   f"questionnaire_{name}"):
+            submitted.append(name)
+    return {"submitted": submitted}
 
 
 @router.get("/{name}")
@@ -163,16 +217,37 @@ async def submit(name: str, body: Responses, response: Response,
         response.status_code = 400
         return {"error": "unknown_topic"}
 
-    valid_ids = {i["id"] for i in inst["items"]}
-    hi = len(inst["scale"])
-    unknown = sorted(set(body.answers) - valid_ids)
+    item_by_id = {i["id"]: i for i in inst["items"]}
+    unknown = sorted(set(body.answers) - set(item_by_id))
     if unknown:
         response.status_code = 400
         return {"error": "unknown_items", "items": unknown[:5]}
-    bad = sorted(k for k, v in body.answers.items() if not isinstance(v, int) or not 1 <= v <= hi)
-    if bad:
+
+    # PER-ITEM VALIDATION. An item defaults to `likert` (answer 1..len(instrument
+    # scale)); `single` validates against that ITEM's own `options` length instead
+    # (demographics: GENDER/GAMING/AITOOL each have a different option count); `text`
+    # validates it is a string within TEXT_MAX_LEN (demographics: AGE; feedback: all
+    # four items). Two separate error codes, not one, because they are different
+    # failures a client should handle differently -- a number outside range vs. the
+    # wrong JSON type or an oversized paste.
+    out_of_range, invalid_text = [], []
+    for item_id, value in body.answers.items():
+        item = item_by_id[item_id]
+        itype = item.get("type", "likert")
+        if itype == "text":
+            if not isinstance(value, str) or isinstance(value, bool) or len(value) > TEXT_MAX_LEN:
+                invalid_text.append(item_id)
+        else:
+            hi = len(item["options"]) if itype == "single" else len(inst["scale"])
+            if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= hi:
+                out_of_range.append(item_id)
+    if out_of_range:
         response.status_code = 400
-        return {"error": "out_of_range", "items": bad[:5], "scale_max": hi}
+        return {"error": "out_of_range", "items": sorted(out_of_range)[:5]}
+    if invalid_text:
+        response.status_code = 400
+        return {"error": "invalid_text", "items": sorted(invalid_text)[:5],
+                "max_length": TEXT_MAX_LEN}
 
     # ONE SUBMISSION, like every other instrument here. A second pass is a different
     # measurement occasion and would silently double-weight one participant.
@@ -190,7 +265,11 @@ async def submit(name: str, body: Responses, response: Response,
         # from the pack's codebook -- storing a computed score would bake today's
         # scoring decisions into data that outlives them.
         "meta": {"answers": body.answers, "instrument": name,
-                 "n_items": len(inst["items"]), "scale_max": hi},
+                 "n_items": len(inst["items"]),
+                 # A single instrument-wide scale_max only means something when every
+                 # item shares one scale (imi/coi/arcs/paas); demographics/feedback mix
+                 # per-item shapes, so this is None for them rather than a misleading 0.
+                 "scale_max": len(inst["scale"]) if inst.get("scale") else None},
     })
     if not created:
         # Lost the one-submission race (finding C1, sibling of topic_api.submit_check).

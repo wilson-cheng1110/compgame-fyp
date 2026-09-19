@@ -9,11 +9,13 @@ import { getUsers } from "@/lib/user-store"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
-import { topics as topicsApi, auth, admin, researcher, type JourneyTopic } from "@/lib/api"
+import { topics as topicsApi, auth, admin, researcher, questionnaires, type JourneyTopic } from "@/lib/api"
 import { nextStep } from "@/lib/session-handoff"
 import { badgesFromJourney, completedCount } from "@/lib/badges"
 import JourneyPath from "@/components/journey-path"
 import SessionMap from "@/components/session-map"
+import DemographicsGate from "@/components/demographics-gate"
+import FeedbackCard from "@/components/feedback-card"
 import { TOPICS } from "@/lib/topic-definitions"
 import { useSlowLoad } from "@/lib/use-slow-load"
 import type { TopicId } from "@/lib/topic-definitions"
@@ -47,6 +49,12 @@ export default function DashboardPage() {
   const [sectionDay, setSectionDay] = useState<string>("")
   // The battery adds 29 items to every unit; the promised time has to follow.
   const [longUnits, setLongUnits] = useState(false)
+  // Which questionnaire instruments this SID has already submitted, from the new
+  // `_status` endpoint (docs spec: demographics gate + feedback prompt each need a
+  // "have I already done this" signal, and there was no existing one). `null` means
+  // "not fetched yet" -- kept distinct from `[]` so the gate/prompt below do not
+  // flash open for a moment before the real answer comes back.
+  const [submittedInstruments, setSubmittedInstruments] = useState<string[] | null>(null)
   // Is this the course team? `/admin` was linked from NOWHERE -- grep found the
   // string only inside two code comments -- so a teacher reached the panel by
   // typing the URL from memory or not at all. whoami is the same check the panel
@@ -83,6 +91,20 @@ export default function DashboardPage() {
     })
     return () => { alive = false }
   }, [])
+
+  // Gated on `longUnits` (== journey.questionnaires_enabled): while questionnaires
+  // are off (the module default) this never fires, so the demographics gate and
+  // feedback prompt below are dead code paths for every dev/e2e/default-config run.
+  useEffect(() => {
+    let alive = true
+    if (!journeyLoaded) return
+    if (!longUnits) { setSubmittedInstruments([]); return }
+    questionnaires.status().then((res) => {
+      if (!alive) return
+      setSubmittedInstruments(res.ok && res.data ? res.data.submitted : [])
+    })
+    return () => { alive = false }
+  }, [journeyLoaded, longUnits])
 
   useEffect(() => {
     const interval = setInterval(() => { refreshBadges(); refreshProgress() }, 3000)
@@ -183,6 +205,19 @@ export default function DashboardPage() {
     )
   }
 
+  // ONE-TIME DEMOGRAPHICS GATE, after consent and before the topics list ever
+  // renders (docs spec). `submittedInstruments === null` means "still checking" --
+  // deliberately NOT treated as "show the gate", so a student with questionnaires
+  // off (or already submitted) never sees a flash of it while the status fetch is
+  // in flight. Replaces the WHOLE page, same as consent/page.tsx's own blocking gate.
+  if (longUnits && submittedInstruments !== null && !submittedInstruments.includes("demographics")) {
+    return (
+      <DemographicsGate
+        onDone={() => setSubmittedInstruments((prev) => [...(prev ?? []), "demographics"])}
+      />
+    )
+  }
+
   // Server truth, not the cookie. This used to read `assessmentCompleted` out of
   // `topicProgress`, which the unit never sets -- so a student could finish a topic,
   // watch it turn "Done" in the list, and read "0 of 13" in the rail beside it.
@@ -256,6 +291,23 @@ export default function DashboardPage() {
       })
     : undefined
   const nextUpState = nextUp ? journey[nextUp.id] : undefined
+
+  // END-OF-STUDY FEEDBACK PROMPT (docs spec: "study complete / all released topics
+  // done"). RELEASED, not "all 13" -- the 13 topics roll out across the term, so
+  // "every topic ever released to this student is complete" is the moment they are
+  // actually caught up, not the moment the whole study ends. `releasedTopics.length
+  // > 0` keeps this from firing before anything has opened yet (nextUp is also
+  // undefined then, for the same reason, but this is the explicit, readable check).
+  const releasedTopics = journeyList.filter(
+    (j) => j.state !== "locked" && j.state !== "unscheduled",
+  )
+  const allReleasedDone =
+    journeyLoaded && releasedTopics.length > 0 && releasedTopics.every((j) => j.complete)
+  const showFeedback =
+    longUnits &&
+    allReleasedDone &&
+    submittedInstruments !== null &&
+    !submittedInstruments.includes("feedback")
 
 
   return (
@@ -347,6 +399,14 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </Link>
+            )}
+
+            {showFeedback && (
+              <FeedbackCard
+                onDone={() =>
+                  setSubmittedInstruments((prev) => [...(prev ?? []), "feedback"])
+                }
+              />
             )}
 
             {/* Orientation before navigation: what this is, then where things are. */}

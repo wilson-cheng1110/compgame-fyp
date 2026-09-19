@@ -35,6 +35,24 @@ def items(path, heading, id_re):
             out.append({"id": m.group(1), "text": m.group(2).strip()})
     return out
 
+def choice_items(path, heading, id_re):
+    """Rows shaped `| AGE | Age range | opt1; opt2; ... |` -> [{id, text, options}].
+
+    For the NEW `single` (categorical) item type: unlike `items()`, the table carries a
+    third column of ";"-separated options, which is exactly the client's `options` list
+    for that item -- so the pack stays the one place the wording AND the choices live.
+    ";" rather than "/" on purpose: "Non-binary / other" is itself one option whose text
+    contains a slash, so "/" cannot be the list separator without splitting it in two.
+    """
+    out = []
+    for line in section(path, heading).split("\n"):
+        m = re.match(r"\|\s*(" + id_re + r")\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|", line)
+        if m:
+            options = [o.strip() for o in m.group(3).split(";")]
+            out.append({"id": m.group(1), "text": m.group(2).strip(),
+                        "type": "single", "options": options})
+    return out
+
 REVERSE = {"M9", "M11"}          # 06_scoring-codebook-analysis.md §C
 SUBSCALES = {
     "imi": {"IE": ["M1", "M5", "M9"], "PC": ["M2", "M6", "M10"],
@@ -87,6 +105,35 @@ bank = {
             "items": [{"id": "P1",
                        "text": "How much mental effort did you invest in learning "
                                "this topic?"}],
+            "reverse": [], "subscales": {},
+        },
+        "demographics": {
+            "title": "About you",
+            "cite": "App-collected subset of docs/study-pack/02_demographics.md (D1, D2, D7, "
+                    "D8). Device (D9) is auto-logged server-side, not asked -- see "
+                    "questionnaire_api.py / auth_api.py.",
+            # No shared scale: AGE is free-typed `text` (Wilson, live: "just let them
+            # input" -- a typed age is richer than a 5-way bucket and can always be
+            # re-bucketed later; a bucket cannot be un-bucketed). GENDER/GAMING/AITOOL
+            # stay `single`, each carrying its own options.
+            "scale": [], "when": "once, before the first topic",
+            "construct": "descriptive covariate",
+            "items": (
+                [{**it, "type": "text"} for it in
+                 items("02_demographics.md", "## App-collected subset", r"AGE")]
+                + choice_items("02_demographics.md", "## App-collected subset",
+                               r"GENDER|GAMING|AITOOL")
+            ),
+            "reverse": [], "subscales": {},
+        },
+        "feedback": {
+            "title": "How this went for you",
+            "cite": "Open-ended, app-authored (docs/study-pack/09_app-feedback.md). Not a "
+                    "validated instrument -- free-text feedback for the course team.",
+            "scale": [], "when": "once, at the end of the study",
+            "construct": "open feedback",
+            "items": [{**it, "type": "text"} for it in
+                      items("09_app-feedback.md", "| ID | Text |", r"FB_[A-Z]+")],
             "reverse": [], "subscales": {},
         },
     },

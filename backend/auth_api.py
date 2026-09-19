@@ -56,7 +56,7 @@ import os
 
 import asyncio
 
-from fastapi import APIRouter, Cookie, Response
+from fastapi import APIRouter, Cookie, Request, Response
 from pydantic import BaseModel, Field
 
 import auth_store
@@ -71,6 +71,26 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "1") != "0"
 SESSION_COOKIE = "session"
 CONSENT_VERSION = os.environ.get("CONSENT_VERSION", "2026-08-info-sheet-v1")
+
+# Behavioural metadata, same gate as topic_api.py/research_api.py -- a coarse device
+# CLASS (never the raw UA string) is auto-logged at consent time, not asked as a
+# demographics item. OFF by default like everything else this flag covers.
+TELEMETRY_ENABLED = os.environ.get("TELEMETRY_ENABLED", "0") == "1"
+
+
+def _device_class(user_agent: str | None) -> str:
+    """Coarse device bucket from the User-Agent. Deliberately trivial: this is a
+    three-way descriptive bucket for the paper's sample-composition table, not a
+    fingerprint, so it does not try to tell an Android tablet from an Android phone.
+    """
+    if not user_agent:
+        return "unknown"
+    ua = user_agent.lower()
+    if "ipad" in ua or "tablet" in ua:
+        return "tablet"
+    if "mobi" in ua or "iphone" in ua or "android" in ua:
+        return "mobile"
+    return "desktop"
 
 
 class SessionRequest(BaseModel):
@@ -308,7 +328,7 @@ async def _has_consented(sid: str) -> bool:
 
 
 @router.post("/consent")
-async def record_consent(req: ConsentRequest, response: Response,
+async def record_consent(req: ConsentRequest, request: Request, response: Response,
                          session: str | None = Cookie(default=None)):
     """Blocking gate: nothing else may record data until this exists for the SID."""
     user = await asyncio.to_thread(auth_store.resolve_session, session or "")
@@ -320,10 +340,17 @@ async def record_consent(req: ConsentRequest, response: Response,
         return {"error": "not_agreed",
                 "message": "Consent can't be recorded without agreement."}
 
+    meta = {"version": req.version or CONSENT_VERSION, "section": user["section"]}
+    # Auto-logged, not asked -- this is the ONE place every participant passes through
+    # exactly once, so it is where the demographics rollout attaches device class
+    # instead of adding a D9-style question to the form (task spec: keep it trivial).
+    if TELEMETRY_ENABLED:
+        meta["device_class"] = _device_class(request.headers.get("user-agent"))
+
     await asyncio.to_thread(research_store.record_event, {
         "participant_id": user["sid"],
         "event_type": "consent_recorded",
-        "meta": {"version": req.version or CONSENT_VERSION, "section": user["section"]},
+        "meta": meta,
     })
     return {"ok": True, "version": req.version or CONSENT_VERSION}
 

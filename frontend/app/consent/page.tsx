@@ -126,6 +126,12 @@ export default function ConsentPage() {
                 <strong>Your conversations with the AI tutor</strong> are recorded as part of the
                 study.
               </li>
+              <li>
+                <strong>A short background questionnaire</strong> (age range, gender, and how
+                often you play games or use an AI chatbot) before your first topic, and an
+                optional feedback form at the end — both take a couple of minutes and every
+                question can be skipped or answered "prefer not to say".
+              </li>
             </ul>
 
             <h2 className="u-h2 mt-9 mb-4">You can stop any time</h2>

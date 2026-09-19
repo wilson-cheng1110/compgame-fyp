@@ -40,3 +40,28 @@
 > These items are **covariates / descriptors only** (prior knowledge, gaming familiarity, AI-tool
 > familiarity). With focus-group N they are reported descriptively and used to check the sample's
 > composition, not as predictors in a model.
+
+---
+
+## App-collected subset (Stage 2 rollout)
+
+> The wide rollout (`backend/questionnaire_api.py`, instrument `demographics`) collects only four
+> of the nine items above, once per participant before their first topic. D3 (year), D4
+> (programme/major), D5 (prior HCI) and D6 (topic familiarity) are deliberately dropped for the
+> app version. D9 (device) is **not asked** — it is auto-logged server-side from the User-Agent
+> and attached to the `consent_recorded` event's `meta` instead (`TELEMETRY_ENABLED`-gated). AITOOL
+> below is a shortened single-line rewrite of D8 for the in-app prompt; the options are unchanged.
+> AGE is **free-typed, not a bucketed range** (Wilson, live: "just let them input") — a typed
+> age is a strictly richer datum than a 5-way bucket, and re-bucketing at analysis time is a
+> one-line `pd.cut`; the reverse is not recoverable. `backend/build_questionnaires.py` extracts
+> these tables verbatim — edit here, not the JSON.
+
+| ID | Text |
+|----|------|
+| AGE | Age (in years) |
+
+| ID | Text | Options |
+|----|------|---------|
+| GENDER | Gender | Female; Male; Non-binary / other; Prefer not to say |
+| GAMING | How often do you play video games (any kind)? | Never; A few times a year; A few times a month; A few times a week; Daily |
+| AITOOL | How often have you used an AI chatbot/tutor to help you study? | Never; Once or twice; Occasionally; Regularly |

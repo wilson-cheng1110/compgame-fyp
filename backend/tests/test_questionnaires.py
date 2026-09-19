@@ -9,7 +9,9 @@ os.environ.setdefault("TOPIC_SCHEDULE_PATH", os.path.join(BE, "topic_schedule.js
 _d = os.path.join(BE, "tests", "_tmp_qtest")
 os.makedirs(_d, exist_ok=True)
 with open(os.path.join(_d, "enrolled.txt"), "w", encoding="utf-8") as _fh:
-    _fh.write("24012345D,A\n")
+    # Second row is for the never-consented SID used by the `_status` consent-gate
+    # check at the foot of this file.
+    _fh.write("24012345D,A\n24099999D,A\n")
 os.environ.update({
     "AUTH_DB_PATH": os.path.join(_d, "a.db"),
     "RESEARCH_DB_PATH": os.path.join(_d, "r.db"),
@@ -38,15 +40,33 @@ check("and the flag is read from the environment, not hardcoded",
       "QUESTIONNAIRES_ENABLED" in io.open(os.path.join(BE, "questionnaire_api.py"),
                                           encoding="utf-8").read())
 
-print("\n-- all four instruments are present --")
+print("\n-- all six instruments are present --")
 bank = Q._load()["instruments"]
-for name, n in (("imi", 12), ("coi", 8), ("arcs", 8), ("paas", 1)):
+for name, n in (("imi", 12), ("coi", 8), ("arcs", 8), ("paas", 1),
+                ("demographics", 4), ("feedback", 4)):
     check(f"{name} has its {n} item(s)", len(bank.get(name, {}).get("items", [])) == n,
           len(bank.get(name, {}).get("items", [])))
 check("paas is the 9-point scale, not the shared 1-5",
       len(bank["paas"]["scale"]) == 9 and len(bank["imi"]["scale"]) == 5)
 check("every instrument cites its source",
       all(bank[k].get("cite") for k in bank), [k for k in bank if not bank[k].get("cite")])
+
+print("\n-- item types (likert default, single, text) --")
+demo_by_id = {it["id"]: it for it in bank["demographics"]["items"]}
+check("AGE is free-typed `text`, not a bucketed `single`",
+      demo_by_id["AGE"].get("type") == "text", demo_by_id["AGE"])
+check("GENDER/GAMING/AITOOL are `single` and each carries its OWN options",
+      all(demo_by_id[k].get("type") == "single" and len(demo_by_id[k].get("options", [])) > 1
+          for k in ("GENDER", "GAMING", "AITOOL")),
+      {k: demo_by_id[k] for k in ("GENDER", "GAMING", "AITOOL")})
+check("every imi/coi/arcs/paas item is plain `likert` (no explicit type)",
+      all(it.get("type") is None for name in ("imi", "coi", "arcs", "paas")
+          for it in bank[name]["items"]))
+check("every feedback item is `text`",
+      all(it.get("type") == "text" for it in bank["feedback"]["items"]),
+      bank["feedback"]["items"])
+check("demographics/feedback carry no shared scale (per-item shapes instead)",
+      bank["demographics"]["scale"] == [] and bank["feedback"]["scale"] == [])
 
 print("\n-- the bank has NOT drifted from the validated pack --")
 # Retyping validated items into a second file is how a questionnaire quietly stops
@@ -63,6 +83,21 @@ check("every IMI/CoI/ARCS item appears verbatim in 04_post-questionnaire.md",
       not missing, missing[:4])
 check("the Paas item appears verbatim in 05_reflection-and-load.md",
       bank["paas"]["items"][0]["text"] in load, bank["paas"]["items"][0]["text"])
+
+demo_pack = io.open(os.path.join(PACK, "02_demographics.md"), encoding="utf-8").read()
+fb_pack = io.open(os.path.join(PACK, "09_app-feedback.md"), encoding="utf-8").read()
+demo_missing = [it["id"] for it in bank["demographics"]["items"] if it["text"] not in demo_pack]
+check("every demographics item's text appears verbatim in 02_demographics.md",
+      not demo_missing, demo_missing)
+demo_opt_missing = [
+    it["id"] for it in bank["demographics"]["items"] if it.get("type") == "single"
+    and "; ".join(it["options"]) not in demo_pack
+]
+check("every demographics `single` item's options appear verbatim (as one \"; \"-joined "
+      "cell) in 02_demographics.md",
+      not demo_opt_missing, demo_opt_missing)
+fb_missing = [it["id"] for it in bank["feedback"]["items"] if it["text"] not in fb_pack]
+check("every feedback item's text appears verbatim in 09_app-feedback.md", not fb_missing, fb_missing)
 
 print("\n-- the scoring key never reaches the client --")
 # The pack is explicit that subscale membership and reverse items are researcher-only.
@@ -91,6 +126,8 @@ check("raw answers are what gets recorded", '"answers": body.answers' in post_sr
 check("one submission per participant per instrument", "already_submitted" in post_src)
 check("out-of-range values are refused", "out_of_range" in post_src)
 check("unknown item ids are refused", "unknown_items" in post_src)
+check("an invalid text answer is refused separately from a numeric one",
+      "invalid_text" in post_src)
 
 print("\n-- regenerating is deterministic --")
 gen = os.path.join(BE, "build_questionnaires.py")
@@ -154,6 +191,65 @@ r2 = c.post("/api/questionnaire/paas",
             json={"answers": {paas_id: 5}, "topic_id": good_topic})
 check("second submission of the same instrument+topic is 409 already_submitted",
       r2.status_code == 409 and r2.json().get("error") == "already_submitted", r2.json())
+
+print("\n-- GET /api/questionnaire/demographics forwards type/options, strips the rest --")
+r = c.get("/api/questionnaire/demographics")
+check("200 once consented", r.status_code == 200, r.json())
+served_items = {it["id"]: it for it in r.json()["items"]}
+check("AGE is served as `text` with no options key",
+      served_items["AGE"].get("type") == "text" and "options" not in served_items["AGE"],
+      served_items["AGE"])
+check("GENDER is served as `single` with its options list",
+      served_items["GENDER"].get("type") == "single"
+      and served_items["GENDER"].get("options") == demo_by_id["GENDER"]["options"],
+      served_items["GENDER"])
+
+print("\n-- demographics: categorical (`single`) + free-text (`text`) validation --")
+r = c.post("/api/questionnaire/demographics", json={"answers": {"GENDER": 99}})
+check("an out-of-range `single` answer is refused (400 out_of_range)",
+      r.status_code == 400 and r.json().get("error") == "out_of_range", r.json())
+r = c.post("/api/questionnaire/demographics", json={"answers": {"AGE": 21}})
+check("a non-string `text` answer is refused (400 invalid_text)",
+      r.status_code == 400 and r.json().get("error") == "invalid_text", r.json())
+r = c.post("/api/questionnaire/demographics", json={"answers": {"AGE": "x" * 2001}})
+check("a `text` answer over TEXT_MAX_LEN is refused (400 invalid_text)",
+      r.status_code == 400 and r.json().get("error") == "invalid_text", r.json())
+r = c.post("/api/questionnaire/demographics",
+           json={"answers": {"AGE": "21", "GENDER": 1, "GAMING": 3, "AITOOL": 1}})
+check("a valid mixed-type submission is accepted (200)", r.status_code == 200,
+      (r.status_code, r.json()))
+r2 = c.post("/api/questionnaire/demographics", json={"answers": {"GENDER": 1}})
+check("one submission per participant, same as every other instrument (409)",
+      r2.status_code == 409 and r2.json().get("error") == "already_submitted", r2.json())
+
+print("\n-- feedback: all-text, no shared scale, still one-submission --")
+fb_answers = {"FB_AI": "It helped.", "FB_OVERALL": "Good overall."}   # partial is fine
+r = c.post("/api/questionnaire/feedback", json={"answers": fb_answers})
+check("a partial free-text submission is accepted (200) -- open text is optional per item",
+      r.status_code == 200, (r.status_code, r.json()))
+r2 = c.post("/api/questionnaire/feedback", json={"answers": {"FB_EXTRA": "one more thing"}})
+check("second submission of feedback is 409 already_submitted",
+      r2.status_code == 409 and r2.json().get("error") == "already_submitted", r2.json())
+
+print("\n-- GET /api/questionnaire/_status --")
+r = c.get("/api/questionnaire/_status")
+check("200 once consented", r.status_code == 200, r.json())
+check("reports demographics AND feedback as submitted",
+      set(r.json().get("submitted", [])) >= {"demographics", "feedback"}, r.json())
+check("does not report imi as submitted (never posted in this run)",
+      "imi" not in r.json().get("submitted", []), r.json())
+Q.ENABLED = False
+r = c.get("/api/questionnaire/_status")
+check("_status is 404 when questionnaires are disabled, same as every other route",
+      r.status_code == 404, (r.status_code, r.json()))
+Q.ENABLED = True
+
+# A second, never-consented SID: _status must gate on consent like everything else.
+c2 = TestClient(app)
+c2.post("/api/auth/signup", json={"sid": "24099999D", "password": "hunter2xyz"})
+r = c2.get("/api/questionnaire/_status")
+check("_status refused before consent (403 no_consent), same as the item bank",
+      r.status_code == 403 and r.json().get("error") == "no_consent", r.json())
 
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

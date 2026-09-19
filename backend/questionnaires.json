@@ -238,6 +238,87 @@
    ],
    "reverse": [],
    "subscales": {}
+  },
+  "demographics": {
+   "title": "About you",
+   "cite": "App-collected subset of docs/study-pack/02_demographics.md (D1, D2, D7, D8). Device (D9) is auto-logged server-side, not asked -- see questionnaire_api.py / auth_api.py.",
+   "scale": [],
+   "when": "once, before the first topic",
+   "construct": "descriptive covariate",
+   "items": [
+    {
+     "id": "AGE",
+     "text": "Age (in years)",
+     "type": "text"
+    },
+    {
+     "id": "GENDER",
+     "text": "Gender",
+     "type": "single",
+     "options": [
+      "Female",
+      "Male",
+      "Non-binary / other",
+      "Prefer not to say"
+     ]
+    },
+    {
+     "id": "GAMING",
+     "text": "How often do you play video games (any kind)?",
+     "type": "single",
+     "options": [
+      "Never",
+      "A few times a year",
+      "A few times a month",
+      "A few times a week",
+      "Daily"
+     ]
+    },
+    {
+     "id": "AITOOL",
+     "text": "How often have you used an AI chatbot/tutor to help you study?",
+     "type": "single",
+     "options": [
+      "Never",
+      "Once or twice",
+      "Occasionally",
+      "Regularly"
+     ]
+    }
+   ],
+   "reverse": [],
+   "subscales": {}
+  },
+  "feedback": {
+   "title": "How this went for you",
+   "cite": "Open-ended, app-authored (docs/study-pack/09_app-feedback.md). Not a validated instrument -- free-text feedback for the course team.",
+   "scale": [],
+   "when": "once, at the end of the study",
+   "construct": "open feedback",
+   "items": [
+    {
+     "id": "FB_AI",
+     "text": "How was the AI tutor for you? Did having to work through it before it gave the answer help your learning, or get in the way?",
+     "type": "text"
+    },
+    {
+     "id": "FB_GAME",
+     "text": "Did learning a concept by playing the game help you understand it — or was the game mainly just engaging/fun? What worked or didn't about learning-by-playing?",
+     "type": "text"
+    },
+    {
+     "id": "FB_OVERALL",
+     "text": "Overall, what was most helpful, and what was frustrating or could be improved?",
+     "type": "text"
+    },
+    {
+     "id": "FB_EXTRA",
+     "text": "Anything else you'd like the course team to know? (optional)",
+     "type": "text"
+    }
+   ],
+   "reverse": [],
+   "subscales": {}
   }
  }
 }
