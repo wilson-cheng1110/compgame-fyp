@@ -15,10 +15,20 @@
 // Needs a SID on backend/admin_sids.txt. Set E2E_TEACHER_SID / E2E_TEACHER_PW when
 // the box uses different credentials.
 
-import { test, T, go, ready, logIn, signIn, giveConsent, onboard, apiFromPage, freshSid, APP } from "./lib.mjs"
+import {
+  test, T, go, ready, logIn, signIn, giveConsent, onboard, apiFromPage, freshSid, APP,
+  ensureStaffSid,
+} from "./lib.mjs"
 
 const TEACHER = process.env.E2E_TEACHER_SID ?? "24E00399A"
 const TEACHER_PW = process.env.E2E_TEACHER_PW ?? null   // null => the e2e password
+
+// SUITE SETUP, not a test: a fresh e2e box has no admin_sids.txt (gitignored, only
+// the .example is committed), so the very first teacher check here would 403 before
+// anyone remembered to copy it by hand -- exactly what happened running this suite
+// for the first time with QUESTIONNAIRES_ENABLED=1. Idempotent; leaves a real
+// admin_sids.txt (with other SIDs on it) untouched beyond appending this one.
+ensureStaffSid("admin_sids.txt", TEACHER, "e2e teacher (teacher-path.mjs, unhappy-path.mjs)")
 
 async function teacherIn(page) {
   if (TEACHER_PW) {
@@ -72,9 +82,18 @@ test("a teacher can reach the panel by clicking, and a student cannot see it", a
   await go(page, "/dashboard")
   await ready(page, 1800)
 
+  // waitFor, not a fixed sleep + count: `isStaff` is set from an async admin.whoami()
+  // fired on mount, so a slow tick (GC pause, a loaded machine, the extra
+  // questionnaire `_status` call every dashboard mount now makes) can still be
+  // in flight after `ready()`'s own wait. This link is not the security boundary —
+  // the server's own 403 is — so waiting longer for it costs nothing real.
   const link = page.locator('[data-testid="admin-link"]')
+  const linkAppeared = await link
+    .waitFor({ state: "attached", timeout: 6000 })
+    .then(() => true)
+    .catch(() => false)
   t.check("the dashboard offers a way into the course-team panel",
-    (await link.count()) === 1,
+    linkAppeared && (await link.count()) === 1,
     "linked from nowhere before 2026-08-30 — a teacher had to type the URL")
   if (await link.count()) {
     await link.click()

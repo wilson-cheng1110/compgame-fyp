@@ -113,6 +113,10 @@ export default function ConsentPage() {
                 individual behaviour.
               </li>
               <li>
+                <strong>A coarse device type</strong> (for example, phone or computer) is recorded
+                automatically from your browser — never a specific device identifier.
+              </li>
+              <li>
                 <strong>Your written answers may be read by the course team</strong> and quoted
                 anonymously in tutorial to spark discussion. Your name is never attached when they
                 are shown.
@@ -127,7 +131,7 @@ export default function ConsentPage() {
                 study.
               </li>
               <li>
-                <strong>A short background questionnaire</strong> (age range, gender, and how
+                <strong>A short background questionnaire</strong> (your age, gender, and how
                 often you play games or use an AI chatbot) before your first topic, and an
                 optional feedback form at the end — both take a couple of minutes and every
                 question can be skipped or answered "prefer not to say".

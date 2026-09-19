@@ -14,13 +14,24 @@
 // that is NOT on admin_sids.txt, and the teacher SID on admin_sids.txt but NOT the
 // researcher list — so the two gates are proven independent, not one a superset.
 
-import { test, go, ready, signIn, logIn, giveConsent, onboard, apiFromPage, freshSid } from "./lib.mjs"
+import {
+  test, go, ready, signIn, logIn, giveConsent, onboard, apiFromPage, freshSid,
+  ensureStaffSid,
+} from "./lib.mjs"
 
 const RESEARCHER = process.env.E2E_RESEARCHER_SID ?? "24E00398A"
 const TEACHER = process.env.E2E_TEACHER_SID ?? "24E00399A"
 // A raw enrolled-SID shape (24E00001A / 24S…): if any of these appears in the export,
 // pseudonymisation failed. The 16-hex pseudonym cannot match this.
 const RAW_SID = /\b\d{2}[A-Z]\d{5}[A-Z]\b/
+
+// SUITE SETUP, not a test — see the identical comment in teacher-path.mjs. This
+// suite also signs the TEACHER in (to prove the blinding is mutual), so it needs
+// admin_sids.txt too, not just its own researcher_sids.txt. Deliberately two
+// SEPARATE files/calls, never merged: the whole point under test is that the two
+// allowlists are independent.
+ensureStaffSid("researcher_sids.txt", RESEARCHER, "e2e researcher (researcher-path.mjs)")
+ensureStaffSid("admin_sids.txt", TEACHER, "e2e teacher (teacher-path.mjs, unhappy-path.mjs)")
 
 test("a researcher reaches the monitoring surface and it is not blank", async (page, t) => {
   const url = await signIn(page, RESEARCHER)
@@ -72,8 +83,17 @@ test("a teacher (admin only) is BLIND to the researcher surface", async (page, t
 
   await go(page, "/dashboard")
   await ready(page, 1800)
+  // waitFor, not a fixed sleep + count -- see the identical comment in
+  // teacher-path.mjs's "reach the panel by clicking" test. Same async
+  // admin.whoami() timing, same reasoning: the link is a convenience, not the
+  // gate, so waiting longer for it to attach costs nothing real.
+  const link = page.locator('[data-testid="admin-link"]')
+  const linkAppeared = await link
+    .waitFor({ state: "attached", timeout: 6000 })
+    .then(() => true)
+    .catch(() => false)
   t.check("the teacher is offered the course-team link",
-    (await page.locator('[data-testid="admin-link"]').count()) === 1)
+    linkAppeared && (await link.count()) === 1)
   t.check("but is NOT offered the researcher link (the surface stays off their radar)",
     (await page.locator('[data-testid="researcher-link"]').count()) === 0)
 

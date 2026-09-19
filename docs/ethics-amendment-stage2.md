@@ -215,7 +215,7 @@ about a platform the lecturer has endorsed, is not a neutral invitation.
 
 | | |
 |---|---|
-| Collected | Student ID, chosen password (hashed), per-topic answers and scores, short written responses, tutor conversations, timing and interaction telemetry |
+| Collected | Student ID, chosen password (hashed), per-topic answers and scores, short written responses, tutor conversations, timing and interaction telemetry, four optional background items (age, gender, how often they play games, how often they use an AI chatbot), optional end-of-study free-text feedback, coarse device class (e.g. phone/computer), not a device identifier |
 | Not collected | Name, email, demographics beyond the optional background items, IP address, location, any device identifier |
 | Identifier at rest | Student ID, on the study server only |
 | Identifier in analysis | HMAC-SHA-256 pseudonym, applied at the export boundary |
@@ -303,3 +303,18 @@ is to close the browser tab. Scope and safeguards the PI weighed:
 **To reconcile before HSESC submission:** a mandatory data-collection step is a procedural change.
 The consent text's "you can stop any time" remains true (tab-close), but removing the graceful
 in-app exit should be disclosed. Wording is the PI's to finalise.
+
+**2026-09-20 — consent bullets added for the background questionnaire, end-of-study
+feedback, and auto-logged device class.**
+`frontend/app/consent/page.tsx` ("What gets recorded") gained two bullets: one naming the
+background questionnaire (your age, gender, how often you play games, and how often you use
+an AI chatbot -- every question skippable or answerable "prefer not to say") asked once before
+the first topic, plus the optional feedback form at the end; and one naming the coarse device
+class (e.g. phone or computer, never a device identifier) auto-logged from the browser at
+consent time (`backend/auth_api.py` `_device_class`, gated on `TELEMETRY_ENABLED`). Both were
+already anticipated by this amendment's own §4 -- "demographics beyond the optional background
+items" and "any device identifier" were always the carve-outs -- so this entry records the
+consent wording now actually shipped rather than introducing a new collection category. §4's
+Collected row above is updated to name all four background items, the feedback form, and the
+device class explicitly. The age item is free-typed, not a bucketed range, and the consent
+bullet says "your age" accordingly, not "age range."

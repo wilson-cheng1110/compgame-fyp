@@ -14,7 +14,7 @@
 
 import {
   test, T, go, ready, signIn, logIn, fullSignIn, E2E_PASSWORD, giveConsent, onboard, apiFromPage,
-  freshSid, UNENROLLED_SID, API, grepBuild,
+  freshSid, UNENROLLED_SID, API, grepBuild, ensureStaffSid,
 } from "./lib.mjs"
 
 const POST = (body) => ({
@@ -422,6 +422,11 @@ test("the consent form describes what its own buttons do", async (page, t) => {
 // ── the teacher surface ───────────────────────────────────────────────────────
 
 const TEACHER_SID = "24E00399A" // matches backend/admin_sids.txt; high in the roster
+// SUITE SETUP, not a test: a fresh e2e box has no admin_sids.txt (gitignored, only
+// the .example is committed) -- this is the ORIGINAL site of the failure ("a teacher
+// can reset a lost password" 403'd) that this line fixes, idempotently, for every
+// run from here on.
+ensureStaffSid("admin_sids.txt", TEACHER_SID, "e2e teacher (teacher-path.mjs, unhappy-path.mjs)")
                                 // so freshSid() never allocates it out from under us
 
 test("a student who finds /admin learns nothing from it", async (page, t) => {

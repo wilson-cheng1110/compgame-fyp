@@ -15,6 +15,40 @@
 // in cookies and redirects — a layer Python tests cannot reach. That is this file's
 // reason to exist.
 
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+
+const HERE = path.dirname(fileURLToPath(import.meta.url))
+const BACKEND_DIR = path.join(HERE, "..", "..", "backend")
+
+/** Idempotently ensure `sid` is on a gitignored staff allowlist file
+ *  (admin_sids.txt / researcher_sids.txt), creating the file if it does not exist
+ *  yet. Both hot-reload on mtime (auth_store.py `is_admin`/`is_researcher`), so a
+ *  fresh write here is picked up by an already-running backend with no restart --
+ *  this is what stops the FIRST teacher/researcher test of a fresh e2e box from
+ *  403ing because nobody remembered to copy the `.example` file by hand (exactly
+ *  what happened running this suite for the first time with QUESTIONNAIRES
+ *  enabled: "a teacher can reset a lost password" 403'd before anything else had
+ *  a chance to create it). Local-filesystem assumption: this only works when the
+ *  suite runs against a backend on the SAME machine, which is this suite's only
+ *  supported setup (see e2e/README.md).
+ */
+export function ensureStaffSid(filename, sid, label) {
+  const file = path.join(BACKEND_DIR, filename)
+  let text = ""
+  try {
+    text = fs.readFileSync(file, "utf8")
+  } catch {
+    text = "# e2e fixture -- gitignored, never a real list.\n"
+  }
+  const already = text.split("\n").some((line) => line.split("#")[0].trim() === sid)
+  if (already) return false
+  const sep = text.endsWith("\n") || text === "" ? "" : "\n"
+  fs.writeFileSync(file, `${text}${sep}${sid}   # ${label}\n`)
+  return true
+}
+
 export const APP = process.env.E2E_APP ?? "http://localhost:3000"
 // MUST match the origin the app itself calls (NEXT_PUBLIC_API_BASE, default
 // http://localhost:8080). `127.0.0.1` and `localhost` are DIFFERENT SITES to a
@@ -145,7 +179,48 @@ export async function onboard(page, name = "E2E Student") {
     await next.click()
     await page.waitForTimeout(2200)
   }
+  await passDemographicsGate(page)
   return page.url()
+}
+
+/** Clear the one-time demographics gate if it is showing (QUESTIONNAIRES_ENABLED=1,
+ *  never submitted before) — the gate STAYS in the product; this only teaches the
+ *  suite to get past it. A no-op — same tick, no real wait beyond a settle beat —
+ *  when it isn't rendered (flag off, already submitted, or a staff account that
+ *  never sees it per its own consent exemption), detected by
+ *  `[data-testid="demographics-gate"]` rather than assumed from the flag, so this
+ *  is safe to call unconditionally after every consent+onboarding sequence.
+ *
+ *  Every choice item is answered "Prefer not to say" where that option exists
+ *  (GENDER); an item with no such option (GAMING, AITOOL) falls back to its first
+ *  choice, since there is no universally non-committal answer to "how often do you
+ *  play games". AGE is left blank on purpose — it's optional, and a browser test
+ *  is not a demographic.
+ */
+export async function passDemographicsGate(page) {
+  await page.waitForTimeout(400)
+  const gate = page.locator('[data-testid="demographics-gate"]')
+  if (!(await gate.count())) return false
+
+  const fieldsets = page.locator("fieldset")
+  const n = await fieldsets.count()
+  for (let i = 0; i < n; i++) {
+    const options = fieldsets.nth(i).locator('[data-testid="q-option"]')
+    const optCount = await options.count()
+    if (!optCount) continue // AGE's fieldset has no q-option buttons — leave it blank
+    let chosen = null
+    for (let j = 0; j < optCount; j++) {
+      const label = (await options.nth(j).innerText()).trim()
+      if (/prefer not to say/i.test(label)) {
+        chosen = options.nth(j)
+        break
+      }
+    }
+    await (chosen ?? options.first()).click()
+  }
+  await page.locator('[data-testid="instrument-submit"]').click()
+  await page.waitForTimeout(1500)
+  return true
 }
 
 /** Answer every baseline item (first option) and submit. */
