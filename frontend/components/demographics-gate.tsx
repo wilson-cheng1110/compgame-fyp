@@ -51,10 +51,6 @@ export default function DemographicsGate({ onDone }: { onDone: () => void }) {
       <div className="mx-auto w-full max-w-2xl px-5 py-12" data-testid="demographics-gate">
         <p className="u-eyebrow">Before your first topic</p>
         <h1 className="u-h1 mt-1">A few quick questions about you</h1>
-        <p className="u-stem u-muted mt-3 mb-7">
-          Four short questions, asked once. Every one has a low-commitment answer if
-          you&apos;d rather not say — pick that, or type your own for age.
-        </p>
 
         {error && (
           <div
