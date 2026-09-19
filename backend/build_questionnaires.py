@@ -112,14 +112,17 @@ bank = {
             "cite": "App-collected subset of docs/study-pack/02_demographics.md (D1, D2, D7, "
                     "D8). Device (D9) is auto-logged server-side, not asked -- see "
                     "questionnaire_api.py / auth_api.py.",
-            # No shared scale: AGE is free-typed `text` (Wilson, live: "just let them
+            # No shared scale: AGE is free-typed `text` (decided live: "just let them
             # input" -- a typed age is richer than a 5-way bucket and can always be
-            # re-bucketed later; a bucket cannot be un-bucketed). GENDER/GAMING/AITOOL
-            # stay `single`, each carrying its own options.
+            # re-bucketed later; a bucket cannot be un-bucketed) -- but bounded: `min`/
+            # `max` mark it as a whole-integer text item, optional but validated
+            # 15-100 if answered (questionnaire_api.py enforces; instrument-form.tsx
+            # mirrors it client-side). GENDER/GAMING/AITOOL stay `single`, each
+            # carrying its own options.
             "scale": [], "when": "once, before the first topic",
             "construct": "descriptive covariate",
             "items": (
-                [{**it, "type": "text"} for it in
+                [{**it, "type": "text", "min": 15, "max": 100} for it in
                  items("02_demographics.md", "## App-collected subset", r"AGE")]
                 + choice_items("02_demographics.md", "## App-collected subset",
                                r"GENDER|GAMING|AITOOL")

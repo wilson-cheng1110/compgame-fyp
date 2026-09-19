@@ -15,11 +15,19 @@ export type { QuestionnaireInstrument as Instrument }
 // topic-questionnaire.tsx's already-tested per-topic flow.
 //
 // COMPLETENESS RULE: `text` items are NEVER required, even when `requireAll` is set.
-// You cannot meaningfully coerce a real free-text answer out of someone (Wilson,
+// You cannot meaningfully coerce a real free-text answer out of someone (decided
 // live: "just let them input" -- said of AGE, generalised here to every text item),
 // so only `likert`/`single` items count toward "remaining". This is also why an
 // untouched text item is dropped rather than sent as `""` on submit -- leaving a box
 // empty must read as "skipped", never as a recorded blank answer.
+//
+// BOUNDED TEXT (AGE): a `text` item carrying `min`/`max` renders as a numeric input
+// instead of a textarea, and stays optional -- but a NON-EMPTY value is validated
+// client-side against the same [min, max]-whole-number rule the server enforces
+// (questionnaire_api.py `invalid_age`), with an inline error, and blocks submit
+// while invalid regardless of `requireAll`. This is a UX nicety, not the source of
+// truth: the server re-validates independently, so a client that skips this check
+// (or is bypassed via `fetch`) still cannot record an out-of-range or non-numeric age.
 
 export default function InstrumentForm({
   instrument,
@@ -47,6 +55,18 @@ export default function InstrumentForm({
   const set = (id: string, value: number | string) =>
     setAnswers((prev) => ({ ...prev, [id]: value }))
 
+  // Mirrors the server's `invalid_age` rule (questionnaire_api.py): optional, but a
+  // NON-EMPTY value must be a whole number (digits only) in [min, max]. Blank always
+  // passes -- this only ever blocks a value someone actually typed.
+  const isValidBounded = (item: { min?: number; max?: number }, raw: unknown): boolean => {
+    if (item.min == null || item.max == null) return true
+    const trimmed = (raw ?? "").toString().trim()
+    if (trimmed === "") return true
+    if (!/^[0-9]+$/.test(trimmed)) return false
+    const n = Number(trimmed)
+    return n >= item.min && n <= item.max
+  }
+
   const requiredItems = instrument.items.filter((it) => (it.type ?? "likert") !== "text")
   const answeredRequired = requiredItems.filter((it) => answers[it.id] !== undefined).length
   const remaining = requiredItems.length - answeredRequired
@@ -54,7 +74,10 @@ export default function InstrumentForm({
     const v = answers[id]
     return typeof v === "number" || (typeof v === "string" && v.trim().length > 0)
   })
-  const canSubmit = requireAll ? remaining === 0 : hasAnyAnswer
+  const hasInvalidBounded = instrument.items.some(
+    (it) => (it.type ?? "likert") === "text" && !isValidBounded(it, answers[it.id]),
+  )
+  const canSubmit = (requireAll ? remaining === 0 : hasAnyAnswer) && !hasInvalidBounded
 
   const submit = async () => {
     setBusy(true)
@@ -85,20 +108,48 @@ export default function InstrumentForm({
       {instrument.items.map((item) => {
         const itype = item.type ?? "likert"
         const chosen = answers[item.id]
+        const bounded = itype === "text" && item.min != null && item.max != null
+        const boundedInvalid = bounded && !isValidBounded(item, chosen)
         return (
           <fieldset key={item.id} className="mt-6">
             <legend className="u-stem">{item.text}</legend>
 
             {itype === "text" ? (
-              <textarea
-                value={(chosen as string) ?? ""}
-                onChange={(e) => set(item.id, e.target.value)}
-                maxLength={2000}
-                rows={item.text.length > 60 ? 4 : 2}
-                className="u-field mt-2"
-                data-testid="q-text"
-                aria-label={item.text}
-              />
+              bounded ? (
+                <>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={(chosen as string) ?? ""}
+                    onChange={(e) => set(item.id, e.target.value)}
+                    maxLength={10}
+                    className="u-field mt-2"
+                    style={{ maxWidth: "8rem" }}
+                    data-testid="q-text"
+                    aria-label={item.text}
+                    aria-invalid={boundedInvalid}
+                  />
+                  <p
+                    className="u-faint mt-1"
+                    style={boundedInvalid ? { color: "var(--state-late)" } : undefined}
+                    data-testid={boundedInvalid ? "q-invalid-age" : undefined}
+                  >
+                    {boundedInvalid
+                      ? `Enter a whole number between ${item.min} and ${item.max}, or leave it blank.`
+                      : `Optional -- a whole number between ${item.min} and ${item.max}.`}
+                  </p>
+                </>
+              ) : (
+                <textarea
+                  value={(chosen as string) ?? ""}
+                  onChange={(e) => set(item.id, e.target.value)}
+                  maxLength={2000}
+                  rows={item.text.length > 60 ? 4 : 2}
+                  className="u-field mt-2"
+                  data-testid="q-text"
+                  aria-label={item.text}
+                />
+              )
             ) : (
               <div
                 className="flex flex-wrap gap-2 mt-2"

@@ -51,10 +51,14 @@
 > app version. D9 (device) is **not asked** — it is auto-logged server-side from the User-Agent
 > and attached to the `consent_recorded` event's `meta` instead (`TELEMETRY_ENABLED`-gated). AITOOL
 > below is a shortened single-line rewrite of D8 for the in-app prompt; the options are unchanged.
-> AGE is **free-typed, not a bucketed range** (Wilson, live: "just let them input") — a typed
+> AGE is **free-typed, not a bucketed range** (decided live: "just let them input") — a typed
 > age is a strictly richer datum than a 5-way bucket, and re-bucketing at analysis time is a
-> one-line `pd.cut`; the reverse is not recoverable. `backend/build_questionnaires.py` extracts
-> these tables verbatim — edit here, not the JSON.
+> one-line `pd.cut`; the reverse is not recoverable. Free text still gets a plausibility check
+> (decided live): **optional, but if answered it must be a whole number 15–100** (`min`/`max`
+> on the item in `questionnaires.json`; enforced in `questionnaire_api.py`, mirrored
+> client-side) — a stray "twenty" or a fat-fingered "999" is refused rather than silently
+> entering the sample-composition table as a non-number. `backend/build_questionnaires.py`
+> extracts these tables verbatim — edit here, not the JSON.
 
 | ID | Text |
 |----|------|

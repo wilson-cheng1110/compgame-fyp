@@ -39,6 +39,7 @@ able to start.
 import json
 import asyncio
 import os
+import re
 
 from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel
@@ -86,6 +87,12 @@ def instrument_names() -> list[str]:
 # something the pack's read-and-quote-anonymously process (06_scoring-codebook-
 # analysis.md) is built to handle.
 TEXT_MAX_LEN = 2000
+
+# ASCII digits only, and `re.match` anchors the start but not the end, so `$` does
+# the rest -- `str.isdigit()` was considered and rejected: it accepts Unicode digit
+# characters (superscripts, Arabic-Indic digits, ...) that `int()` cannot always
+# parse, which would 500 instead of 400 on a deliberately-weird paste.
+_WHOLE_INT_RE = re.compile(r"^[0-9]+$")
 
 
 class Responses(BaseModel):
@@ -227,16 +234,36 @@ async def submit(name: str, body: Responses, response: Response,
     # scale)); `single` validates against that ITEM's own `options` length instead
     # (demographics: GENDER/GAMING/AITOOL each have a different option count); `text`
     # validates it is a string within TEXT_MAX_LEN (demographics: AGE; feedback: all
-    # four items). Two separate error codes, not one, because they are different
-    # failures a client should handle differently -- a number outside range vs. the
-    # wrong JSON type or an oversized paste.
-    out_of_range, invalid_text = [], []
+    # four items). Three separate error codes, not one, because they are different
+    # failures a client should handle differently -- a number outside range, the
+    # wrong JSON type or an oversized paste, or text that LOOKS free-form but is
+    # actually a bounded whole number (AGE).
+    #
+    # A `text` item MAY also carry `min`/`max` (both ints) -- CONTRACT: the answer
+    # stays OPTIONAL (an empty/blank string, or the key simply absent, is fine and
+    # is never flagged here), but a NON-EMPTY value must parse as a whole number
+    # (digits only -- no sign, decimal point or thousands separator) within
+    # [min, max] inclusive, or it is refused as `invalid_age`. A value that passes
+    # is NORMALISED to its canonical decimal form (`str(int(trimmed))`) before it is
+    # recorded, so " 07 " and "7" store identically rather than baking whitespace or
+    # leading zeros into the sample-composition table.
+    out_of_range, invalid_text, invalid_age = [], [], []
+    normalized_answers = dict(body.answers)
     for item_id, value in body.answers.items():
         item = item_by_id[item_id]
         itype = item.get("type", "likert")
         if itype == "text":
             if not isinstance(value, str) or isinstance(value, bool) or len(value) > TEXT_MAX_LEN:
                 invalid_text.append(item_id)
+                continue
+            lo, hi = item.get("min"), item.get("max")
+            if isinstance(lo, int) and isinstance(hi, int):
+                trimmed = value.strip()
+                if trimmed:
+                    if not _WHOLE_INT_RE.match(trimmed) or not (lo <= int(trimmed) <= hi):
+                        invalid_age.append(item_id)
+                        continue
+                    normalized_answers[item_id] = str(int(trimmed))
         else:
             hi = len(item["options"]) if itype == "single" else len(inst["scale"])
             if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= hi:
@@ -248,6 +275,11 @@ async def submit(name: str, body: Responses, response: Response,
         response.status_code = 400
         return {"error": "invalid_text", "items": sorted(invalid_text)[:5],
                 "max_length": TEXT_MAX_LEN}
+    if invalid_age:
+        bounds = item_by_id[invalid_age[0]]
+        response.status_code = 400
+        return {"error": "invalid_age", "items": sorted(invalid_age)[:5],
+                "min": bounds.get("min"), "max": bounds.get("max")}
 
     # ONE SUBMISSION, like every other instrument here. A second pass is a different
     # measurement occasion and would silently double-weight one participant.
@@ -261,10 +293,11 @@ async def submit(name: str, body: Responses, response: Response,
         "event_type": event,
         "topic_id": body.topic_id,
         "duration_ms": body.duration_ms,
-        # Raw responses only. Reversing and subscale means happen at ANALYSIS time
-        # from the pack's codebook -- storing a computed score would bake today's
-        # scoring decisions into data that outlives them.
-        "meta": {"answers": body.answers, "instrument": name,
+        # Raw responses only (bar the AGE-style whitespace/leading-zero normalisation
+        # above). Reversing and subscale means happen at ANALYSIS time from the
+        # pack's codebook -- storing a computed score would bake today's scoring
+        # decisions into data that outlives them.
+        "meta": {"answers": normalized_answers, "instrument": name,
                  "n_items": len(inst["items"]),
                  # A single instrument-wide scale_max only means something when every
                  # item shares one scale (imi/coi/arcs/paas); demographics/feedback mix

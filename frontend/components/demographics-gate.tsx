@@ -9,9 +9,11 @@ import InstrumentForm from "@/components/instrument-form"
 // A ONE-TIME prompt, shown by the dashboard after consent and before the topics
 // list renders, once per participant (docs spec). Every choice item has a low-
 // commitment option ("Prefer not to say"), and AGE is free-typed rather than
-// bucketed (Wilson, live: "just let them input"), so requiring the form to be
+// bucketed (decided live: "just let them input"), so requiring the form to be
 // COMPLETE before continuing does not coerce a specific answer out of anyone -- it
-// only asks that every item get *some* response, including a declined one.
+// only asks that every item get *some* response, including a declined one. AGE
+// itself stays optional even so (instrument-form.tsx never counts a `text` item
+// toward "remaining"), and is bounds-checked if answered (15-100).
 //
 // The dashboard decides WHETHER to render this (journey.questionnaires_enabled +
 // `_status` not yet including "demographics"); this component only fetches its own

@@ -95,13 +95,27 @@ export default function DashboardPage() {
   // Gated on `longUnits` (== journey.questionnaires_enabled): while questionnaires
   // are off (the module default) this never fires, so the demographics gate and
   // feedback prompt below are dead code paths for every dev/e2e/default-config run.
+  //
+  // STAFF/RESEARCHER FIX (found running e2e with the flag on): `/api/auth/me` sets
+  // `needsConsent: false` for `is_staff` accounts (auth_api.py) -- a teacher or
+  // researcher never visits /consent and so never gets a `consent_recorded` event.
+  // `_status` shares the same consent gate as every other questionnaire route, so
+  // it 403s `no_consent` for them, and treating that like "not yet submitted" put
+  // a demographics gate in front of the dashboard that a staff account can NEVER
+  // pass -- permanently blocking `/admin` and `/researcher` access whenever
+  // QUESTIONNAIRES_ENABLED=1. A `no_consent` response means "this account does not
+  // go through participant gates at all", so both instruments are treated as
+  // already satisfied (never asked), the same exemption `is_staff` already gets
+  // from consent/baseline everywhere else in this app.
   useEffect(() => {
     let alive = true
     if (!journeyLoaded) return
     if (!longUnits) { setSubmittedInstruments([]); return }
     questionnaires.status().then((res) => {
       if (!alive) return
-      setSubmittedInstruments(res.ok && res.data ? res.data.submitted : [])
+      if (res.ok && res.data) setSubmittedInstruments(res.data.submitted)
+      else if (res.error === "no_consent") setSubmittedInstruments(["demographics", "feedback"])
+      else setSubmittedInstruments([])
     })
     return () => { alive = false }
   }, [journeyLoaded, longUnits])

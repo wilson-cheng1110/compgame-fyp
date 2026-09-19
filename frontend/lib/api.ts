@@ -225,6 +225,12 @@ export interface QuestionnaireItem {
   type?: QuestionnaireItemType
   /** Present only on a `single` item -- its own choices, answered as 1..length. */
   options?: string[]
+  /** Present only on a bounded `text` item (currently just AGE). CONTRACT: the
+   *  answer stays optional -- blank/absent is always fine -- but a NON-EMPTY value
+   *  must be a whole number in [min, max] or the server refuses it with
+   *  `invalid_age`. Both present together or not at all. */
+  min?: number
+  max?: number
 }
 
 export interface QuestionnaireInstrument {

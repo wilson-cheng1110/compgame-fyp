@@ -249,7 +249,9 @@
     {
      "id": "AGE",
      "text": "Age (in years)",
-     "type": "text"
+     "type": "text",
+     "min": 15,
+     "max": 100
     },
     {
      "id": "GENDER",
