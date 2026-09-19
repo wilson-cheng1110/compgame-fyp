@@ -136,7 +136,7 @@ export default function InstrumentForm({
                   >
                     {boundedInvalid
                       ? `Enter a whole number between ${item.min} and ${item.max}, or leave it blank.`
-                      : `Optional -- a whole number between ${item.min} and ${item.max}.`}
+                      : `A whole number between ${item.min} and ${item.max}.`}
                   </p>
                 </>
               ) : (
