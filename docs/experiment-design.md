@@ -437,8 +437,8 @@ source before submission; URLs are the retrieved ground truth.*
 - Paas, F. G. W. C. (1992). Training strategies for attaining transfer of problem-solving skill in statistics: A cognitive-load approach. *Journal of Educational Psychology, 84*(4), 429–434. (single-item validation: https://link.springer.com/article/10.1007/s11251-024-09692-6)
 - van Alten, D. C. D., Phielix, C., Janssen, J., & Kester, L. (2019). Effects of flipping the classroom on learning outcomes and satisfaction: A meta-analysis. *Educational Research Review, 28*, 100281. https://research-portal.uu.nl/en/publications/effects-of-flipping-the-classroom-on-learning-outcomes-and-satisf-2/
 - Wouters, P., van Nimwegen, C., van Oostendorp, H., & van der Spek, E. D. (2013). A meta-analysis of the cognitive and motivational effects of serious games. *Journal of Educational Psychology, 105*(2), 249–265. https://link.springer.com/article/10.1007/s10648-019-09498-w
-- *(ChatGPT meta-analysis, 2026)* ChatGPT's impact on student learning outcomes: a meta-analysis of 35 experimental studies. *Humanities and Social Sciences Communications.* https://www.nature.com/articles/s41599-026-07019-z — **author list/volume not captured; verify before citing.**
-- *(Interaction–satisfaction mediation, 2021)* Investigating factors affecting learning satisfaction and perceived learning in flipped classrooms: the mediating effect of interaction. *Interactive Learning Environments.* https://www.tandfonline.com/doi/full/10.1080/10494820.2021.2018616
+- Wu, X., Zhu, P., Zhang, J., Yin, M., & Wang, Y. (2026). ChatGPT's impact on student learning outcomes: a meta-analysis of 35 experimental studies. *Humanities and Social Sciences Communications, 13*(1). https://www.nature.com/articles/s41599-026-07019-z
+- Lin, G.-Y., Wang, Y.-S., & Lee, Y. N. (2022). Investigating factors affecting learning satisfaction and perceived learning in flipped classrooms: the mediating effect of interaction. *Interactive Learning Environments, 31*(9), 5759–5780. https://www.tandfonline.com/doi/full/10.1080/10494820.2021.2018616
 
 ---
 
