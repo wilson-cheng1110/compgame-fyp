@@ -373,7 +373,16 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
     **consent-gated** (403 pre-consent, same as every recorded path), scoring key
     never served, one submission per instrument (partial unique index covers `questionnaire_%`).
     Derivation helpers in `backend/measures.py` (arm ASSIGNED, `played_first` OBSERVED from
-    server_ts). **Still open:** Phase 07 visual pass (the 太game fix).
+    server_ts). **Demographics + end-of-study feedback wired 2026-09-20** via the SAME
+    `questionnaire_api.py` — the mechanism gained a per-item `type` (`likert`/`single`/`text`);
+    AGE is free-text, bounded 15–100 on server+client (`invalid_age`). Demographics is a
+    **blocking, one-time gate before the topics** (`components/demographics-gate.tsx`) but
+    **NON-coercive**: every choice item has "Prefer not to say" and age is optional; end feedback
+    is a post-completion dashboard card (`components/feedback-card.tsx`). A coarse **device class**
+    (phone/computer, NOT a device identifier) is auto-logged on `consent_recorded`
+    (`auth_api._device_class`, `TELEMETRY_ENABLED`-gated). Consent page +
+    `docs/ethics-amendment-stage2.md` §4 updated for the new personal data (age/gender).
+    **Still open:** Phase 07 visual pass (the 太game fix).
   - Server accounts ✅ (`backend/auth_store.py`, 26 tests). Corpus staleness check ✅
     (`backend/check_corpus_coverage.py` — currently **exits 1**: zero coverage on `norman` and
     `hicks-law`, because the vector store is built from 2023 decks. Fix is `docs/revamp.md` Part 9.3).
