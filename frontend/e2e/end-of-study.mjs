@@ -27,7 +27,7 @@
 
 import fs from "node:fs"
 import {
-  test, go, ready, signIn, giveConsent, onboard, apiFromPage,
+  test, go, ready, signIn, giveConsent, onboard, apiFromPage, freshSid,
 } from "./lib.mjs"
 
 const SCHEDULE_PATH = process.env.E2E_SCHEDULE_PATH ?? "/tmp/sched.json"
@@ -101,7 +101,7 @@ test("the end-of-study battery: served without the answer key, graded, recorded,
   }
   setEndOfStudyOpen(true)
 
-  const sid = `24EOS${Date.now() % 100000}A`
+  const sid = freshSid()
   const url = await signIn(page, sid)
   t.require("the student signs in", !url.includes("/login"), url)
   await giveConsent(page)
@@ -200,7 +200,7 @@ test("the battery is ABSENT when the end-of-study window is closed", async (page
     return
   }
 
-  const sid = `24EOC${Date.now() % 100000}A`
+  const sid = freshSid()
   await signIn(page, sid)
   await giveConsent(page)
   await onboard(page)

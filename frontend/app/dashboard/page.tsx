@@ -451,7 +451,13 @@ export default function DashboardPage() {
             {showEndOfStudy && (
               <EndOfStudyBattery
                 topics={completedTopics}
-                onDone={() => setEndOfStudyDone(true)}
+                onDone={() => {
+                  /* Deliberately does NOT flip endOfStudyDone here: the battery shows its
+                     OWN "done" screen (data-testid=end-of-study-done) and must stay mounted
+                     to do so. Setting endOfStudyDone=true would unmount it and destroy that
+                     screen the instant it appeared. A full reload re-checks retention._status
+                     and correctly hides the battery then. */
+                }}
               />
             )}
 
