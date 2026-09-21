@@ -65,6 +65,50 @@ test("a researcher reaches the monitoring surface and it is not blank", async (p
   t.check("it carries the coverage headline", typeof mon.body?.coverage?.pairs === "number", mon.body?.coverage)
 })
 
+test("the research-papers dashboard renders — nine cards and a paper page with a live slice", async (page, t) => {
+  // The 9-paper programme lives on this same gated surface: a shared demographics/covariates
+  // section + one card per paper, each opening its own page with the scholarly part AND a
+  // live-data slice. Aggregate-only, same gate — proven in a real browser, not just by tsc.
+  await signIn(page, RESEARCHER)
+  await go(page, "/researcher")
+  await ready(page, 2200)
+  t.require("the researcher surface renders (not a refusal)",
+    (await page.locator('[data-testid="researcher-overview"]').count()) === 1 &&
+      (await page.locator('[data-testid="researcher-denied"]').count()) === 0, page.url())
+
+  t.check("the shared demographics/covariates panel is drawn",
+    (await page.locator('[data-testid="researcher-papers-shared"]').count()) === 1)
+  const cards = page.locator('[data-testid^="researcher-paper-card-"]')
+  t.check("exactly nine paper cards are drawn, one per paper",
+    (await cards.count()) === 9, await cards.count())
+
+  // Open one paper page directly — a server component gated on the same session cookie.
+  await go(page, "/researcher/paper/01-flip-effectiveness")
+  await ready(page, 2200)
+  t.require("the paper page renders its scholarly part, not a refusal",
+    (await page.locator('[data-testid="paper-denied"]').count()) === 0 &&
+      (await page.locator('[data-testid="paper-hypothesis"]').count()) === 1, page.url())
+  t.check("it shows the fit verdict and the key measures",
+    (await page.locator('[data-testid="paper-fit-verdict"]').count()) === 1 &&
+      (await page.locator('[data-testid="paper-key-measures"]').count()) === 1)
+  // The LIVE panel renders the fetched envelope (paper-live-slice), not the static fallback —
+  // the slice fetch succeeded server-side with the forwarded researcher cookie.
+  t.check("the live-data panel renders a real slice",
+    (await page.locator('[data-testid="paper-live-slice"]').count()) === 1,
+    await page.locator('[data-testid="paper-live-data"]').innerText().catch(() => "no panel"))
+
+  // Aggregate-only in the browser too: no raw enrolled-SID shape anywhere on the page.
+  const bodyText = await page.locator("body").innerText()
+  t.check("no raw enrolled-SID shape appears on the paper page",
+    !RAW_SID.test(bodyText), (bodyText.match(RAW_SID) || []).slice(0, 3))
+
+  // An unknown paper id is a graceful not-found, never a crash.
+  await go(page, "/researcher/paper/99-not-a-paper")
+  await ready(page, 1800)
+  t.check("an unknown paper id is a graceful not-found, not a 500",
+    (await page.locator('[data-testid="paper-unknown"]').count()) === 1, page.url())
+})
+
 test("the researcher export is pseudonymised — real SIDs never leave", async (page, t) => {
   await signIn(page, RESEARCHER)
   const j = await apiFromPage(page, "/api/researcher/export?format=json")
@@ -119,6 +163,16 @@ test("a teacher (admin only) is BLIND to the researcher surface", async (page, t
     body: JSON.stringify({ sid: "24E00001A" }),
   })
   t.check("and refuses them the forget (403)", fg.status === 403, fg.status)
+
+  // The papers dashboard is on the SAME gate: a teacher is blind to it too.
+  await go(page, "/researcher/paper/01-flip-effectiveness")
+  await ready(page, 1800)
+  t.check("a teacher opening a paper page gets a plain refusal (paper-denied)",
+    (await page.locator('[data-testid="paper-denied"]').count()) === 1, page.url())
+  const pslice = await apiFromPage(page, "/api/researcher/paper/01-flip-effectiveness")
+  t.check("and the paper-slice API refuses the teacher (403)", pslice.status === 403, pslice.status)
+  const dem = await apiFromPage(page, "/api/researcher/demographics")
+  t.check("and the demographics API refuses the teacher (403)", dem.status === 403, dem.status)
 })
 
 test("a student is refused the researcher surface", async (page, t) => {
@@ -137,4 +191,6 @@ test("a student is refused the researcher surface", async (page, t) => {
     await page.locator("body").innerText())
   const mon = await apiFromPage(page, "/api/researcher/monitor")
   t.check("the server refuses them (403), which is the real gate", mon.status === 403, mon.status)
+  const pslice = await apiFromPage(page, "/api/researcher/paper/06-classroom-rct-methods")
+  t.check("and the paper-slice API refuses a student too (403)", pslice.status === 403, pslice.status)
 })
