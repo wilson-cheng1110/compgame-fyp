@@ -36,11 +36,11 @@ coverage and `docs/grading-rubric.md` probe coverage were checked by **running t
 (`python backend/checks.py`, `python -c "...grade.rubric_for(t)..."`), not by reading a claim about them.
 
 **Step 3 — grounded against live prod, read-only:** reused the `frontend/.prod-admin-check.mjs`
-pattern (Playwright, Admin login `SID=Admin` / `pw=Adminpassword`, staff dropped from the sink) in a
+pattern (Playwright, Admin login `SID=Admin` / `pw=<redacted-pw>`, staff dropped from the sink) in a
 throwaway script (`frontend/.prod-monitor-check.mjs`, deleted immediately after the run — no
 credentials left on disk) that hit `GET /api/health`, `GET /api/admin/whoami`,
 `GET /api/researcher/whoami`, and **`GET /api/researcher/monitor`** on
-`https://jeff3090.tailfb2423.ts.net`. Read at **2026-09-21, session run**. No mutation endpoint was
+`https://<prod-tunnel-redacted>`. Read at **2026-09-21, session run**. No mutation endpoint was
 called (`/researcher/forget`, `/researcher/export`, `/api/research/export`, any `/admin` write route),
 no account was created, no PDF/deck was generated. Counts below are copied verbatim from that one
 response.
