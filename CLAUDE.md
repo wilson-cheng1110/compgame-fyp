@@ -377,7 +377,11 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
     `questionnaire_api.py` — the mechanism gained a per-item `type` (`likert`/`single`/`text`);
     AGE is free-text, bounded 15–100 on server+client (`invalid_age`). Demographics is a
     **blocking, one-time gate before the topics** (`components/demographics-gate.tsx`) but
-    **NON-coercive**: every choice item has "Prefer not to say" and age is optional; end feedback
+    **only PARTLY non-coercive**: GENDER offers "Prefer not to say" and AGE is optional
+    (free-text), but GAMING and AITOOL are REQUIRED single-choice with NO decline option — so the
+    consent copy's "every question can be skipped / prefer-not-to-say" OVERSTATES it for those two
+    (verified in `questionnaires.json` 2026-09-21; known + accepted by Wilson, deliberately NOT
+    fixed — a rough demographic basis is enough for the study). End feedback
     is a post-completion dashboard card (`components/feedback-card.tsx`). A coarse **device class**
     (phone/computer, NOT a device identifier) is auto-logged on `consent_recorded`
     (`auth_api._device_class`, `TELEMETRY_ENABLED`-gated). Consent page +
