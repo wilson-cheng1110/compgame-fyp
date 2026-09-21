@@ -40,7 +40,7 @@ OFFSETS = {5: 3, 3: -5}
 DEFAULT_FAR = 120          # everything else: safely locked
 
 
-def build(today: date) -> dict:
+def build(today: date, eos_open: bool = False) -> dict:
     with open(SRC, encoding="utf-8") as fh:
         cfg = json.load(fh)
 
@@ -58,6 +58,20 @@ def build(today: date) -> dict:
         f"Dates are relative to {today.isoformat()}.",
         "session 5 = open now, session 3 = late, everything else locked.",
     ]
+
+    # OPT-IN ONLY (--eos-open), never the default: forcing the end-of-study battery's
+    # window open is needed by exactly one suite (frontend/e2e/end-of-study.mjs) and
+    # every OTHER suite must see the real (currently future, so closed) window
+    # unaffected -- QUESTIONNAIRES_ENABLED being off by default already keeps the
+    # battery from rendering for them regardless, but this stays deliberately
+    # narrow-scoped rather than relying on that alone.
+    if eos_open and "end_of_study" in cfg:
+        opens = (today - timedelta(days=1)).isoformat()   # opened yesterday
+        cfg["end_of_study"] = {
+            **cfg["end_of_study"],
+            "opens": {s: opens for s in cfg.get("sections", {})},
+            "closes_days_after": 30,
+        }
     return cfg
 
 
@@ -65,10 +79,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
     ap.add_argument("--today", help="YYYY-MM-DD, for reproducing a specific day")
+    ap.add_argument("--eos-open", action="store_true",
+                    help="also force the end-of-study battery's window open (opened "
+                         "yesterday, closes in 30 days) for every section -- needed "
+                         "only by frontend/e2e/end-of-study.mjs")
     args = ap.parse_args()
 
     today = date.fromisoformat(args.today) if args.today else date.today()
-    cfg = build(today)
+    cfg = build(today, eos_open=args.eos_open)
 
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(cfg, fh, indent=2)

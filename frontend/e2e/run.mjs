@@ -18,6 +18,7 @@ const SUITES = [
   ["resilience", "./resilience.mjs"],
   ["teacher-path", "./teacher-path.mjs"],
   ["researcher-path", "./researcher-path.mjs"],
+  ["end-of-study", "./end-of-study.mjs"],
 ].filter(([n]) => !only || n === only || n === only + "-path")   // "happy" must not match "unhappy-path"
 
 // ── preflight ─────────────────────────────────────────────────────────────────

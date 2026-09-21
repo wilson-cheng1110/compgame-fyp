@@ -37,6 +37,16 @@
     "opens_days_before": 7,
     "closes_hours_before": 48
   },
+  "end_of_study": {
+    "_comment": "The end-of-study battery (retention Form C + affect recall) -- see docs/end-of-study-battery-plan.md. `opens` is keyed per section to that section's LAST lecture (session 13, experiment-design), matching `sessions.13` above exactly. `closes_days_after` is a plain researcher-tunable window length -- edit this block, not code, to move it.",
+    "opens": {
+      "MSC": "2026-11-23",
+      "A": "2026-11-24",
+      "B": "2026-11-25",
+      "C": "2026-11-26"
+    },
+    "closes_days_after": 14
+  },
   "topics": [
     {
       "id": "memory",

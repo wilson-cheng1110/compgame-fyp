@@ -60,3 +60,25 @@ post-quiz.*
 
 > *(Order the rows to match the order in which the participant actually did the topics; record the
 > presentation order in the codebook so load can be read against topic position.)*
+
+---
+
+## §3 — Affect recall (end of study, per completed topic)
+
+*Administered ONCE, at the very end of the study (`backend/questionnaire_api.py`, instrument
+`affect_recall`) — but asked SEPARATELY for EACH topic the participant completed, so every
+answer is a retrospective judgement of that one topic rather than one blended impression of
+the whole course. Companion to §2's Paas item: Paas is the PROSPECTIVE per-topic anchor, taken
+immediately after each unit closes; this is the RETROSPECTIVE re-ask, taken weeks later
+alongside the retention re-test (`docs/retention-item-banks.md`, Form C) — the pairing is what
+lets the analysis compare "how it felt at the time" against "how it's remembered". Same 1–5
+scale as §1's self-perceived learning rows. `backend/build_questionnaires.py` extracts this
+table verbatim — edit here, not the JSON.*
+
+`1 = Strongly disagree … 5 = Strongly agree`
+
+| ID | Text |
+|----|------|
+| AR1 | Looking back, I enjoyed this topic. |
+| AR2 | Looking back, I learned this topic well. |
+| AR3 | Looking back, this topic took a lot of mental effort. |

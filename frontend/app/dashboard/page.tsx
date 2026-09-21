@@ -9,13 +9,14 @@ import { getUsers } from "@/lib/user-store"
 import { useForceScrollbar } from "@/lib/use-force-scrollbar"
 import { useBadges } from "@/lib/badge-context"
 import { useProgress } from "@/lib/progress-context"
-import { topics as topicsApi, auth, admin, researcher, questionnaires, type JourneyTopic } from "@/lib/api"
+import { topics as topicsApi, auth, admin, researcher, questionnaires, retention, type JourneyTopic } from "@/lib/api"
 import { nextStep } from "@/lib/session-handoff"
 import { badgesFromJourney, completedCount } from "@/lib/badges"
 import JourneyPath from "@/components/journey-path"
 import SessionMap from "@/components/session-map"
 import DemographicsGate from "@/components/demographics-gate"
 import FeedbackCard from "@/components/feedback-card"
+import EndOfStudyBattery from "@/components/end-of-study-battery"
 import { TOPICS } from "@/lib/topic-definitions"
 import { useSlowLoad } from "@/lib/use-slow-load"
 import type { TopicId } from "@/lib/topic-definitions"
@@ -55,6 +56,14 @@ export default function DashboardPage() {
   // "not fetched yet" -- kept distinct from `[]` so the gate/prompt below do not
   // flash open for a moment before the real answer comes back.
   const [submittedInstruments, setSubmittedInstruments] = useState<string[] | null>(null)
+  // The end-of-study battery's OWN global window (retention Form C + affect recall),
+  // separate from any topic's release window — see schedule.end_of_study_open.
+  const [endOfStudyOpen, setEndOfStudyOpen] = useState(false)
+  // Has the terminal "whole battery is finished" marker already been recorded?
+  // `null` means "not fetched yet" — same reasoning as `submittedInstruments`: kept
+  // distinct from `false` so the battery never flashes open for a moment before the
+  // real answer comes back.
+  const [endOfStudyDone, setEndOfStudyDone] = useState<boolean | null>(null)
   // Is this the course team? `/admin` was linked from NOWHERE -- grep found the
   // string only inside two code comments -- so a teacher reached the panel by
   // typing the URL from memory or not at all. whoami is the same check the panel
@@ -86,11 +95,25 @@ export default function DashboardPage() {
         setJourney(byId)
         setSectionDay(res.data.section_day ?? "")
         setLongUnits(res.data.questionnaires_enabled === true)
+        setEndOfStudyOpen(res.data.end_of_study_open === true)
       }
       setJourneyLoaded(true)
     })
     return () => { alive = false }
   }, [])
+
+  // The battery needs QUESTIONNAIRES_ENABLED on (its affect_recall half rides the
+  // same instrument mechanism `longUnits` already gates everything else on), so this
+  // mirrors the `submittedInstruments` fetch immediately above it.
+  useEffect(() => {
+    let alive = true
+    if (!journeyLoaded || !endOfStudyOpen || !longUnits) { setEndOfStudyDone(false); return }
+    retention.status().then((res) => {
+      if (!alive) return
+      setEndOfStudyDone(res.ok && res.data ? res.data.done : true)
+    })
+    return () => { alive = false }
+  }, [journeyLoaded, endOfStudyOpen, longUnits])
 
   // Gated on `longUnits` (== journey.questionnaires_enabled): while questionnaires
   // are off (the module default) this never fires, so the demographics gate and
@@ -323,6 +346,16 @@ export default function DashboardPage() {
     submittedInstruments !== null &&
     !submittedInstruments.includes("feedback")
 
+  // THE END-OF-STUDY BATTERY. Its own window (endOfStudyOpen), independent of
+  // allReleasedDone/showFeedback — it runs at the very end of the whole study
+  // (~2026-11-23..26), keyed to the section's last lecture, not to "everything
+  // released so far is done". `completedTopics` is every topic this student
+  // finished, in release order — the battery walks exactly that list.
+  const completedTopics = journeyList
+    .filter((j) => j.complete)
+    .sort((a, b) => a.order - b.order)
+  const showEndOfStudy = longUnits && endOfStudyOpen && endOfStudyDone === false
+
 
   return (
     <main className="shell min-h-screen">
@@ -413,6 +446,13 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </Link>
+            )}
+
+            {showEndOfStudy && (
+              <EndOfStudyBattery
+                topics={completedTopics}
+                onDone={() => setEndOfStudyDone(true)}
+              />
             )}
 
             {showFeedback && (

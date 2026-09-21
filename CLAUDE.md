@@ -44,6 +44,15 @@ FYP_Submission/
                          #     timing of the IV, refuses a date that adds a validation problem
                          #     or lands on a declared no-class day, writes atomically, audited.
     topic_api.py         #   → /api/topics/*    journey, gate, pre/post checks
+    retention.py         #   → /api/retention/* the END-OF-STUDY BATTERY's retention
+                         #     half: Form C (docs/retention-item-banks.md), OWN loader/
+                         #     grader, entirely separate from checks.py/Form A/B. Per-
+                         #     student anti-collusion shuffle (option order + question
+                         #     order, seeded off auth_store's participant-secret HMAC —
+                         #     nothing stored, re-derived identically at grade time).
+                         #     Window-gated (schedule.end_of_study_open); `_status`/
+                         #     `_complete` carry the terminal `questionnaire_end_of_study`
+                         #     marker. See "End-of-study battery" below.
     research_api.py      #   → /api/research/*  event, summary, pseudonymised export
     auth_store.py        # Participant accounts (stdlib sqlite3) + HMAC pseudonyms
     schedule.py          # Release windows per section + FLIP/CONTROL assignment
@@ -203,17 +212,88 @@ wrong; corrected 2026-08-16.)
 
 Each maps to a COMP3423 lecture session — mapping table in `docs/revamp.md` Part 6.3. **All 13 now have
 pre/post item banks** (`docs/quiz-item-banks.md`, 6 items per form, 156 in total) — topics 1-4 from
-Stage 1, topics 5-13 authored 2026-08-30 from the games' own source. **A DRAFT third form
-(`docs/retention-item-banks.md`, Form C, 78 items) exists for the planned end-of-study RETENTION
-re-test — standalone, NOT wired into `checks.py` or any route, validated only structurally by
-`scripts/validate_retention_bank.py`; needs desk-review + a delivery build (see
-[[end-of-study-measurement-expansion]] memory). `experiment-design` carries 2 bonus items
-(C7 H₀/Hₐ + C8 confound-diagnosis, 8 total) covering the Form-B-side concepts its A-isomorphic
-items don't (Wilson 2026-09-22).** `checks.py` still returns `None`
+Stage 1, topics 5-13 authored 2026-08-30 from the games' own source. **A third form
+(`docs/retention-item-banks.md`, Form C, 80 items incl. `experiment-design`'s 2 bonus items) is
+now WIRED — 2026-09-22 build — into its own standalone loader/router, `backend/retention.py` /
+`/api/retention/*`, for the end-of-study RETENTION re-test. It does NOT touch `checks.py`, Forms
+A/B, or any live pre/post-check route** (the hard invariant for that build — 314 students were
+mid-study). `scripts/validate_retention_bank.py` remains the independent structural validator.
+`experiment-design` carries 2 bonus items (C7 H₀/Hₐ + C8 confound-diagnosis, 8 total) covering the
+Form-B-side concepts its A-isomorphic items don't (Wilson 2026-09-22). Full description of the
+battery this bank feeds: "End-of-study battery" below. `checks.py` still returns `None`
 for an unbanked topic and the unit renders with no MC step, so a 14th topic added without items is
 silently unmeasured; `test_checks.py` asserts every scheduled topic has a bank to stop that.
 **`norman` and `hicks-law` are extra topics, not H1 evidence** — zero lecture-corpus coverage, so
 their gain is reported separately (Wilson's decision, 2026-08-30).
+
+## End-of-study battery (retention + affect recall) — built 2026-09-22
+Full spec: `docs/end-of-study-battery-plan.md`. Runs ONCE per participant, at the very end of the
+study (~2026-11-23..26 — see the window below), for every topic they COMPLETED. Two DVs it exists
+to add: the immediate post-test is ceiling'd (~91/100, compressing the FLIP-CONTROL gap), and a
+DELAYED re-test is where productive-failure theory predicts the flip effect should show up as
+slower decay in FLIP; affect (IMI/CoI/ARCS) is cohort-level and cannot be split by arm, so a
+per-topic retrospective instrument fills that gap. **Hard invariant honoured throughout the
+build: `backend/checks.py`, `docs/quiz-item-banks.md`, and `topic_schedule.json`'s existing topic
+rows were never touched.**
+
+- **Retention (Form C)** — `backend/retention.py`, `/api/retention/*`. Its OWN loader (mirrors
+  `scripts/validate_retention_bank.py`'s `parse_retention_bank`, reusing `checks._TOPIC_RE` /
+  `checks._SHARED_OPTS_RE` / `checks._parse_options` — never `checks.py`'s Form A/B state),
+  parsing `docs/retention-item-banks.md`. Server-side auto-grade (MC is deterministic, like the
+  live checks); the key never ships. **Anti-collusion**: since the batch is unproctored, every
+  item's OPTIONS are reordered and relabelled `a../d..` sequentially, and the QUESTION order for a
+  topic is independently reordered, both deterministically per student from
+  `HMAC(auth_store._load_secret(), "SID|topic_id|item_id|...")` — the SAME participant secret
+  `auth_store.pseudonym()` already uses, nothing stored, re-derived identically at grade time.
+  "The answer is C" shared between two students maps to a DIFFERENT real option for each.
+  Answers are keyed by `item_id`, so the question-order shuffle never touches grading.
+  `GET/POST /api/retention/{topic_id}`: session → consent → end-of-study window
+  (`schedule.end_of_study_open`) → topic must be COMPLETE for this sid → one-submission
+  (`topic_retention` event, added to `research_store`'s once-only index, now `idx_events_once_v3`)
+  → grade → record, score revealed immediately (end of study — nothing left to contaminate).
+  `GET /api/retention/_status` + `POST /api/retention/_complete` record the terminal
+  `questionnaire_end_of_study` marker (matches the existing `event_type LIKE 'questionnaire_%'`
+  once-only predicate, so no further index change was needed for it) once every completed+banked
+  topic already has a `topic_retention` row — the server independently re-verifies this rather
+  than trusting the client.
+- **Affect recall** — 3 items (AR1 enjoyment · AR2 perceived learning · AR3 mental effort),
+  5-pt Likert, per topic, retrospective. Rides the EXISTING `questionnaire_api.py` mechanism
+  (like `paas`, its prospective twin) — zero new backend surface beyond one window-gate line in
+  `submit()` (`name == "affect_recall" and not schedule.end_of_study_open(section)` → 403). Bank
+  generated the usual way: `docs/study-pack/05_reflection-and-load.md` §3 → `python
+  backend/build_questionnaires.py` → `backend/questionnaires.json`. Event: `questionnaire_affect_recall`.
+- **The window** — `schedule.end_of_study_open(section)`, a GLOBAL per-section open/close pair in
+  `topic_schedule.json`'s `end_of_study` block (`opens` keyed to each section's LAST lecture: MSC
+  2026-11-23 · A 11-24 · B 11-25 · C 11-26, matching `sessions.13` exactly; `closes_days_after`,
+  default 14) — researcher-tunable via the file, no code change. Carried on the journey payload as
+  `end_of_study_open`. `backend/make_e2e_schedule.py --eos-open` is the OPT-IN e2e fixture flag
+  that forces it open (every other suite is unaffected — the flag is off by default).
+- **Frontend** — `frontend/components/end-of-study-battery.tsx`, mounted on the dashboard
+  (`app/dashboard/page.tsx`, beside the `FeedbackCard` block) when `end_of_study_open && longUnits
+  && !endOfStudyDone`. Walks every completed topic, one per screen: the retention MC (reusing
+  `topic-check.tsx`'s item-rendering idiom, options rendered in the server-shuffled order as
+  served — never re-sorted) then the 3 affect_recall items (the same tap-to-select chip idiom
+  `instrument-form.tsx` uses), "Topic X of N" + a progress bar, topic name + icon from
+  `topic-definitions.ts`. **Resumability**: a topic whose retention the server already has (a
+  409 on `GET /api/retention/{topic}`, e.g. after a dropped connection) is skipped straight to its
+  affect step, no re-answering a graded quiz; affect_recall itself resubmits idempotently (the
+  server 409s a duplicate silently, the same pattern `topic-questionnaire.tsx` already uses for
+  PAAS) since there is no cheap per-topic "already answered" signal for a 3-item Likert to check
+  ahead of time — a documented, deliberate trade-off, not an oversight.
+- **Measures + researcher dashboard** — `measures.retention_summary()` (Form-C score by assigned
+  arm + the post-check-to-retest interval in weeks, as a covariate) and
+  `measures.affect_recall_summary()` (AR1-3 means by arm and by topic), both aggregate-only (no
+  SID, asserted in `test_measures.py`). Folded into `/researcher`'s existing paper pages: retention
+  into **01-flip-effectiveness** (the delayed DV), affect recall into **02-motivation-experience**
+  (PAAS's retrospective twin) — `researcher_api.py`'s `_paper_slice`, no new paper id.
+- **Tests**: `backend/tests/test_retention.py` (loader, key-never-ships, the anti-collusion
+  round-trip — two SIDs get a different shuffle for the same item AND each still grades correctly
+  — HTTP gates, one-submission, the terminal marker), extensions to `test_questionnaires.py` /
+  `test_measures.py` / `test_researcher_api.py`. Browser: `frontend/e2e/end-of-study.mjs`
+  (registered in `e2e/run.mjs`) — served without the answer key over the real network response,
+  graded + recorded, one-submission, absent while the window is closed (flips the live schedule
+  file mid-run via the SAME mtime hot-reload `schedule.set_session_date` uses in production, so no
+  second backend process is needed).
 
 ## Auth & data model
 **Changed 2026-08-30 (Wilson) — this supersedes the 2026-08-16 SID-only model.** The credential is

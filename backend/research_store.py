@@ -137,30 +137,32 @@ def init_db() -> None:
             # SELF-HEALING NAME (findings C3 + L8). CREATE UNIQUE INDEX IF NOT EXISTS
             # matches on index NAME only -- it will NOT re-derive an index that already
             # exists under the same name with an OLDER predicate. So when this predicate
-            # grows (here: consent_withdrawn, added 2026-08-30), a database created
-            # before the change would silently keep the stale index and never gain the
-            # new coverage -- and the go-live plan initialises the deployment box's DB
+            # grows (here: consent_withdrawn, added 2026-08-30; topic_retention, added
+            # 2026-09-22 for the end-of-study battery), a database created before the
+            # change would silently keep the stale index and never gain the new
+            # coverage -- and the go-live plan initialises the deployment box's DB
             # during a pre-launch test, exactly when that could bite, with no error.
-            # Bumping the NAME (_v2) sidesteps it: a fresh DB gets only v2; an older DB
-            # keeps its idx_events_once (still enforcing the original events, harmless)
-            # AND gains v2, so consent_withdrawn becomes covered everywhere. Verified
-            # across fresh / stale / pre-duplicate DBs before shipping.
+            # Bumping the NAME (_v2 -> _v3) sidesteps it: a fresh DB gets only v3; an
+            # older DB keeps its idx_events_once / idx_events_once_v2 (still enforcing
+            # the events they already covered, harmless) AND gains v3, so
+            # topic_retention becomes covered everywhere without a data migration.
+            # Verified across fresh / stale / pre-duplicate DBs before shipping.
             #
             # GUARDED so it can never brick startup. The only way this UNIQUE create can
             # fail is a pre-existing duplicate in a newly-covered event_type -- reachable
             # in principle only by a pre-C3 concurrent /withdraw (two consent_withdrawn
-            # rows) and harmless. On that failure skip v2 and keep the prior index; do
+            # rows) and harmless. On that failure skip v3 and keep the prior index; do
             # NOT rollback (the tables and other indexes share this transaction and must
             # survive) -- the final commit persists them.
             try:
                 conn.execute(
                     """
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_events_once_v2
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_events_once_v3
                     ON events(participant_id, event_type, COALESCE(topic_id, ''))
                     WHERE event_type IN (
                         'topic_pretest', 'topic_posttest', 'topic_probe', 'topic_probe_post',
                         'pre_test_complete', 'consent_recorded', 'consent_withdrawn',
-                        'topic_complete'
+                        'topic_complete', 'topic_retention'
                     ) OR event_type LIKE 'questionnaire_%'
                     """
                 )

@@ -179,6 +179,36 @@ def is_enterable(sid: str, section: str, topic_id: str, now: datetime | None = N
     return bool(st and st["state"] in ("open", "late"))
 
 
+# ── the end-of-study battery window ─────────────────────────────────────────────
+#
+# A SEPARATE, GLOBAL (researcher-set) window from the per-topic release windows
+# above: one opens-then-closes period per SECTION, keyed to that section's own last
+# lecture (config block `end_of_study` in topic_schedule.json), not to any one
+# student's completion date. docs/end-of-study-battery-plan.md: "unlock trigger:
+# GLOBAL researcher-set window ... keyed to the section's last lecture". Config-driven
+# so moving it is an edit to the file, never a code change -- same discipline as
+# every other date in this module. Returns False (never raises) when the block is
+# absent or malformed, so an unconfigured deployment simply never shows the battery
+# rather than 500ing every dashboard load.
+
+def end_of_study_open(section: str, now: datetime | None = None) -> bool:
+    """Is the end-of-study battery's window open for this section right now?"""
+    cfg = _load()
+    eos = cfg.get("end_of_study") or {}
+    day = (eos.get("opens") or {}).get(section)
+    if not day:
+        return False
+    try:
+        tz = _tz(cfg)
+        now = now or datetime.now(tz)
+        opens = datetime.fromisoformat(day).replace(
+            hour=cfg.get("session_hour", 9), minute=0, tzinfo=tz)
+        closes = opens + timedelta(days=eos.get("closes_days_after", 14))
+    except (ValueError, TypeError):
+        return False
+    return opens <= now <= closes
+
+
 # ── validation ────────────────────────────────────────────────────────────────
 
 def validate() -> list[str]:

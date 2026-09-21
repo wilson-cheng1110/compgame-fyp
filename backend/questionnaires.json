@@ -239,6 +239,35 @@
    "reverse": [],
    "subscales": {}
   },
+  "affect_recall": {
+   "title": "Looking back on this topic",
+   "cite": "App-authored, end-of-study retrospective (docs/study-pack/05_reflection-and-load.md §3). Paired with the Form-C retention re-test -- \"how it's remembered\" beside the Paas item's \"how it felt at the time\".",
+   "scale": [
+    "Strongly disagree",
+    "Disagree",
+    "Neither agree nor disagree",
+    "Agree",
+    "Strongly agree"
+   ],
+   "when": "per topic, at end of study",
+   "construct": "retrospective affect + perceived learning + effort",
+   "items": [
+    {
+     "id": "AR1",
+     "text": "Looking back, I enjoyed this topic."
+    },
+    {
+     "id": "AR2",
+     "text": "Looking back, I learned this topic well."
+    },
+    {
+     "id": "AR3",
+     "text": "Looking back, this topic took a lot of mental effort."
+    }
+   ],
+   "reverse": [],
+   "subscales": {}
+  },
   "demographics": {
    "title": "About you",
    "cite": "App-collected subset of docs/study-pack/02_demographics.md (D1, D2, D7, D8). Device (D9) is auto-logged server-side, not asked -- see questionnaire_api.py / auth_api.py.",

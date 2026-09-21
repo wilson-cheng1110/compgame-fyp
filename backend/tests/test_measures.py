@@ -200,9 +200,37 @@ check("game_result trials found via meta", gr["total_trials"] == 1, gr)
 check("and the metric keys are surfaced (not the values)",
       set(gr["topics"][0]["metric_keys"]) == {"rt_ms", "trials"}, gr["topics"])
 
+print("\n-- retention_summary: delayed Form-C score by arm + the interval covariate --")
+# topic_posttest already exists for flip_sid/ctrl_sid on T from the block near the top
+# (scores 5 and 4). Add a topic_retention weeks later for each, in OPPOSITE arms.
+ev(flip_sid, "topic_retention", T, "2026-11-15T09:00:00+00:00", score=80.0)   # ~10 weeks later
+ev(ctrl_sid, "topic_retention", T, "2026-11-15T09:10:00+00:00", score=40.0)
+conn.commit()
+
+ret = measures.retention_summary(DB)
+check("n counts both retention rows", ret["n"] == 2, ret)
+check("FLIP mean score reflects the FLIP row", ret["flip"]["mean_score"] == 80.0, ret["flip"])
+check("CONTROL mean score reflects the CONTROL row", ret["control"]["mean_score"] == 40.0, ret["control"])
+check("the interval covariate is computed (roughly 10 weeks from the post-check)",
+      ret["with_interval"] == 2 and 9 <= ret["mean_weeks_since_post"] <= 11, ret)
+
+print("\n-- affect_recall_summary: AR1-3 means by arm and by topic --")
+evm(flip_sid, "questionnaire_affect_recall", T, {"answers": {"AR1": 5, "AR2": 4, "AR3": 2}})
+evm(ctrl_sid, "questionnaire_affect_recall", T, {"answers": {"AR1": 3, "AR2": 3, "AR3": 3}})
+conn.commit()
+
+ar = measures.affect_recall_summary(DB)
+check("scale_max is 5, the shared Likert", ar["scale_max"] == 5, ar)
+check("FLIP AR1 mean reflects the FLIP row", ar["flip"]["items"]["AR1"]["mean"] == 5.0, ar["flip"])
+check("CONTROL AR3 mean reflects the CONTROL row", ar["control"]["items"]["AR3"]["mean"] == 3.0, ar["control"])
+_ar_topic = next(t for t in ar["by_topic"] if t["topic_id"] == T)
+check("by_topic aggregates BOTH arms' responses for that topic (n=2 per item)",
+      _ar_topic["items"]["AR2"]["n"] == 2, _ar_topic)
+
 print("\n-- NO SID LEAK: every slice returns counts, never a participant id --")
 _blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_by_arm(DB),
-                     measures.reflection_summary(DB), measures.game_result_summary(DB)])
+                     measures.reflection_summary(DB), measures.game_result_summary(DB),
+                     measures.retention_summary(DB), measures.affect_recall_summary(DB)])
 for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A"):
     check(f"{_sid} does not appear in any slice", _sid not in _blob, _blob[:200])
 

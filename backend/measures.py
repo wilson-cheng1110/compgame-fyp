@@ -49,6 +49,7 @@ import os
 import sqlite3
 import sys
 from collections import defaultdict
+from datetime import datetime
 
 import checks
 import schedule
@@ -504,6 +505,128 @@ def reflection_summary(db_path=None) -> dict:
         "mean_human_turns": round(sum(human_turns) / len(human_turns), 1) if human_turns else None,
         "direct_answer_rate": round(direct_used / len(completed), 2) if completed else None,
         "test_traffic_excluded": dropped,
+    }
+
+
+def _weeks_between(earlier_iso: str | None, later_iso: str | None) -> float | None:
+    """Whole-ish weeks between two ISO server timestamps, or None if either is
+    missing/unparseable. Used ONLY for the retention interval covariate -- never a
+    participant identifier, so it carries no SID-leak risk of its own."""
+    if not earlier_iso or not later_iso:
+        return None
+    try:
+        a = datetime.fromisoformat(earlier_iso.replace("Z", "+00:00"))
+        b = datetime.fromisoformat(later_iso.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    return round((b - a).total_seconds() / (7 * 86400), 2)
+
+
+def retention_summary(db_path=None) -> dict:
+    """Paper 01's DELAYED-retention stat block (docs/end-of-study-battery-plan.md):
+    `topic_retention` (Form C, weeks after the topic's own post-check) score by
+    ASSIGNED arm, plus the retention interval itself -- weeks between a topic's
+    `topic_posttest` and this re-test -- reported as a distribution, the continuous
+    covariate the plan calls for. Fixes the ceiling problem in the immediate
+    post-test DV: a delayed re-test at a genuinely different difficulty/decay point
+    can still separate FLIP from CONTROL even when the immediate post-test cannot.
+    Aggregate-only, no SID (test_measures.py asserts this like every slice here)."""
+    idx = topic_index()
+    posttest_at: dict = {}
+    retention: dict = {}
+    for r in _rows(db_path):
+        key = (r["participant_id"], r["topic_id"])
+        if r["event_type"] == "topic_posttest" and key not in posttest_at:
+            posttest_at[key] = r["server_ts"]
+        elif r["event_type"] == "topic_retention" and key not in retention:
+            retention[key] = {"score": r["score"], "at": r["server_ts"]}
+
+    rows = [
+        {"participant_id": sid, "topic_id": topic, "score": v["score"],
+         "arm": schedule.arm_for(sid, idx[topic]) if topic in idx else None,
+         "weeks_since_post": _weeks_between(posttest_at.get((sid, topic)), v["at"])}
+        for (sid, topic), v in retention.items()
+    ]
+    rows, dropped = enrolled_only(rows)
+
+    by_arm = {schedule.FLIP: [], schedule.CONTROL: []}
+    for r in rows:
+        if r["arm"] in by_arm and r["score"] is not None:
+            by_arm[r["arm"]].append(r["score"])
+    intervals = [r["weeks_since_post"] for r in rows if r["weeks_since_post"] is not None]
+
+    def _mean(xs):
+        return round(sum(xs) / len(xs), 2) if xs else None
+
+    return {
+        "n": len(rows),
+        "flip": {"n": len(by_arm[schedule.FLIP]), "mean_score": _mean(by_arm[schedule.FLIP])},
+        "control": {"n": len(by_arm[schedule.CONTROL]), "mean_score": _mean(by_arm[schedule.CONTROL])},
+        "mean_weeks_since_post": _mean(intervals),
+        "with_interval": len(intervals),
+        "test_traffic_excluded": dropped,
+        "note": "Form-C delayed retention score by assigned arm, with the post-check-to-"
+                "retest interval (weeks) as a covariate -- the delayed DV productive-"
+                "failure theory predicts should separate FLIP from CONTROL where the "
+                "immediate post-test ceilings.",
+    }
+
+
+def affect_recall_summary(db_path=None) -> dict:
+    """Paper 02's RETROSPECTIVE affect block: AR1 enjoyment / AR2 perceived learning /
+    AR3 mental effort (`questionnaire_affect_recall`, per topic, taken at the end of
+    the study), means by ASSIGNED arm and by topic. The retrospective twin of PAAS's
+    prospective per-topic mean in questionnaire_by_arm() -- same per-topic arm-split
+    reasoning applies (arm is randomised PER TOPIC, so only a per-topic split is
+    meaningful). Aggregate-only, raw means only -- no reverse-scoring here, same
+    principle as questionnaire_api storing raw responses."""
+    idx = topic_index()
+    rows, dropped = enrolled_only(_meta_events(["questionnaire_affect_recall"], db_path))
+
+    ITEMS = ("AR1", "AR2", "AR3")
+    by_arm = {schedule.FLIP: defaultdict(list), schedule.CONTROL: defaultdict(list)}
+    who = {schedule.FLIP: set(), schedule.CONTROL: set()}
+    by_topic: dict = defaultdict(lambda: defaultdict(list))
+
+    for r in rows:
+        tid = r["topic_id"]
+        if tid not in idx:
+            continue
+        arm = schedule.arm_for(r["participant_id"], idx[tid])
+        answers = r["meta"].get("answers") or {}
+        for item_id in ITEMS:
+            v = answers.get(item_id)
+            if not (isinstance(v, int) and not isinstance(v, bool)):
+                continue
+            by_topic[tid][item_id].append(v)
+            if arm in by_arm:
+                by_arm[arm][item_id].append(v)
+                who[arm].add(r["participant_id"])
+
+    def _mean(xs):
+        return round(sum(xs) / len(xs), 2) if xs else None
+
+    def _arm_block(arm):
+        return {
+            "participants": len(who[arm]),
+            "items": {i: {"n": len(by_arm[arm][i]), "mean": _mean(by_arm[arm][i])} for i in ITEMS},
+        }
+
+    by_topic_out = [
+        {"topic_id": tid,
+         "items": {i: {"n": len(by_topic[tid][i]), "mean": _mean(by_topic[tid][i])} for i in ITEMS}}
+        for tid in sorted(by_topic, key=lambda t: idx.get(t, 999))
+    ]
+
+    return {
+        "scale_max": 5,
+        "flip": _arm_block(schedule.FLIP),
+        "control": _arm_block(schedule.CONTROL),
+        "by_topic": by_topic_out,
+        "test_traffic_excluded": dropped,
+        "note": "AR1 enjoyment / AR2 perceived learning / AR3 mental effort, retrospective "
+                "(end of study) -- the retrospective twin of PAAS's prospective per-topic "
+                "mean. Raw means; no reverse-scoring (none of the three items are reversed).",
     }
 
 

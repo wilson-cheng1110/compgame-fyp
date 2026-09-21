@@ -168,6 +168,10 @@ export interface Journey {
   telemetry_enabled: boolean
   /** With the battery on a unit roughly doubles; the copy has to say so. */
   questionnaires_enabled?: boolean
+  /** The end-of-study battery's OWN global window (retention Form C + affect
+   *  recall) — separate from any one topic's release window. See
+   *  schedule.end_of_study_open on the backend. */
+  end_of_study_open?: boolean
   topics: JourneyTopic[]
 }
 
@@ -558,4 +562,29 @@ export const topics = {
       duration_ms: durationMs,
       telemetry,
     }),
+}
+
+// ── the end-of-study battery: Form-C retention re-test ─────────────────────────
+//
+// Its OWN router (`backend/retention.py`), entirely separate from the live
+// pre/post-check path above — same `CheckPayload`/`CheckResult` shapes as
+// `topics.getCheck/submitCheck` so `topic-check.tsx`'s item rendering can be reused
+// as-is. Options arrive in THIS student's own server-shuffled order (anti-
+// collusion) — render them exactly as served, never re-sort.
+
+export const retention = {
+  get: (topicId: string) => api.get<CheckPayload>(`/api/retention/${topicId}`),
+  submit: (topicId: string, answers: Record<string, string>, durationMs?: number) =>
+    api.post<CheckResult>(`/api/retention/${topicId}`, {
+      answers,
+      duration_ms: durationMs,
+    }),
+  /** Has the terminal "whole battery is finished" marker already been recorded for
+   *  this SID? Mirrors `questionnaires.status()`'s "have I already done this" idiom,
+   *  scoped to the one thing this router needs to report. */
+  status: () => api.get<{ done: boolean }>("/api/retention/_status"),
+  /** Records the terminal marker, once every completed+banked topic already has a
+   *  retention row (the server re-checks this — a client that raced ahead is
+   *  refused with `{error: "incomplete", missing: [...]}`) . */
+  complete: () => api.post<{ ok: true }>("/api/retention/_complete"),
 }

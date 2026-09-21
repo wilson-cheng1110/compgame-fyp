@@ -136,6 +136,12 @@ app.include_router(researcher_router)
 # which is an ethics decision (docs/ethics-amendment-stage2.md), not a merge.
 from questionnaire_api import router as questionnaire_router  # noqa: E402
 app.include_router(questionnaire_router)
+# The end-of-study battery: Form-C retention re-test, its OWN router (retention.py),
+# entirely separate from the live pre/post-check path in topic_api.py / checks.py.
+# Window-gated to ~2026-11-23..26 (schedule.end_of_study_open); harmless to mount
+# before then since every route refuses with not_open until the window arrives.
+from retention import router as retention_router  # noqa: E402
+app.include_router(retention_router)
 # Grading is offline by design (docs/revamp.md Part 8.2); this router exists so the
 # batch and the occasional spot check can reach the model. It fails CLOSED -- with
 # GRADE_TOKEN unset every route 503s, so mounting it does not expose anything.

@@ -144,6 +144,12 @@ async def journey(response: Response, session: str | None = Cookie(default=None)
             # doubles; promising 12 either way means the study opens by breaking a
             # promise, and the shell was rebuilt precisely to stop doing that.
             "questionnaires_enabled": questionnaire_api.ENABLED,
+            # The end-of-study battery's OWN window (retention Form C + affect
+            # recall), separate from any one topic's release window -- see
+            # schedule.end_of_study_open. The dashboard uses this one flag to decide
+            # whether to show the battery at all; retention.py and
+            # questionnaire_api.submit re-check it server-side on every request.
+            "end_of_study_open": schedule.end_of_study_open(user["section"]),
             "topics": states}
 
 

@@ -208,6 +208,16 @@ async def submit(name: str, body: Responses, response: Response,
         response.status_code = 404
         return {"error": "no_such_instrument"}
 
+    # AFFECT_RECALL IS WINDOW-GATED to the end-of-study battery. It records through
+    # this SAME generic mechanism (per-topic, one-submission, exactly like paas), so
+    # this is the one line questionnaire_api needs -- the window itself is owned by
+    # retention.py / schedule.py, not duplicated here. Every other instrument is
+    # unaffected by this check.
+    if name == "affect_recall" and not schedule.end_of_study_open(user["section"]):
+        response.status_code = 403
+        return {"error": "not_open",
+                "message": "This isn't open yet -- it runs at the end of the study."}
+
     # NOT AN EMPTY SUBMISSION (finding F2). {"answers": {}} otherwise records a row
     # and permanently spends the one allowed submission on no content — the same hole
     # topic_api's check and probe endpoints already close.

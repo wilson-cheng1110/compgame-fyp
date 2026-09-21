@@ -107,6 +107,19 @@ bank = {
                                "this topic?"}],
             "reverse": [], "subscales": {},
         },
+        "affect_recall": {
+            "title": "Looking back on this topic",
+            "cite": "App-authored, end-of-study retrospective "
+                    "(docs/study-pack/05_reflection-and-load.md §3). Paired with the "
+                    "Form-C retention re-test -- \"how it's remembered\" beside the "
+                    "Paas item's \"how it felt at the time\".",
+            # PER TOPIC, like paas -- but asked ONCE, weeks later, at the end of the
+            # study rather than immediately after each unit closes.
+            "scale": LIKERT_5, "when": "per topic, at end of study",
+            "construct": "retrospective affect + perceived learning + effort",
+            "items": items("05_reflection-and-load.md", "## §3", r"AR\d+"),
+            "reverse": [], "subscales": {},
+        },
         "demographics": {
             "title": "About you",
             "cite": "App-collected subset of docs/study-pack/02_demographics.md (D1, D2, D7, "

@@ -180,6 +180,32 @@ _unknown = pi.get("/api/researcher/paper/99-not-a-paper")
 check("an unknown paper id is a graceful pending envelope, not a 500",
       _unknown.status_code == 200 and _unknown.json()["status"] == "pending", _unknown.text[:160])
 
+print("\n-- the end-of-study battery folds into papers 01 (retention) and 02 (affect recall) --")
+# Before any battery data exists, paper 01's stats are pre/post gain only.
+_p01_before = pi.get("/api/researcher/paper/01-flip-effectiveness").json()
+check("no retention row yet -> paper 01 has no retention stat labels",
+      not any("Retention" in s["label"] for s in _p01_before["stats"]), _p01_before["stats"])
+
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "topic_posttest",
+                             "topic_id": "fitts-law", "score": 60.0})
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "topic_retention",
+                             "topic_id": "fitts-law", "score": 45.0})
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "questionnaire_affect_recall",
+                             "topic_id": "fitts-law",
+                             "meta": {"answers": {"AR1": 4, "AR2": 3, "AR3": 2}}})
+
+_p01 = pi.get("/api/researcher/paper/01-flip-effectiveness")
+check("paper 01 now carries a retention stat once a topic_retention row exists",
+      _p01.status_code == 200 and any("Retention" in s["label"] for s in _p01.json()["stats"]),
+      _p01.json()["stats"])
+check("paper 01's retention stats leak no raw SID", "24STUDENT1B" not in _p01.text, _p01.text[:200])
+
+_p02 = pi.get("/api/researcher/paper/02-motivation-experience")
+check("paper 02 now carries an affect-recall stat once a questionnaire_affect_recall row exists",
+      _p02.status_code == 200 and any("Affect recall" in s["label"] for s in _p02.json()["stats"]),
+      _p02.json()["stats"])
+check("paper 02's affect-recall stats leak no raw SID", "24STUDENT1B" not in _p02.text, _p02.text[:200])
+
 print("\n-- export is pseudonymised: the real SID never leaves --")
 j = pi.get("/api/researcher/export")
 check("export json is 200", j.status_code == 200, j.status_code)

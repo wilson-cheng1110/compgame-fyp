@@ -43,9 +43,9 @@ check("and the flag is read from the environment, not hardcoded",
       "QUESTIONNAIRES_ENABLED" in io.open(os.path.join(BE, "questionnaire_api.py"),
                                           encoding="utf-8").read())
 
-print("\n-- all six instruments are present --")
+print("\n-- all seven instruments are present --")
 bank = Q._load()["instruments"]
-for name, n in (("imi", 12), ("coi", 8), ("arcs", 8), ("paas", 1),
+for name, n in (("imi", 12), ("coi", 8), ("arcs", 8), ("paas", 1), ("affect_recall", 3),
                 ("demographics", 4), ("feedback", 4)):
     check(f"{name} has its {n} item(s)", len(bank.get(name, {}).get("items", [])) == n,
           len(bank.get(name, {}).get("items", [])))
@@ -89,6 +89,9 @@ check("every IMI/CoI/ARCS item appears verbatim in 04_post-questionnaire.md",
       not missing, missing[:4])
 check("the Paas item appears verbatim in 05_reflection-and-load.md",
       bank["paas"]["items"][0]["text"] in load, bank["paas"]["items"][0]["text"])
+check("every affect_recall item appears verbatim in 05_reflection-and-load.md",
+      all(it["text"] in load for it in bank["affect_recall"]["items"]),
+      [it["id"] for it in bank["affect_recall"]["items"] if it["text"] not in load])
 
 demo_pack = io.open(os.path.join(PACK, "02_demographics.md"), encoding="utf-8").read()
 fb_pack = io.open(os.path.join(PACK, "09_app-feedback.md"), encoding="utf-8").read()

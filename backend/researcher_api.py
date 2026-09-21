@@ -276,11 +276,33 @@ def _paper_slice(pid: str) -> dict:
         table = {"columns": ["Arm", "n", "mean pre", "mean post", "norm. gain ⟨g⟩"],
                  "rows": [["FLIP", f["n"], f["pre"], f["post"], f["gain"]],
                           ["CONTROL", c["n"], c["pre"], c["post"], c["gain"]]]}
+
+        # The DELAYED retention block (docs/end-of-study-battery-plan.md): the
+        # immediate post-test DV is ceiling'd (≈91/100), compressing the FLIP-CONTROL
+        # gap; a Form-C re-test weeks later, where productive-failure theory predicts
+        # the flip effect should show up as SLOWER decay in FLIP, is not. Window-gated
+        # to ~2026-11-23..26, so this reads "pending" (not "live") until then.
+        ret = measures.retention_summary()
+        if ret["n"]:
+            stats += [
+                {"label": "Retention — FLIP", "value": ret["flip"]["mean_score"] or "—",
+                 "sub": f"n={ret['flip']['n']}"},
+                {"label": "Retention — CONTROL", "value": ret["control"]["mean_score"] or "—",
+                 "sub": f"n={ret['control']['n']}"},
+                {"label": "Mean weeks since post-check", "value": ret["mean_weeks_since_post"] or "—",
+                 "sub": f"{ret['with_interval']} with a known interval"},
+            ]
         return env("Normalised gain ⟨g⟩ from the MC pre/post concept inventory, by assigned "
-                   "arm — the primary H1 DV. The short-answer probe is the secondary offline pass.",
+                   "arm — the primary H1 DV — plus the DELAYED Form-C retention score once the "
+                   "end-of-study battery has run. The short-answer probe is the secondary "
+                   "offline pass.",
                    "live", stats,
-                   "Interim read over determinable pairs; the full pre-registered N needs the "
-                   "remaining topics to release.", table)
+                   ("Interim read; retention re-test is the delayed DV — see the retention rows "
+                    "above for where the flip effect is predicted to show up (productive-"
+                    "failure theory: FLIP should decay slower)." if ret["n"] else
+                    "Interim read over determinable pairs; the full pre-registered N needs the "
+                    "remaining topics to release. Retention re-test (delayed DV) is pending — "
+                    "the end-of-study battery runs ~2026-11-23..26."))
 
     if pid == "02-motivation-experience":
         q = measures.questionnaire_by_arm()
@@ -296,11 +318,30 @@ def _paper_slice(pid: str) -> dict:
             {"label": "PAAS effort — FLIP", "value": _eff(paas["flip"]), "sub": f"{paas['flip']['responses']} responses"},
             {"label": "PAAS effort — CONTROL", "value": _eff(paas["control"]), "sub": f"{paas['control']['responses']} responses"},
         ]
-        return env("IMI/CoI/ARCS completion + raw item means (cohort-level), and PAAS mental "
-                   "effort split by the arm assigned per topic — the one arm split the "
-                   "within-subjects design allows.", "live", stats,
+
+        # The RETROSPECTIVE affect recall block (end-of-study battery): AR1
+        # enjoyment / AR2 perceived learning / AR3 mental effort, per topic, split by
+        # the arm assigned for that topic -- the retrospective twin of PAAS above.
+        ar = measures.affect_recall_summary()
+        if ar["flip"]["participants"] or ar["control"]["participants"]:
+            def _ar(arm_block, item):
+                v = arm_block["items"][item]["mean"]
+                return v if v is not None else "—"
+            stats += [
+                {"label": "Affect recall — enjoyment (AR1) FLIP/CONTROL",
+                 "value": f"{_ar(ar['flip'], 'AR1')} / {_ar(ar['control'], 'AR1')}"},
+                {"label": "Affect recall — perceived learning (AR2) FLIP/CONTROL",
+                 "value": f"{_ar(ar['flip'], 'AR2')} / {_ar(ar['control'], 'AR2')}"},
+                {"label": "Affect recall — effort (AR3) FLIP/CONTROL",
+                 "value": f"{_ar(ar['flip'], 'AR3')} / {_ar(ar['control'], 'AR3')}"},
+            ]
+        return env("IMI/CoI/ARCS completion + raw item means (cohort-level), PAAS mental "
+                   "effort split by the arm assigned per topic, and — once the end-of-study "
+                   "battery has run — the retrospective affect-recall block (AR1-3) by arm.",
+                   "live", stats,
                    "Cohort instruments span all topics (no per-arm split); reverse-scoring + "
-                   "subscales are applied at analysis, not here.")
+                   "subscales are applied at analysis, not here. Affect recall is retrospective "
+                   "(end of study) — PAAS above is its prospective, per-unit twin.")
 
     if pid in ("03-reflection-help-seeking", "07-ai-tutor-design"):
         rs = measures.reflection_summary()
