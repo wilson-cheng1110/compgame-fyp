@@ -203,7 +203,11 @@ wrong; corrected 2026-08-16.)
 
 Each maps to a COMP3423 lecture session — mapping table in `docs/revamp.md` Part 6.3. **All 13 now have
 pre/post item banks** (`docs/quiz-item-banks.md`, 6 items per form, 156 in total) — topics 1-4 from
-Stage 1, topics 5-13 authored 2026-08-30 from the games' own source. `checks.py` still returns `None`
+Stage 1, topics 5-13 authored 2026-08-30 from the games' own source. **A DRAFT third form
+(`docs/retention-item-banks.md`, Form C, 78 items) exists for the planned end-of-study RETENTION
+re-test — standalone, NOT wired into `checks.py` or any route, validated only structurally by
+`scripts/validate_retention_bank.py`; needs desk-review + a delivery build (see
+[[end-of-study-measurement-expansion]] memory). `experiment-design` items 4/6 flagged for author review.** `checks.py` still returns `None`
 for an unbanked topic and the unit renders with no MC step, so a 14th topic added without items is
 silently unmeasured; `test_checks.py` asserts every scheduled topic has a bank to stop that.
 **`norman` and `hicks-law` are extra topics, not H1 evidence** — zero lecture-corpus coverage, so
