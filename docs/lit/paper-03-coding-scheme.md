@@ -1,10 +1,19 @@
 # Paper 03 — reflection-depth / help-seeking coding scheme
 
-**STATUS: PLAN TO BUILD. Nothing in this document is implemented.** No coding script exists yet
-(grepped `backend/` this session for `instrumental`/`executive`/depth-coding logic: no matches,
-confirming `docs/lit/data-to-paper-fit.md`'s "03 — NOT INSTRUMENTED" finding still holds). This is
-the scope Wilson asked for on the strength of the 2026-09-21 decision to **build** the scheme
-(`docs/lit/data-to-paper-fit.md`, "Decisions & reframes"), not the build itself.
+**STATUS UPDATE (2026-09-21): the harness in this section is now BUILT** — `backend/code_batch.py`
+(`collect()` / `write_double_coding_sheet()` / `kappa_report()`, 58 passing assertions in
+`backend/tests/test_code_batch.py`) plus the coder-facing codebook at
+`docs/study-pack/10_reflection-coding-codebook.md`. What is **still not done**, and remains the
+actual blocker: no human coding has happened yet. Nobody has run `--sheet`, handed the two coders
+a copy each, or run `--kappa` against real transcripts, so there is no κ figure and the
+pre-registration stub 03 blocker is not yet lifted — see the closing section below for exactly
+what remains. Also still not built, deliberately: any automated or LLM-assisted coding pass (the
+"optional LLM-assisted scale-up" row in (b) is explicitly deferred, not implemented here).
+
+*Original framing, kept for context:* this was scoped on the strength of the 2026-09-21 decision
+to **build** the scheme (`docs/lit/data-to-paper-fit.md`, "Decisions & reframes"), before the harness
+below existed (`docs/lit/data-to-paper-fit.md`'s "03 — NOT INSTRUMENTED" finding, at the time still
+holding).
 
 **Why this file exists.** `docs/pre-registration/README.md` stub 03 names the exact blocker: "requires
 the reflection-depth and help-seeking coding scheme to be fixed and inter-rater-checked before any
