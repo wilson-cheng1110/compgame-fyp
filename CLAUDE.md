@@ -51,6 +51,10 @@ FYP_Submission/
     grade.py             # Short-answer grading: rubric, null filter, BLINDING, kappa,
                          #   fail-closed /api/grade. temperature=0, offline by design
     grade_batch.py       # The offline blind pass + --sample-for-human / --kappa
+    code_batch.py        # Paper-03 reflection/help-seeking coding harness: offline blind
+                         #   double-coding sheet + per-axis Cohen's kappa (grade_batch.py sibling;
+                         #   two HUMAN coders first, no LLM coder). Codebook: docs/study-pack/10_*.
+                         #   Scope: docs/lit/paper-03-coding-scheme.md. Instrument built, coding run pending.
     generate_tutorial_report.py # Teacher brief (.md). Pass 1 counts in CODE, pass 2 is the
                          #   LLM on text only. Writes teacher + anonymised, always both. Now the
                          #   CLI/research path; the /admin button makes DECKS (below) instead.
