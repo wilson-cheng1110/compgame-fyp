@@ -207,7 +207,9 @@ Stage 1, topics 5-13 authored 2026-08-30 from the games' own source. **A DRAFT t
 (`docs/retention-item-banks.md`, Form C, 78 items) exists for the planned end-of-study RETENTION
 re-test — standalone, NOT wired into `checks.py` or any route, validated only structurally by
 `scripts/validate_retention_bank.py`; needs desk-review + a delivery build (see
-[[end-of-study-measurement-expansion]] memory). `experiment-design` items 4/6 flagged for author review.** `checks.py` still returns `None`
+[[end-of-study-measurement-expansion]] memory). `experiment-design` carries 2 bonus items
+(C7 H₀/Hₐ + C8 confound-diagnosis, 8 total) covering the Form-B-side concepts its A-isomorphic
+items don't (Wilson 2026-09-22).** `checks.py` still returns `None`
 for an unbanked topic and the unit renders with no MC step, so a 14th topic added without items is
 silently unmeasured; `test_checks.py` asserts every scheduled topic has a bank to stop that.
 **`norman` and `hicks-law` are extra topics, not H1 evidence** — zero lecture-corpus coverage, so

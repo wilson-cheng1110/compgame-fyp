@@ -131,7 +131,11 @@ def main() -> int:
                   expected_n_options)
             continue
 
-        check(f"{topic_id}: exactly 6 Form C items", len(items) == 6,
+        # experiment-design carries 2 BONUS items (C7 H0/Ha, C8 confound-diagnosis) covering the
+        # Form-B-side concepts its A-isomorphic C4/C6 don't -- Wilson 2026-09-22. Every other topic
+        # is 6. Per-topic so a topic silently losing an item is still caught.
+        expected_items = 8 if topic_id == "experiment-design" else 6
+        check(f"{topic_id}: exactly {expected_items} Form C items", len(items) == expected_items,
               f"found {len(items)}: {[it['id'] for it in items]}")
 
         for it in items:
@@ -147,8 +151,8 @@ def main() -> int:
             if "-" in pair:
                 k, v = pair.rsplit("-", 1)
                 key_map[k.strip()] = v.strip()
-        check(f"{topic_id}: answer key lists 6 entries", len(entry["key_entries"]) == 6,
-              entry["key_entries"])
+        check(f"{topic_id}: answer key lists {expected_items} entries",
+              len(entry["key_entries"]) == expected_items, entry["key_entries"])
         mismatches = [
             (it["id"], it["correct"], key_map.get(it["id"]))
             for it in items

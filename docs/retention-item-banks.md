@@ -382,8 +382,9 @@ number them, since the numbering is the game's own presentation convention, not 
 bank, item 4 tests different concepts between forms — A4 defines a *confound*, B4 checks the
 H₀/Hₐ pair — and item 6 does too — A6 is a small-N design choice, B6 is a confound-diagnosis
 scenario. Form C below follows **A4's and A6's** concepts (confound; small-N design choice), so
-it is isomorphic to Form A on those two items but not to Form B. See the closing report for why
-this was flagged rather than silently resolved.)*
+it is isomorphic to Form A on those two items but not to Form B. **RESOLVED (Wilson 2026-09-22):
+add bonus items** — C7 (H₀/Hₐ) and C8 (confound-diagnosis) below cover the orphaned Form-B-side
+concepts, so this topic uniquely has **8** Form C items (the other 12 topics keep 6).)*
 
 ### Form C (retention)
 **C1.** In a study comparing two checkout button colours, the button's colour is the one thing the researcher deliberately varies between groups. This is the…
@@ -404,7 +405,13 @@ this was flagged rather than silently resolved.)*
 **C6.** *(Apply it.)* A team has only 10 participants available and needs to compare two voice-assistant wake phrases. Which design would you choose, and what must you add to keep it valid?
  a) Between-subjects, five people per phrase, no further control  b) ✓ Within-subjects, so all 10 give data on both phrases — with counter-balancing so practice and fatigue don't favour whichever phrase came first  c) Within-subjects, with everyone trying phrase A first for consistency  d) Between-subjects, letting each participant pick whichever phrase they prefer
 
-*Answer key C: C1-a, C2-b, C3-c, C4-d, C5-a, C6-b*
+**C7.** *(Bonus — covers the Form-B-side concept B4 tests, which the A-isomorphic C4 does not: H₀/Hₐ.)* In a study comparing two designs, which pair correctly states the null (H₀) and alternative (Hₐ) hypotheses?
+ a) H₀: design A is better; Hₐ: design B is better  b) H₀: the sample is large enough; Hₐ: the sample is too small  c) ✓ H₀: there is no difference between the designs; Hₐ: there is a difference  d) H₀: the result is significant; Hₐ: the result is not significant
+
+**C8.** *(Bonus — covers the Form-B-side concept B6 tests: diagnosing a confound.)* A team finds interface X beat interface Y — but every X participant was tested first thing in the morning and every Y participant late at night. Why can't they conclude X is the better design?
+ a) The sample was too small to compare  b) They should have used a within-subjects design from the start  c) The dependent variable was measured incorrectly  d) ✓ Time of day is confounded with the interface — tiredness, not the design, could explain the difference
+
+*Answer key C: C1-a, C2-b, C3-c, C4-d, C5-a, C6-b, C7-c, C8-d*
 
 ---
 
@@ -420,10 +427,11 @@ this was flagged rather than silently resolved.)*
 - **`norman` and `hicks-law`** carry the same zero-lecture-corpus-coverage caveat as their A/B
   banks (Wilson's 2026-08-30 decision) — their retention gain, if measured, should be reported
   separately from the primary H1 evidence, same as their ⟨g⟩.
-- **`experiment-design`** is flagged above: the source A/B bank is not itself concept-parallel on
-  items 4 and 6, so Form C could not be simultaneously isomorphic to both A4/B4 and both A6/B6.
-  It follows the A-side concept in both cases; a human reviewer may prefer a different resolution
-  (e.g. writing a 7th "bonus" item to cover the orphaned B-side concept, or accepting the gap).
+- **`experiment-design`** had non-concept-parallel source items 4 and 6 (A4 confound / B4 H₀-Hₐ;
+  A6 small-N design / B6 confound-diagnosis). **RESOLVED (Wilson 2026-09-22): bonus items added** —
+  C1-C6 follow the A-side, and **C7 (H₀/Hₐ) + C8 (confound-diagnosis)** cover the orphaned B-side,
+  so this topic has 8 Form C items where every other topic has 6. Scoring may treat C7/C8 as a
+  separate bonus block or fold them in — an analysis decision, not fixed here.
 - **Retention delay is undefined here.** This file supplies the items only; how many weeks after
   a topic's Form B the retention test runs, and whether it is administered per-topic or in one
   end-of-study batch, is a study-design decision for Wilson, not something this file assumes.
