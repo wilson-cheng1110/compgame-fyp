@@ -327,6 +327,26 @@ def _kappa(human_csv: str) -> int:
     if res["kappa"] is not None and res["kappa"] < 0.6:
         print("\n  Below 0.6. Report the short-answer grades as descriptive colour only,")
         print("  or improve the rubric and re-grade. Do not quietly use them as a measure.")
+
+    # PERSIST the reliability number, not just print it. Cohen's kappa is the one figure
+    # paper 08 (can a small local model grade this?) is ABOUT, and until now it was
+    # stdout-only -- lost on exit, unreadable by anything downstream. Written to a stable
+    # name in the grades dir (latest run wins) so the researcher panel can read aggregate
+    # reliability from this OFFLINE report -- it never routes grading through the sink, so
+    # the deliberate blind-offline boundary is untouched.
+    report = {
+        "generated": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+        "human_csv": os.path.basename(path),
+        "model": os.environ.get("OLLAMA_LLM", "gemma4:e4b"),
+        "n": res["n"], "hand_coded": len(human),
+        "agreement": res["agreement"], "kappa": res["kappa"],
+        "verdict": res.get("verdict", res.get("note")),
+        "usable": bool(res["kappa"] is not None and res["kappa"] >= 0.6),
+    }
+    kpath = os.path.join(OUT_DIR, "kappa.json")
+    with open(kpath, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2, ensure_ascii=False)
+    print(f"  -> {kpath}")
     return 0
 
 

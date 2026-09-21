@@ -304,6 +304,241 @@ def coverage(db_path=None) -> dict:
     }
 
 
+# ── the research-papers dashboard slices (aggregate-only) ─────────────────────
+#
+# These feed /researcher's per-paper live panels. EVERY function here returns COUNTS
+# and DISTRIBUTIONS, never a participant row or a SID -- the pseudonymised export
+# (research_api.pseudonymised_rows) stays the one identified-data path, and the
+# researcher_api routes that call these add nothing that could carry an identity.
+# test_measures.py asserts the no-SID-leak property directly.
+
+BANK_PATH = os.environ.get(
+    "QUESTIONNAIRE_BANK",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "questionnaires.json"))
+
+
+def _instrument(name: str) -> dict | None:
+    """The item bank for one instrument, read straight from questionnaires.json so this
+    file needs no fastapi import (it must stay runnable offline, like the rest of it)."""
+    try:
+        with open(BANK_PATH, encoding="utf-8") as fh:
+            return json.load(fh).get("instruments", {}).get(name)
+    except (OSError, ValueError):
+        return None
+
+
+def _meta_events(event_types, db_path=None, where_meta=None) -> list[dict]:
+    """Rows for the given event_type(s), WITH meta parsed. Separate from _rows() because
+    that one deliberately omits meta (it only needs score/ts); the questionnaire, game and
+    reflection slices all live in meta."""
+    conn = sqlite3.connect(db_path or DB)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")
+    try:
+        if where_meta:
+            sql = ("SELECT participant_id, event_type, topic_id, meta, server_ts FROM events"
+                   " WHERE meta LIKE ? ORDER BY server_ts")
+            rows = conn.execute(sql, (where_meta,)).fetchall()
+        else:
+            qs = ",".join("?" * len(event_types))
+            rows = conn.execute(
+                f"SELECT participant_id, event_type, topic_id, meta, server_ts FROM events"
+                f"  WHERE event_type IN ({qs}) ORDER BY server_ts",
+                tuple(event_types)).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            meta = json.loads(r["meta"] or "{}")
+        except (ValueError, TypeError):
+            meta = {}
+        out.append({"participant_id": r["participant_id"], "event_type": r["event_type"],
+                    "topic_id": r["topic_id"], "meta": meta, "at": r["server_ts"]})
+    return out
+
+
+def _first_per_participant(rows) -> dict:
+    """One answer-map per participant, first submission wins. The partial unique index
+    already makes a second questionnaire submission impossible, but a legacy or hand-seeded
+    double must never double-count a person in a distribution."""
+    seen: dict = {}
+    for r in rows:
+        seen.setdefault(r["participant_id"], r["meta"].get("answers") or {})
+    return seen
+
+
+def demographics_summary(db_path=None) -> dict:
+    """The once-per-participant demographics gate, as distributions. Shared top of the
+    papers dashboard. Per single item: the count against each labelled option (GENDER's
+    'Prefer not to say' is one such option, so its decline rate is a real bar); AGE (a
+    bounded text item) reports answered/declined + min/max/median/mean over the typed
+    integers. Labels come from the bank so the panel never re-hardcodes them."""
+    inst = _instrument("demographics")
+    items = (inst or {}).get("items", [])
+    rows = _meta_events(["questionnaire_demographics"], db_path)
+    rows, dropped = enrolled_only(rows)
+    per = _first_per_participant(rows)
+    answer_maps = list(per.values())
+    n = len(answer_maps)
+
+    out_items = []
+    for it in items:
+        iid = it["id"]
+        itype = it.get("type", "likert")
+        present = [a[iid] for a in answer_maps
+                   if iid in a and str(a[iid]).strip() != ""]
+        if itype == "text" and isinstance(it.get("min"), int):
+            nums = []
+            for v in present:
+                try:
+                    nums.append(int(str(v).strip()))
+                except (ValueError, TypeError):
+                    pass
+            nums.sort()
+            out_items.append({
+                "id": iid, "text": it["text"], "kind": "age",
+                "answered": len(nums), "declined": n - len(nums),
+                "min": nums[0] if nums else None,
+                "max": nums[-1] if nums else None,
+                "median": nums[len(nums) // 2] if nums else None,
+                "mean": round(sum(nums) / len(nums), 1) if nums else None,
+            })
+        else:
+            opts = it.get("options", [])
+            counts = [0] * len(opts)
+            other = 0
+            for v in present:
+                if isinstance(v, int) and not isinstance(v, bool) and 1 <= v <= len(opts):
+                    counts[v - 1] += 1
+                else:
+                    other += 1
+            out_items.append({
+                "id": iid, "text": it["text"], "kind": "single",
+                "answered": sum(counts),
+                "options": [{"label": lab, "count": counts[i]} for i, lab in enumerate(opts)],
+                "other": other,
+            })
+    return {"n": n, "items": out_items, "test_traffic_excluded": dropped}
+
+
+def questionnaire_by_arm(db_path=None) -> dict:
+    """Paper 02 (affective outcomes). PAAS mental effort is per-topic, so it splits by the
+    arm ASSIGNED for that topic -- the one true arm split the within-subjects design allows.
+    IMI / CoI / ARCS are administered ONCE across all topics (topic_id is null), so they
+    have no single arm to split on: reported as cohort completion + a raw item mean, and
+    that limit is stated, not faked. Reverse-scoring / subscale means are deliberately NOT
+    applied here -- the raw mean is descriptive monitor colour; the codebook scores at
+    analysis time (same principle as questionnaire_api storing raw responses)."""
+    idx = topic_index()
+
+    def _cohort(name):
+        rows, _ = enrolled_only(_meta_events([f"questionnaire_{name}"], db_path))
+        per = _first_per_participant(rows)
+        vals = [v for ans in per.values() for v in ans.values()
+                if isinstance(v, int) and not isinstance(v, bool)]
+        return {"scope": "cohort", "n": len(per),
+                "mean_raw": round(sum(vals) / len(vals), 2) if vals else None,
+                "note": "cohort-level (one submission spans all topics) — no per-arm split; "
+                        "reverse-scoring + subscales at analysis"}
+
+    out = {name: _cohort(name) for name in ("imi", "coi", "arcs")}
+
+    paas, _ = enrolled_only(_meta_events(["questionnaire_paas"], db_path))
+    bucket = {schedule.FLIP: [], schedule.CONTROL: []}
+    who = {schedule.FLIP: set(), schedule.CONTROL: set()}
+    for r in paas:
+        tid = r["topic_id"]
+        if tid not in idx:
+            continue
+        arm = schedule.arm_for(r["participant_id"], idx[tid])
+        v = (r["meta"].get("answers") or {}).get("P1")
+        if arm in bucket and isinstance(v, int) and not isinstance(v, bool):
+            bucket[arm].append(v)
+            who[arm].add(r["participant_id"])
+
+    def _mean(xs):
+        return round(sum(xs) / len(xs), 2) if xs else None
+
+    out["paas"] = {
+        "scope": "per_topic", "scale_max": 9,
+        "flip": {"responses": len(bucket[schedule.FLIP]),
+                 "participants": len(who[schedule.FLIP]),
+                 "mean_effort": _mean(bucket[schedule.FLIP])},
+        "control": {"responses": len(bucket[schedule.CONTROL]),
+                    "participants": len(who[schedule.CONTROL]),
+                    "mean_effort": _mean(bucket[schedule.CONTROL])},
+        "note": "Paas single-item mental effort (1..9), split by the arm assigned per topic",
+    }
+    return out
+
+
+def reflection_summary(db_path=None) -> dict:
+    """Papers 03 (metacognition) and 07 (AI tutor). reflection_complete meta carries the
+    tutor transcript (+ turnQuality, directAnswers, endReason -- reflection-dialog.tsx), so
+    this reports live ENGAGEMENT: how many reflected vs skipped, mean human turns, the
+    direct-answer ('just tell me') rate. It is the live PROXY both papers show now. Paper
+    03's coded reflection DEPTH is the offline code_batch.py human double-coding pass
+    (pending), NOT derived here -- engagement volume is not depth."""
+    rows = _meta_events(["reflection_complete", "reflection_skipped"], db_path)
+    rows, dropped = enrolled_only(rows)
+    completed = [r for r in rows if r["event_type"] == "reflection_complete"]
+    skipped = [r for r in rows if r["event_type"] == "reflection_skipped"]
+
+    human_turns = []
+    direct_used = 0
+    for r in completed:
+        tr = r["meta"].get("transcript")
+        if isinstance(tr, list):
+            human_turns.append(sum(1 for t in tr
+                                   if isinstance(t, dict) and t.get("role") == "human"))
+        da = r["meta"].get("directAnswers")
+        if isinstance(da, int) and not isinstance(da, bool) and da > 0:
+            direct_used += 1
+
+    who_reflected = {r["participant_id"] for r in completed}
+    return {
+        "reflections": len(completed),
+        "skipped": len(skipped),
+        "participants_reflected": len(who_reflected),
+        "mean_human_turns": round(sum(human_turns) / len(human_turns), 1) if human_turns else None,
+        "direct_answer_rate": round(direct_used / len(completed), 2) if completed else None,
+        "test_traffic_excluded": dropped,
+    }
+
+
+def game_result_summary(db_path=None) -> dict:
+    """Paper 09 (the game IS the experiment). game_result is game-specific and untyped in the
+    sink (research_api attaches it under meta.game_result, TELEMETRY_ENABLED-gated), so this
+    reports COVERAGE -- trial payloads and distinct participants per topic, and the metric
+    KEYS present -- and does NOT invent per-paradigm aggregates (Stroop RT, Hick RT×n, Fitts
+    MT×ID, Weber JND need game-specific parsers, a later step). If TELEMETRY was off in prod
+    there are simply zero rows, which total_trials=0 states honestly rather than papering
+    over."""
+    rows = _meta_events(None, db_path, where_meta='%"game_result"%')
+    rows, dropped = enrolled_only(rows)
+    per_topic_agg: dict = defaultdict(lambda: {"trials": 0, "participants": set(), "keys": set()})
+    total = 0
+    for r in rows:
+        gr = r["meta"].get("game_result")
+        if not isinstance(gr, dict):
+            continue
+        total += 1
+        b = per_topic_agg[r["topic_id"] or "—"]
+        b["trials"] += 1
+        b["participants"].add(r["participant_id"])
+        b["keys"].update(str(k) for k in gr.keys())
+    topics = [{"topic_id": t, "trials": b["trials"],
+               "participants": len(b["participants"]),
+               "metric_keys": sorted(b["keys"])[:12]}
+              for t, b in sorted(per_topic_agg.items())]
+    return {
+        "total_trials": total, "topics": topics, "test_traffic_excluded": dropped,
+        "note": "coverage only; per-paradigm stats (Stroop RT, Hick RT×n, Fitts MT×ID, "
+                "Weber JND) need game-specific parsers. Zero trials = telemetry off in prod.",
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--participant")

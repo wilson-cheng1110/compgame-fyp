@@ -235,6 +235,19 @@ allowlist became **OPTIONAL**. `backend/enrolled_sids.txt` is still gitignored �
   be undone. `is_staff` = admin OR researcher; both skip the participant gates (consent/baseline) and are dropped
   from the sink. Blind grading STAYS the offline `grade_batch.py` pass — there is deliberately no grading route
   on this surface. The monitor reads the sink via `measures.py` (no Ollama), off the event loop.
+  **Research-papers dashboard (2026-09-21):** the same surface also carries the 9-paper programme —
+  a shared demographics distribution + one card/page per paper (`frontend/lib/papers.ts` holds the
+  static scholarly "artifact parts", ported from `docs/lit/`; `frontend/app/researcher/paper/[id]/`
+  is a server component on the `topics/[topicId]` gate pattern). Each paper page shows a LIVE slice
+  via `GET /api/researcher/paper/{id}` → `researcher_api._paper_slice` composing `measures.py`
+  functions (`demographics_summary`, `questionnaire_by_arm`, `reflection_summary`,
+  `game_result_summary`, plus reused `per_topic`/`effort`/`coverage`) — **aggregate + pseudonymised
+  ONLY, never a participant row** (asserted in `test_measures.py` / `test_researcher_api.py`). Paper
+  08's grader reliability reads the OFFLINE `reports/grades/kappa.json` (now persisted by
+  `grade_batch.py --kappa`), NOT the sink, so the blind-offline grading boundary is untouched.
+  Honest states: constructs whose primary analysis is an offline pass (03 coded depth, 08 κ,
+  01 short-answer probe) show a live proxy + "pending"; paper 09 shows `flag_off` when telemetry
+  was off. `GET /api/researcher/demographics` feeds the shared top section.
 - Still NOT strong identity: a password can be shared, and with no roster an unenrolled person can create
   an account. Both belong in the paper.
 - Cookie `user` = `{ sid, username, avatarId }` — **shape unchanged**, so all 15 `Cookies.get("user")`

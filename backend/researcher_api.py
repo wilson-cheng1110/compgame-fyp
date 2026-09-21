@@ -41,6 +41,8 @@ logged-in web surface would undo the blinding. The monitor reports its STATUS on
 
 import asyncio
 import io
+import json
+import os
 from collections import defaultdict
 from typing import Optional
 
@@ -182,6 +184,251 @@ async def monitor(response: Response, session: Optional[str] = Cookie(default=No
     if err:
         return err
     return await asyncio.to_thread(_build_monitor)
+
+
+# ── the research-papers dashboard (aggregate-only, one place per paper) ────────
+#
+# The shared demographics distribution + one live slice per paper, for /researcher's
+# per-paper pages. Everything here is a composition of measures.py functions (which return
+# COUNTS, never a SID) plus, for paper 08 ONLY, an OFFLINE read of the grades report --
+# grading never touches the sink here, so the deliberate blind-offline boundary is intact.
+# Same _researcher() gate as every other route: the teacher stays blind to all of it.
+
+GRADES_DIR = os.environ.get(
+    "GRADES_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reports", "grades"))
+
+
+def _grades_report() -> Optional[dict]:
+    """Grader reliability for paper 08, read from the OFFLINE grades dir -- NOT the sink.
+    Returns the persisted Cohen's kappa (grade_batch.py --kappa now writes kappa.json) plus
+    the newest non-dry-run batch's level distribution, or None if no real pass has run."""
+    try:
+        files = [f for f in os.listdir(GRADES_DIR) if f.endswith(".json")]
+    except OSError:
+        return None
+    kappa = None
+    kpath = os.path.join(GRADES_DIR, "kappa.json")
+    if os.path.exists(kpath):
+        try:
+            with open(kpath, encoding="utf-8") as fh:
+                kappa = json.load(fh)
+        except (OSError, ValueError):
+            kappa = None
+    latest = None
+    for f in sorted(files, reverse=True):
+        if f == "kappa.json":
+            continue
+        try:
+            with open(os.path.join(GRADES_DIR, f), encoding="utf-8") as fh:
+                blob = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if blob.get("dry_run"):
+            continue
+        latest = {"generated": blob.get("generated"), "model": blob.get("model"),
+                  "summary": blob.get("summary")}
+        break
+    if latest is None and kappa is None:
+        return None
+    return {"kappa": kappa, "batch": latest}
+
+
+def _paper_slice(pid: str) -> dict:
+    """One paper's LIVE slice as a normalized envelope the frontend renders generically:
+    {id, basis, status, stats:[{label,value,sub}], note, table?}. Aggregate-only. status is
+    'live' (a real measure), 'proxy' (a live stand-in for a construct whose PRIMARY analysis
+    is an offline pass), 'flag_off' (telemetry was off -> zero rows), or 'pending'."""
+    def env(basis, status, stats, note=None, table=None):
+        return {"id": pid, "basis": basis, "status": status,
+                "stats": stats, "note": note, "table": table}
+
+    order = {t["id"]: i for i, t in enumerate(schedule._load().get("topics", []))}
+
+    def _study_pairs():
+        pairs, _ = measures.enrolled_only(measures.per_topic())
+        return [r for r in pairs if r["topic_id"] in order]
+
+    if pid == "01-flip-effectiveness":
+        by = {schedule.FLIP: [], schedule.CONTROL: []}
+        for r in _study_pairs():
+            pre, post, arm = r["pre_score"], r["post_score"], r["arm"]
+            if pre is None or post is None or arm not in by:
+                continue
+            g = ((post - pre) / (100 - pre)) if pre < 100 else None
+            by[arm].append((pre, post, g))
+
+        def _agg(xs):
+            n = len(xs)
+            gains = [g for _, _, g in xs if g is not None]
+            return {"n": n,
+                    "pre": round(sum(p for p, _, _ in xs) / n, 1) if n else None,
+                    "post": round(sum(q for _, q, _ in xs) / n, 1) if n else None,
+                    "gain": round(sum(gains) / len(gains), 3) if gains else None}
+
+        f, c = _agg(by[schedule.FLIP]), _agg(by[schedule.CONTROL])
+        stats = [
+            {"label": "FLIP pairs (pre+post)", "value": f["n"],
+             "sub": f"⟨g⟩ {f['gain'] if f['gain'] is not None else '—'}"},
+            {"label": "CONTROL pairs (pre+post)", "value": c["n"],
+             "sub": f"⟨g⟩ {c['gain'] if c['gain'] is not None else '—'}"},
+        ]
+        table = {"columns": ["Arm", "n", "mean pre", "mean post", "norm. gain ⟨g⟩"],
+                 "rows": [["FLIP", f["n"], f["pre"], f["post"], f["gain"]],
+                          ["CONTROL", c["n"], c["pre"], c["post"], c["gain"]]]}
+        return env("Normalised gain ⟨g⟩ from the MC pre/post concept inventory, by assigned "
+                   "arm — the primary H1 DV. The short-answer probe is the secondary offline pass.",
+                   "live", stats,
+                   "Interim read over determinable pairs; the full pre-registered N needs the "
+                   "remaining topics to release.", table)
+
+    if pid == "02-motivation-experience":
+        q = measures.questionnaire_by_arm()
+        paas = q["paas"]
+
+        def _eff(side):
+            return side["mean_effort"] if side["mean_effort"] is not None else "—"
+
+        stats = [
+            {"label": "IMI completed", "value": q["imi"]["n"], "sub": f"raw mean {q['imi']['mean_raw'] or '—'}"},
+            {"label": "CoI completed", "value": q["coi"]["n"], "sub": f"raw mean {q['coi']['mean_raw'] or '—'}"},
+            {"label": "ARCS completed", "value": q["arcs"]["n"], "sub": f"raw mean {q['arcs']['mean_raw'] or '—'}"},
+            {"label": "PAAS effort — FLIP", "value": _eff(paas["flip"]), "sub": f"{paas['flip']['responses']} responses"},
+            {"label": "PAAS effort — CONTROL", "value": _eff(paas["control"]), "sub": f"{paas['control']['responses']} responses"},
+        ]
+        return env("IMI/CoI/ARCS completion + raw item means (cohort-level), and PAAS mental "
+                   "effort split by the arm assigned per topic — the one arm split the "
+                   "within-subjects design allows.", "live", stats,
+                   "Cohort instruments span all topics (no per-arm split); reverse-scoring + "
+                   "subscales are applied at analysis, not here.")
+
+    if pid in ("03-reflection-help-seeking", "07-ai-tutor-design"):
+        rs = measures.reflection_summary()
+        stats = [
+            {"label": "Reflections completed", "value": rs["reflections"]},
+            {"label": "Dialogs skipped", "value": rs["skipped"]},
+            {"label": "Participants reflected", "value": rs["participants_reflected"]},
+            {"label": "Mean human turns", "value": rs["mean_human_turns"] if rs["mean_human_turns"] is not None else "—"},
+            {"label": "Asked for the answer", "value": f"{round(100 * rs['direct_answer_rate'])}%" if rs["direct_answer_rate"] is not None else "—"},
+        ]
+        if pid.startswith("03"):
+            return env("Reflection ENGAGEMENT from the tutor transcripts (turns, skip rate, "
+                       "direct-answer use) — the live proxy. Coded DEPTH is the offline "
+                       "code_batch.py human double-coding pass.", "proxy", stats,
+                       "Metacognitive depth (none/shallow/generative) needs two human coders + "
+                       "Cohen's κ ≥ 0.6 (code_batch.py) — pending, not shown as a number.")
+        return env("AI-tutor interaction from the mandatory post-test reflection: turns, skip "
+                   "rate, and how often students asked for the answer outright. Read alongside "
+                   "the CoI instrument (paper 02) and H1 gain.", "live", stats,
+                   "Free-chat /api/ask + /api/socratic usage and per-turn latency are NOT "
+                   "persisted — an optional later add.")
+
+    if pid == "04-test-taking-behaviour":
+        s = measures.effort_summary()
+        stats = [
+            {"label": "Check submissions", "value": s["submissions"]},
+            {"label": "Straight-lined", "value": s["straight_lined"]},
+            {"label": "Median s/item", "value": s["median_sec_per_item"] if s["median_sec_per_item"] is not None else "—"},
+            {"label": "Fastest s/item", "value": s["fastest_sec_per_item"] if s["fastest_sec_per_item"] is not None else "—"},
+        ]
+        table = {"columns": ["Verdict", "n"], "rows": [[k, v] for k, v in sorted(s["verdicts"].items())]}
+        return env("Time against accuracy on every pre/post check: the straight-lining / "
+                   "rapid-guess classifier (measures.effort) — the fit map's 'hidden asset'.",
+                   "live", stats, None, table)
+
+    if pid == "05-cross-population-transfer":
+        secmap = {p["sid"]: (p.get("section") or "—") for p in auth_store.list_participants()}
+        agg = defaultdict(lambda: {"pairs": 0, "determinable": 0, "complied": 0})
+        for r in _study_pairs():
+            b = agg[secmap.get(r["participant_id"], "—")]
+            b["pairs"] += 1
+            if r["played_first"] is not None:
+                b["determinable"] += 1
+                if r["complied"]:
+                    b["complied"] += 1
+        table = {"columns": ["Section", "pairs", "determinable", "complied"],
+                 "rows": [[sec, v["pairs"], v["determinable"], v["complied"]] for sec, v in sorted(agg.items())]}
+        stats = [{"label": f"{sec}", "value": v["pairs"], "sub": f"{v['determinable']} determinable"}
+                 for sec, v in sorted(agg.items())]
+        return env("The H1 machinery sliced by section — UG (A/B/C) vs the MSc cohort — the "
+                   "cross-population read. MSc inclusion in the analysis is HSESC-gated.",
+                   "live", stats, "A slice of the existing measures, not a new arm.", table)
+
+    if pid == "06-classroom-rct-methods":
+        mon = _build_monitor()
+        cov, acc = mon["coverage"], mon["accounts"]
+        stats = [
+            {"label": "Accounts", "value": acc["total"], "sub": f"{acc['claimed']} signed up"},
+            {"label": "Events in sink", "value": mon["sink"]["total_events"]},
+            {"label": "Determinable pairs", "value": cov["determinable"], "sub": f"of {cov['pairs']}"},
+            {"label": "Complied", "value": cov["complied"]},
+            {"label": "No activity (silent-fail signal)", "value": cov["no_activity"]},
+            {"label": "Withdrawn", "value": acc["withdrawn"]},
+        ]
+        return env("The running-a-real-RCT machinery itself: server-side per-topic "
+                   "randomisation, the manipulation check, coverage incl. the no_activity "
+                   "silent-failure signal, consent/withdrawal — the monitor's own figures.",
+                   "live", stats, "This paper's 'data' is the method working — it reads the monitor.")
+
+    if pid == "08-small-local-model":
+        rep = _grades_report()
+        if not rep:
+            return env("Grader reliability (Cohen's κ, level distribution, model, N) for the "
+                       "small local model, read from the OFFLINE grades report — not the sink.",
+                       "pending", [{"label": "Grader κ", "value": "—", "sub": "no grade pass yet"}],
+                       "Run grade_batch.py (a real pass) + --kappa against ~60 hand-coded "
+                       "answers; the panel then reads reports/grades/kappa.json.")
+        k = rep.get("kappa") or {}
+        stats = [
+            {"label": "Cohen's κ", "value": k.get("kappa") if k.get("kappa") is not None else "—",
+             "sub": ("usable ≥0.6" if k.get("usable") else "below 0.6 — descriptive only") if k else None},
+            {"label": "κ n", "value": k.get("n") if k else "—",
+             "sub": f"of {k.get('hand_coded')} hand-coded" if k.get("hand_coded") else None},
+            {"label": "Model", "value": (rep.get("batch") or {}).get("model") or k.get("model") or "—"},
+            {"label": "Raw agreement", "value": k.get("agreement") if k.get("agreement") is not None else "—"},
+        ]
+        return env("Grader reliability against a human coder (Cohen's κ), read from the offline "
+                   "grades report — the sink is never routed through a grader, preserving the "
+                   "blind boundary.", "live", stats,
+                   None if (k and k.get("usable")) else "κ below 0.6 (or unrun): report the "
+                   "short-answer grades as descriptive colour, not a measure.")
+
+    if pid == "09-game-psychophysics":
+        g = measures.game_result_summary()
+        status = "live" if g["total_trials"] > 0 else "flag_off"
+        stats = [{"label": "Game-result trials", "value": g["total_trials"]},
+                 {"label": "Topics with trials", "value": len(g["topics"])}]
+        table = None
+        if g["topics"]:
+            table = {"columns": ["Topic", "trials", "participants", "metric keys"],
+                     "rows": [[t["topic_id"], t["trials"], t["participants"], ", ".join(t["metric_keys"])]
+                              for t in g["topics"]]}
+        return env("Per-trial game_result telemetry (Stroop RT, Hick RT×n, Fitts MT×ID, Weber "
+                   "JND) — coverage of what's logged. Live only when TELEMETRY_ENABLED was on "
+                   "in prod.", status, stats, g["note"], table)
+
+    return env("Unknown paper.", "pending", [], "No live slice for this id.")
+
+
+@router.get("/demographics")
+async def demographics(response: Response, session: Optional[str] = Cookie(default=None)):
+    """The shared demographics distribution (age summary + per-option counts incl. decline
+    rates). Aggregate-only — no participant row leaves. Belongs on THIS internal surface,
+    not the public board or the removed stats strip."""
+    sid, err = _researcher(session, response)
+    if err:
+        return err
+    return await asyncio.to_thread(measures.demographics_summary)
+
+
+@router.get("/paper/{pid}")
+async def paper(pid: str, response: Response, session: Optional[str] = Cookie(default=None)):
+    """One paper's live-data slice (aggregate-only envelope). Heavy — scans the sink via
+    measures — so it dispatches off the event loop, like /monitor."""
+    sid, err = _researcher(session, response)
+    if err:
+        return err
+    return await asyncio.to_thread(_paper_slice, pid)
 
 
 # ── the erasure the consent form promises ─────────────────────────────────────

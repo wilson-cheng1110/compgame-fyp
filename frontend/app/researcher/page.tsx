@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { researcher, type ResearcherMonitor, type ForgetPreview } from "@/lib/api"
+import {
+  researcher,
+  type ResearcherMonitor,
+  type ForgetPreview,
+  type DemographicsSummary,
+  type DemographicsItemAge,
+  type DemographicsItemSingle,
+} from "@/lib/api"
 import { PAPERS, paperLiveTone } from "@/lib/papers"
 import {
   StaffHeader,
@@ -40,6 +47,7 @@ export default function ResearcherPage() {
   const router = useRouter()
   const [state, setState] = useState<"checking" | "denied" | "ok">("checking")
   const [mon, setMon] = useState<ResearcherMonitor | null>(null)
+  const [dem, setDem] = useState<DemographicsSummary | null>(null)
   const [loadedAt, setLoadedAt] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [note, setNote] = useState<{ kind: "ok" | "bad"; text: string } | null>(null)
@@ -51,11 +59,15 @@ export default function ResearcherPage() {
 
   const load = useCallback(async () => {
     setRefreshing(true)
-    const res = await researcher.monitor()
+    const [res, demRes] = await Promise.all([
+      researcher.monitor(),
+      researcher.demographics(),
+    ])
     if (res.ok && res.data) {
       setMon(res.data)
       setLoadedAt(new Date())
     }
+    if (demRes.ok && demRes.data) setDem(demRes.data)
     setRefreshing(false)
   }, [])
 
@@ -217,23 +229,80 @@ export default function ResearcherPage() {
         <Panel
           title="Shared — demographics & cross-paper covariates"
           testid="researcher-papers-shared"
-          desc="Basic demographics and the covariates common to all nine papers (N, arm balance, compliance, questionnaire completion, topics released) belong here. Live wiring is Phase 2 (a new demographics_summary() measures function + endpoint) — for now, the Accounts & sink, By section, Arm balance, and Questionnaires panels below already carry the shared figures every paper's own page draws on."
+          desc="Basic demographics common to all nine papers, aggregate-only from the sink's questionnaire_demographics events (measures.demographics_summary). The cross-paper covariates — N, arm balance, compliance, questionnaire completion — are the Accounts & sink, Arm balance and Questionnaires panels below."
         >
-          <div
-            className="u-card-quiet"
-            style={{ padding: "1rem 1.1rem" }}
-            data-testid="researcher-papers-shared-placeholder"
-          >
-            <p className="u-stem">
-              Demographics summary — age, gender, gaming background, AI-tool familiarity, with
-              decline rates — not wired yet.
-            </p>
-            <p className="u-faint mt-2">
-              Phase 2 reads it from the sink&apos;s <code>questionnaire_demographics</code> events
-              via a new <code>measures.demographics_summary()</code>, aggregate-only, same
-              researcher gate as everything else on this page.
-            </p>
-          </div>
+          {dem && dem.n > 0 ? (
+            (() => {
+              const age = dem.items.find((i) => i.kind === "age") as
+                | DemographicsItemAge
+                | undefined
+              const singles = dem.items.filter(
+                (i) => i.kind === "single",
+              ) as DemographicsItemSingle[]
+              return (
+                <div data-testid="researcher-demographics">
+                  <StatGrid cols={4}>
+                    <StatCard label="Gave demographics" value={dem.n} accent />
+                    {age && (
+                      <StatCard
+                        label="Median age"
+                        value={age.median ?? "—"}
+                        sub={`${age.answered} gave age · ${age.declined} declined`}
+                      />
+                    )}
+                    {age && (
+                      <StatCard
+                        label="Age range"
+                        value={age.min != null ? `${age.min}–${age.max}` : "—"}
+                        sub={age.mean != null ? `mean ${age.mean}` : null}
+                      />
+                    )}
+                    {dem.test_traffic_excluded != null && dem.test_traffic_excluded > 0 && (
+                      <StatCard label="Test rows excluded" value={dem.test_traffic_excluded} />
+                    )}
+                  </StatGrid>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                    {singles.map((it) => (
+                      <div
+                        key={it.id}
+                        className="u-card-quiet"
+                        style={{ padding: "0.9rem 1rem" }}
+                        data-testid={`researcher-demographics-${it.id}`}
+                      >
+                        <p className="u-stem" style={{ fontWeight: 600 }}>
+                          {it.text}
+                        </p>
+                        <div className="mt-2" style={{ display: "grid", gap: "0.3rem" }}>
+                          {it.options.map((o) => (
+                            <div key={o.label} className="flex items-center justify-between gap-3">
+                              <span className="u-faint">{o.label}</span>
+                              <span className="u-num">
+                                {o.count}
+                                {it.answered > 0
+                                  ? ` · ${Math.round((100 * o.count) / it.answered)}%`
+                                  : ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()
+          ) : (
+            <div
+              className="u-card-quiet"
+              style={{ padding: "1rem 1.1rem" }}
+              data-testid="researcher-papers-shared-empty"
+            >
+              <p className="u-stem">
+                No demographics recorded yet — this populates once students pass the one-time
+                demographics gate before their first topic.
+              </p>
+            </div>
+          )}
         </Panel>
 
         <Panel

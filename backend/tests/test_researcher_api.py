@@ -149,6 +149,37 @@ check("the arm table carries only real schedule topics (no phantom/off-schedule 
       all(a["topic_id"] in _known_topics for a in m_c["arms"]),
       [a["topic_id"] for a in m_c["arms"]])
 
+print("\n-- the papers dashboard: same gate, aggregate-only, no SID leak --")
+# A demographics submission for a real enrolled student, straight into the sink.
+research_store.record_event({"participant_id": "24STUDENT1B",
+                             "event_type": "questionnaire_demographics",
+                             "meta": {"answers": {"AGE": "21", "GENDER": 2, "GAMING": 3, "AITOOL": 1}}})
+check("a student cannot see demographics",
+      student.get("/api/researcher/demographics").status_code == 403)
+check("a teacher (admin) cannot see demographics",
+      teacher.get("/api/researcher/demographics").status_code == 403)
+check("a student cannot open a paper slice",
+      student.get("/api/researcher/paper/01-flip-effectiveness").status_code == 403)
+check("a teacher cannot open a paper slice",
+      teacher.get("/api/researcher/paper/06-classroom-rct-methods").status_code == 403)
+_dem = pi.get("/api/researcher/demographics")
+check("the PI gets demographics (200)", _dem.status_code == 200, _dem.text[:160])
+check("demographics counts the submission", _dem.json()["n"] >= 1, _dem.json())
+check("demographics returns NO raw SID", "24STUDENT1B" not in _dem.text, _dem.text[:200])
+_dgender = next(i for i in _dem.json()["items"] if i["id"] == "GENDER")
+check("demographics labels come from the bank", _dgender["options"][0]["label"] == "Female", _dgender)
+for _pid in ("01-flip-effectiveness", "02-motivation-experience", "03-reflection-help-seeking",
+             "04-test-taking-behaviour", "05-cross-population-transfer", "06-classroom-rct-methods",
+             "07-ai-tutor-design", "08-small-local-model", "09-game-psychophysics"):
+    _r = pi.get(f"/api/researcher/paper/{_pid}")
+    check(f"paper {_pid}: 200 with a full envelope",
+          _r.status_code == 200 and {"id", "basis", "status", "stats"} <= set(_r.json()),
+          _r.text[:160])
+    check(f"paper {_pid}: no raw SID leaks", "24STUDENT1B" not in _r.text, _r.text[:200])
+_unknown = pi.get("/api/researcher/paper/99-not-a-paper")
+check("an unknown paper id is a graceful pending envelope, not a 500",
+      _unknown.status_code == 200 and _unknown.json()["status"] == "pending", _unknown.text[:160])
+
 print("\n-- export is pseudonymised: the real SID never leaves --")
 j = pi.get("/api/researcher/export")
 check("export json is 200", j.status_code == 200, j.status_code)

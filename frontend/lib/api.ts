@@ -449,9 +449,69 @@ export interface ForgetPreview {
   pseudonym: string
 }
 
+// ── the research-papers dashboard (Phase 2 live slices) ─────────────────────
+//
+// Shared demographics distribution + one live slice per paper. All aggregate-only on the
+// backend (measures.py returns counts, never a SID); this client only asks.
+
+export interface DemographicsItemAge {
+  id: string
+  text: string
+  kind: "age"
+  answered: number
+  declined: number
+  min: number | null
+  max: number | null
+  median: number | null
+  mean: number | null
+}
+export interface DemographicsItemSingle {
+  id: string
+  text: string
+  kind: "single"
+  answered: number
+  /** Each declared option and how many chose it — GENDER's "Prefer not to say" is one such
+   *  option, so its count is a real bar, not a missing value. */
+  options: { label: string; count: number }[]
+  other: number
+}
+export type DemographicsItem = DemographicsItemAge | DemographicsItemSingle
+export interface DemographicsSummary {
+  n: number
+  test_traffic_excluded: number | null
+  items: DemographicsItem[]
+}
+
+/** live = a real measure · proxy = a live stand-in for a construct whose PRIMARY analysis
+ *  is an offline pass · flag_off = telemetry was off (zero rows) · pending = nothing to
+ *  read yet. */
+export type PaperLiveStatus = "live" | "proxy" | "flag_off" | "pending" | "unavailable"
+export interface PaperStat {
+  label: string
+  value: string | number
+  sub?: string | null
+}
+export interface PaperTable {
+  columns: string[]
+  rows: (string | number | null)[][]
+}
+export interface PaperSlice {
+  id: string
+  basis: string
+  status: PaperLiveStatus
+  stats: PaperStat[]
+  note?: string | null
+  table?: PaperTable | null
+}
+
 export const researcher = {
   whoami: () => api.get<{ ok: true; sid: string }>("/api/researcher/whoami"),
   monitor: () => api.get<ResearcherMonitor>("/api/researcher/monitor"),
+  /** The shared demographics distribution for the papers dashboard (aggregate-only). */
+  demographics: () => api.get<DemographicsSummary>("/api/researcher/demographics"),
+  /** One paper's live-data slice — a normalized envelope rendered generically. */
+  paper: (id: string) =>
+    api.get<PaperSlice>(`/api/researcher/paper/${encodeURIComponent(id)}`),
   /** Preview a forget: how many rows it would erase, before erasing them. */
   participant: (sid: string) =>
     api.get<ForgetPreview>(`/api/researcher/participant?sid=${encodeURIComponent(sid)}`),

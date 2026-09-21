@@ -3,6 +3,11 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 BE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BE)
 os.environ["TOPIC_SCHEDULE_PATH"] = os.path.join(BE, "topic_schedule.json")
+# The papers-dashboard measures call enrolled_only(), which drops non-roster SIDs when a
+# roster is active. Point it at a file that does not exist so the roster is INACTIVE here
+# (no filtering) and the synthetic SIDs below are all counted -- otherwise every assertion
+# reads zero. (In prod the roster IS active and that filtering is the point.)
+os.environ["ENROLMENT_PATH"] = os.path.join(tempfile.gettempdir(), "compgame_no_roster_measures.txt")
 import schedule as S
 import measures
 import check_measurement_coverage as CMC
@@ -131,6 +136,75 @@ try:
           set(CMC.NOT_BUILT) >= {"questionnaire_imi", "questionnaire_coi", "questionnaire_arcs"})
 finally:
     CMC.DB = old
+
+print("\n-- the papers-dashboard slices: aggregate-only, correct distributions --")
+import json as _json
+
+
+def evm(sid, etype, topic, meta):
+    conn.execute(
+        "INSERT INTO events (participant_id, event_type, topic_id, server_ts, meta)"
+        " VALUES (?,?,?,?,?)",
+        (sid, etype, topic, "2026-09-10T09:00:00+00:00", _json.dumps(meta)))
+
+
+# demographics: S1 full, S2 declined age + only two of the four items.
+evm("24DEMOG01A", "questionnaire_demographics", None,
+    {"answers": {"AGE": "22", "GENDER": 1, "GAMING": 4, "AITOOL": 2}})
+evm("24DEMOG02A", "questionnaire_demographics", None,
+    {"answers": {"GENDER": 4, "GAMING": 1}})            # no AGE -> declined; GENDER=Prefer not to say
+conn.commit()
+
+dem = measures.demographics_summary(DB)
+check("demographics counts distinct participants", dem["n"] == 2, dem["n"])
+_age = next(i for i in dem["items"] if i["id"] == "AGE")
+check("AGE answered vs declined is split", _age["answered"] == 1 and _age["declined"] == 1, _age)
+check("AGE reports the typed value's summary", _age["min"] == 22 and _age["median"] == 22, _age)
+_gender = next(i for i in dem["items"] if i["id"] == "GENDER")
+check("GENDER 'Female' counted", _gender["options"][0]["count"] == 1, _gender)
+check("GENDER 'Prefer not to say' is a real option bar, not a null",
+      _gender["options"][3]["label"] == "Prefer not to say" and _gender["options"][3]["count"] == 1, _gender)
+check("labels come from the bank (not hardcoded)",
+      [o["label"] for o in _gender["options"]][:2] == ["Female", "Male"], _gender)
+
+# paas per-topic -> splits by the arm assigned for THIS topic.
+evm(flip_sid, "questionnaire_paas", T, {"answers": {"P1": 8}})
+evm(ctrl_sid, "questionnaire_paas", T, {"answers": {"P1": 3}})
+# imi cohort-level (no topic).
+evm(flip_sid, "questionnaire_imi", None, {"answers": {"M1": 5, "M2": 4}})
+conn.commit()
+
+qa = measures.questionnaire_by_arm(DB)
+check("PAAS effort splits by assigned arm — FLIP", qa["paas"]["flip"]["mean_effort"] == 8.0, qa["paas"])
+check("PAAS effort splits by assigned arm — CONTROL", qa["paas"]["control"]["mean_effort"] == 3.0, qa["paas"])
+check("IMI is cohort-level with no arm split", qa["imi"]["scope"] == "cohort" and qa["imi"]["n"] == 1, qa["imi"])
+
+# reflection engagement (papers 03/07).
+evm(flip_sid, "reflection_complete", T,
+    {"transcript": [{"role": "human"}, {"role": "assistant"}, {"role": "human"}], "directAnswers": 1})
+evm("24NOREFL1A", "reflection_skipped", T, {})
+conn.commit()
+
+rs = measures.reflection_summary(DB)
+check("reflections completed counted", rs["reflections"] == 1, rs)
+check("skips counted separately", rs["skipped"] == 1, rs)
+check("mean human turns from the transcript", rs["mean_human_turns"] == 2.0, rs)
+check("direct-answer use is a rate, not a transcript", rs["direct_answer_rate"] == 1.0, rs)
+
+# game_result rides in meta.game_result on a completion event.
+evm(flip_sid, "assessment_complete", T, {"game_result": {"rt_ms": 420, "trials": 10}})
+conn.commit()
+
+gr = measures.game_result_summary(DB)
+check("game_result trials found via meta", gr["total_trials"] == 1, gr)
+check("and the metric keys are surfaced (not the values)",
+      set(gr["topics"][0]["metric_keys"]) == {"rt_ms", "trials"}, gr["topics"])
+
+print("\n-- NO SID LEAK: every slice returns counts, never a participant id --")
+_blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_by_arm(DB),
+                     measures.reflection_summary(DB), measures.game_result_summary(DB)])
+for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A"):
+    check(f"{_sid} does not appear in any slice", _sid not in _blob, _blob[:200])
 
 conn.close()
 shutil.rmtree(tmp, ignore_errors=True)

@@ -2,7 +2,8 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getPaper, PAPERS, paperLiveTone } from "@/lib/papers"
-import { StaffHeader, Panel } from "@/components/staff"
+import { StaffHeader, Panel, StatGrid, StatCard } from "@/components/staff"
+import type { PaperSlice } from "@/lib/api"
 
 // ONE PAPER's page, in the research-programme dashboard added to /researcher. A SERVER
 // component, following app/topics/[topicId]/page.tsx exactly: gate server-side with the
@@ -57,6 +58,25 @@ async function loadAccess(): Promise<Loaded> {
 
   const body = (await res.json()) as { ok: true; sid: string }
   return { kind: "ok", sid: body.sid }
+}
+
+// The paper's live-data slice — a SECOND server-side fetch, gated identically (the
+// forwarded session cookie; researcher_api re-checks membership). Returns null on any
+// failure so the panel falls back to the static liveStatus string rather than erroring.
+async function loadSlice(id: string): Promise<PaperSlice | null> {
+  const jar = await cookies()
+  const session = jar.get("session")?.value
+  if (!session) return null
+  try {
+    const res = await fetch(`${API}/api/researcher/paper/${encodeURIComponent(id)}`, {
+      headers: { cookie: `session=${session}` },
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    return (await res.json()) as PaperSlice
+  } catch {
+    return null
+  }
 }
 
 // The error/blocked-state chrome — a real message inside the researcher header, not a
@@ -146,6 +166,17 @@ export default async function ResearcherPaperPage({
     tone === "live" ? "u-chip-open" : tone === "caveat" ? "u-chip-late" : "u-chip-locked"
   const chipLabel = tone === "live" ? "live" : tone === "caveat" ? "partial" : "pending"
 
+  const slice = await loadSlice(paper.id)
+  const sliceChip = slice
+    ? slice.status === "live"
+      ? { cls: "u-chip-open", label: "live" }
+      : slice.status === "proxy"
+        ? { cls: "u-chip-late", label: "live proxy" }
+        : slice.status === "flag_off"
+          ? { cls: "u-chip-locked", label: "telemetry off" }
+          : { cls: "u-chip-locked", label: "pending" }
+    : { cls: chipClass, label: chipLabel }
+
   return (
     <main className="shell min-h-screen">
       <StaffHeader chip="Researcher">
@@ -223,14 +254,74 @@ export default async function ResearcherPaperPage({
           title="Live data"
           testid="paper-live-data"
           tone="sensitive"
-          desc="Placeholder — Phase 2 wires the real query (a new measures.py function + a researcher_api.py endpoint, aggregate + pseudonymised only). This is the paper's stated status, not a live number."
+          desc="Aggregate + pseudonymised only — counts and distributions from the sink via measures.py, never a participant row. Same researcher gate as the rest of /researcher."
         >
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className={`u-chip ${chipClass}`}>{chipLabel}</span>
-            <p className="u-stem" style={{ maxWidth: "56ch" }}>
-              {paper.liveStatus}
-            </p>
-          </div>
+          {slice ? (
+            <div data-testid="paper-live-slice">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={`u-chip ${sliceChip.cls}`}>{sliceChip.label}</span>
+                <p className="u-stem" style={{ maxWidth: "62ch" }}>
+                  {slice.basis}
+                </p>
+              </div>
+
+              {slice.stats.length > 0 && (
+                <div className="mt-4">
+                  <StatGrid
+                    cols={
+                      slice.stats.length >= 6
+                        ? 6
+                        : slice.stats.length >= 5
+                          ? 5
+                          : slice.stats.length >= 4
+                            ? 4
+                            : 3
+                    }
+                  >
+                    {slice.stats.map((s, i) => (
+                      <StatCard key={i} label={s.label} value={s.value} sub={s.sub ?? null} />
+                    ))}
+                  </StatGrid>
+                </div>
+              )}
+
+              {slice.table && slice.table.rows.length > 0 && (
+                <div className="mt-4" style={{ overflowX: "auto" }}>
+                  <table className="w-full" style={{ borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr className="u-faint">
+                        {slice.table.columns.map((col) => (
+                          <th key={col} className="p-2" style={{ textAlign: "left" }}>
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {slice.table.rows.map((row, ri) => (
+                        <tr key={ri} style={{ borderTop: "1px solid var(--rule-strong)" }}>
+                          {row.map((cell, ci) => (
+                            <td key={ci} className="p-2 u-num">
+                              {cell === null ? "—" : cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {slice.note && <p className="u-faint mt-3">{slice.note}</p>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className={`u-chip ${chipClass}`}>{chipLabel}</span>
+              <p className="u-stem" style={{ maxWidth: "56ch" }}>
+                {paper.liveStatus}
+              </p>
+            </div>
+          )}
         </Panel>
       </div>
     </main>
