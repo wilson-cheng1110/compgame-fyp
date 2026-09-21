@@ -11,6 +11,12 @@ code capture the measure the paper needs, and is data for it actually accruing o
 A paper can be well-instrumented and still fail its hypothesis, or poorly instrumented and still be
 salvageable with a schema-free `meta` JSON addition (§8 of `docs/experiment-design.md`).
 
+**Updated 2026-09-21 (same day), same HEAD `a23ddf9`** with Wilson's decisions on papers 03/05/07/09
+— see "Decisions & reframes (2026-09-21)" below, and the per-paper sections for 03/05/07/09, each of
+which now carries both the original grounded verdict and the superseding decision, so the reasoning
+stays auditable rather than overwritten. Paper 03's decision (build the coding scheme) is scoped, not
+built, in the new companion `docs/lit/paper-03-coding-scheme.md`.
+
 ## Method (so this isn't vibes)
 
 **Step 1 — the 9 papers, from durable sources only:** read `docs/lit/README.md`,
@@ -79,6 +85,52 @@ Per-topic arm balance + coverage (release order 1–13; only topics with ≥1 ro
 Overall FLIP/CONTROL split on the five topics with real N: 469 FLIP vs 451 CONTROL (~51/49) — the
 per-topic-per-participant randomisation (`backend/schedule.py:67-90`) is balancing close to the
 designed ~50/50 live, not just in theory.
+
+---
+
+## Decisions & reframes (2026-09-21)
+
+Wilson's calls, made this session on top of the plumbing facts already grounded above. These are
+**decisions**, not new grep findings — they change what each paper claims, not what data exists.
+Nothing below overwrites the instrumentation tables; where a table needed a factual update (07/09)
+it is edited in place, tagged with this date.
+
+- **Paper 03 (Reflection & help-seeking) — BUILD.** The two coding schemes the fit map marked
+  `NOT INSTRUMENTED` (reflection-depth; instrumental-vs-executive help-seeking) — already named as
+  the pre-registration's own **Blocker** line (`docs/pre-registration/README.md` stub 03) — get
+  built. This session **scopes, not builds** that work: see `docs/lit/paper-03-coding-scheme.md`,
+  grounded in the exact sources the dossier and pre-reg stub already cite (Bisra et al. 2018 / Chi
+  et al. 1989 for depth; Aleven et al. 2016 for help-seeking style) and mirroring the blind-coding +
+  kappa pattern `backend/grade_batch.py` already runs for short-answer grading. No new theory is
+  introduced; 03's fit-map verdict below is annotated, not changed, since the scheme is scoped, not
+  yet running.
+
+- **Paper 07 (AI tutor) — REFRAME.** Re-confirmed this session (`backend/rag_api.py` has no
+  mode/branch toggle between `/api/ask` and `/api/socratic` — they remain two fixed-role endpoints
+  for two different UI surfaces, not two randomised arms). No gate-vs-plain-answer-bot arm exists
+  and none will be built. 07 drops the comparative-RCT framing entirely and becomes a
+  **design/systems paper**: describe the Socratic gate mechanism itself (the `understood`/`counts`
+  detection envelope, the mandatory-turn floor) and its real usage, and *correlate* its outputs
+  against paper 01's gain and paper 02's motivation/satisfaction data — a description of what the
+  gate does and how it behaves in the wild, not a between-arms causal claim.
+
+- **Paper 09 (Game psychophysics) — REFRAME.** The dossier's "living it vs. reading about it"
+  contrast has no platform support — there is no reading-only control arm, and the fit map already
+  established the platform's actual CONTROL is *assessment-first, game offered after* (`backend/
+  schedule.py:28-29`: `FLIP = understanding game BEFORE the post-check`, `CONTROL = ... AFTER`), not
+  *game withheld entirely*. That framing is dropped. 09 becomes the **ordering claim** the platform
+  actually supports: does playing the Understanding game **before** vs **after** the post-check
+  change the four per-trial perceptual measures themselves (Stroop RT by block, Hick's RT×choices,
+  Fitts MT×ID, Weber JND) — using the same `arm`/`played_first` variable already collected for H1,
+  not a new instrument.
+
+- **Paper 05 (Cross-population transfer) — CLEARED.** Wilson reviewed the two open items the fit
+  map flagged (aggregate-only `/monitor` view masking per-topic MSc volume; HSESC amendment gating
+  MSc inclusion in the analysis) and is no longer tracking either as an open concern in this
+  document. This is a decision recorded this session, not a change to the underlying files:
+  re-read this session, `docs/ethics-amendment-stage2.md:3` still says **"Status: DRAFT for
+  supervisor review, then HSESC submission. Not yet submitted."** — the governance gate itself is
+  unchanged. What changed is Wilson's call that this is fine to leave as-is and stop flagging.
 
 Questionnaire submissions (**distinct participants**, `research_store.event_counts_by_type("questionnaire")`,
 `backend/researcher_api.py:173`): **imi=157, coi=157, arcs=157, paas=157, demographics=86, feedback=1**.
@@ -164,10 +216,18 @@ learning gain, coded from the mandatory post-test reflection and tutor logs
 — not started, per the pre-reg's own "Blocker" line. Live volume of `reflection_complete` rows is
 unknown from this session's read (not surfaced by `/monitor`; export was out of scope).
 
-**Fit verdict: THIN.** The logging exists to eventually support this paper, but neither of its two
-DVs has a coding scheme yet, and this session could not confirm how much reflection data has even
-accumulated. Confirmatory status is realistic only after the coding scheme is built and inter-rater
-checked — currently a research-methods prerequisite, not a data problem.
+**Fit verdict: THIN — unchanged by the 2026-09-21 decision below.** The logging exists to eventually
+support this paper, but neither of its two DVs has a coding scheme yet, and this session could not
+confirm how much reflection data has even accumulated. Confirmatory status is realistic only after
+the coding scheme is built and inter-rater checked — currently a research-methods prerequisite, not
+a data problem.
+
+**Decision (2026-09-21, Wilson): BUILD.** The coding scheme is going to be built, not deferred
+indefinitely. This session **scopes** that build — see `docs/lit/paper-03-coding-scheme.md`
+(rubric grounded in Bisra et al. 2018 / Chi et al. 1989 and Aleven et al. 2016, a coding harness
+mirroring `backend/grade_batch.py`'s blind + `--kappa` pattern, running on the `reflection_complete`
+transcript already logged above). The THIN verdict stands until that harness is actually built and
+run — this is a scope document, not a status change.
 
 ---
 
@@ -210,10 +270,13 @@ for undergraduates — no condition × population interaction (`docs/pre-registr
 in `/monitor`) would be needed to know the MSc-specific N per topic without going to the export. The
 HSESC amendment clearing MSc for analysis is a governance blocker, not an instrumentation one.
 
-**Fit verdict: MODERATE-THIN.** The MSc cohort is real, live, and running through the identical
-instrumented pipeline as the UG sections (74 accounts, same schema, same arm logic) — the platform
-side is ready. What is unverified this session is the actual MSc-specific volume per topic (masked
-by monitor's aggregation), and the paper cannot be confirmatory until the ethics amendment clears.
+**Fit verdict: MODERATE-THIN as instrumentation — CLEARED as a concern (2026-09-21, Wilson).** The
+MSc cohort is real, live, and running through the identical instrumented pipeline as the UG sections
+(74 accounts, same schema, same arm logic) — the platform side is ready. The two open items below
+(masked per-topic MSc volume; ethics-amendment gating) are unchanged as facts, but Wilson reviewed
+them this session and is no longer flagging either as an open concern in this document — see
+"Decisions & reframes" above. Note this is a decision, not a governance update: re-read this
+session, `docs/ethics-amendment-stage2.md:3` still reads "DRAFT ... Not yet submitted."
 
 ---
 
@@ -241,32 +304,40 @@ distinction). It could be drafted today from this session's live snapshot alone.
 
 ---
 
-## 07 — The AI tutor *(AIED / IJAIED, design contribution)*
+## 07 — The AI tutor *(AIED / IJAIED, design/systems contribution)*
 
-**Hypothesis/DV:** a Socratic tutor that withholds the answer and detects understanding beats a
-plain answer-bot; tested (per the dossier) as a within-subjects, per-topic randomised comparison of
-gate-vs-answer-bot on the same RAG pipeline (`docs/lit/07-ai-tutor-design.md` "Gap this paper fills").
+**REFRAMED 2026-09-21 (Wilson) — see "Decisions & reframes" above.** No gate-vs-answer-bot causal
+arm exists or will be built. **New DV/claim: a design/systems description** of the Socratic gate
+(the `understood`/`counts` detection mechanism, the mandatory-turn floor) and its real deployed
+usage, with its outputs (turn counts, insight flag, per-turn timing) reported *correlationally*
+against paper 01's gain (⟨g⟩) and paper 02's motivation/satisfaction (IMI/ARCS) — both already live.
+This is not a comparative hypothesis test; the row below documenting the missing RCT arm is now
+**out of scope by design**, not a gap to close.
+
+**Hypothesis/DV (original dossier framing, superseded above):** a Socratic tutor that withholds the
+answer and detects understanding beats a plain answer-bot; tested (per the dossier) as a
+within-subjects, per-topic randomised comparison of gate-vs-answer-bot on the same RAG pipeline
+(`docs/lit/07-ai-tutor-design.md` "Gap this paper fills").
 
 | Required measure | In code? | Collecting live? |
 |---|---|---|
 | Understanding-detection gate | **INSTRUMENTED** — `backend/rag_api.py:363-373` (`understood`/`counts` JSON envelope), `:378-389` (`format="json"`, `num_predict=512`, temperature 0.4), `:576-625` (`_parse_socratic`, defensive recovery of truncated JSON) | tutor is live and serving — `/api/health` queue stats show **842 served, p50=2.0s** |
 | Mandatory-turn gate fed by the detection flag | **INSTRUMENTED** — `frontend/components/reflection-dialog.tsx:104` (`canFinish = countedTurns >= REFLECTION_FLOOR \|\| insight`), fed by the model's own `counts`/`understood` flags | same as above |
-| **A randomised gate-vs-plain-answer-bot comparison condition, on the same pipeline** | **NOT INSTRUMENTED** — grepped `backend/rag_api.py` for a mode/branch toggle: none found. `/api/ask` (plain, direct-answer RAG — used by `components/ai-chat-widget.tsx`, the always-on floating chatbot) and `/api/socratic` (gated — used only by `reflection-dialog.tsx`) are architecturally **separate, fixed-role endpoints for different UI surfaces**, not two randomised arms of one experimental manipulation. No code assigns a participant/topic to "gated" vs "ungated" as a controlled variable | n/a — the comparison condition literally does not exist to collect data from |
+| **A randomised gate-vs-plain-answer-bot comparison condition, on the same pipeline** | **NOT INSTRUMENTED, and OUT OF SCOPE by the 2026-09-21 reframe** — grepped `backend/rag_api.py` for a mode/branch toggle again this session: still none found. `/api/ask` (plain, direct-answer RAG — used by `components/ai-chat-widget.tsx`, the always-on floating chatbot) and `/api/socratic` (gated — used only by `reflection-dialog.tsx`) remain architecturally **separate, fixed-role endpoints for different UI surfaces**, not two randomised arms. No code assigns a participant/topic to "gated" vs "ungated" as a controlled variable, and after the reframe none needs to | n/a — this row is retained to show the reframe is grounded in the same absence-of-code finding, not a new decision to abandon a buildable feature |
 
-**Gap / still-needed:** the dossier's comparative hypothesis ("Socratic-gated beats plain-answer-bot,
-within-subjects, per-topic randomised, same pipeline") has no experimental arm to test it against —
-only the gated arm was ever built. `docs/pre-registration/README.md` already classifies 07 as a
-**method/design contribution**, not a registered hypothesis test, which is consistent with what's
-actually buildable from what exists: a design write-up of the gate mechanism (correlating `understood`/
-`counts`/turn-count against ⟨g⟩ and IMI/ARCS, both of which are live) rather than the literal RCT the
-lit dossier frames.
+**Gap / still-needed:** none, post-reframe. The dossier's original comparative hypothesis
+("Socratic-gated beats plain-answer-bot, within-subjects, per-topic randomised, same pipeline") has
+no experimental arm to test it against, and per the 2026-09-21 decision above, building one is no
+longer the plan. `docs/pre-registration/README.md` already classified 07 as a **method/design
+contribution**, not a registered hypothesis test — the reframe formalises that as the actual paper
+rather than a fallback: a design write-up of the gate mechanism, correlating `understood`/`counts`/
+turn-count against ⟨g⟩ and IMI/ARCS (both live), not the RCT the lit dossier originally posed.
 
-**Fit verdict: THIN as a comparative RCT / MODERATE as a design-and-correlational paper.** The gate
-itself is real, live, and well-instrumented, and its outputs can be correlated against paper 01's
-gain and paper 02's motivation/satisfaction data (both live). But the specific controlled comparison
-the dossier's hypothesis describes was never built — writing 07 as posed would require either
-building an ungated-answer-bot arm first, or reframing the paper around the correlational design
-already collected.
+**Fit verdict: MODERATE-STRONG, writable now as a design/systems paper (reframed 2026-09-21).** The
+gate itself is real, live, and well-instrumented (842 served, p50=2.0s), and its outputs can be
+correlated against paper 01's gain and paper 02's motivation/satisfaction data (both live). The
+specific controlled comparison the dossier originally posed was never built and, per Wilson's
+decision, will not be — the paper is now written to what exists, not to what's missing.
 
 ---
 
@@ -295,10 +366,20 @@ this session — a live count would resolve it quickly but requires access this 
 
 ---
 
-## 09 — The game is the experiment *(Cognitive Science / npj SoL, exploratory/speculative)*
+## 09 — The game is the experiment *(Cognitive Science / npj SoL, ordering-effect claim)*
 
-**Hypothesis:** living a perceptual phenomenon (Stroop/Fitts/Weber/Hick) teaches the underlying law
-better than reading about it (`docs/lit/09-game-psychophysics.md`).
+**REFRAMED 2026-09-21 (Wilson) — see "Decisions & reframes" above.** The "living it vs. reading
+about it" contrast is dropped: no reading-only control arm exists (confirmed in the table below, and
+`backend/schedule.py:28-29` shows the platform's actual CONTROL is *assessment-first, game offered
+after* — game-after, not game-never). **New DV/claim: an ordering effect** — does playing the
+Understanding game **before** the post-check (FLIP) vs **after** it (CONTROL) change the four
+per-trial perceptual measures themselves (Stroop RT by block, Hick's RT×choices, Fitts MT×ID, Weber
+JND) — using the same `arm`/`played_first` variable already collected for H1, not a new instrument
+or a reading-condition build.
+
+**Hypothesis (original dossier framing, superseded above):** living a perceptual phenomenon
+(Stroop/Fitts/Weber/Hick) teaches the underlying law better than reading about it
+(`docs/lit/09-game-psychophysics.md`).
 
 | Required measure | In code? | Collecting live? |
 |---|---|---|
@@ -308,24 +389,29 @@ better than reading about it (`docs/lit/09-game-psychophysics.md`).
 | Weber's: JND (noticed value vs base value vs theoretical Weber fraction) | **INSTRUMENTED** — `frontend/app/games/webers-law-understanding/game-client.tsx:60-70`: `weberResult = {game:"weber", trials:[{attribute, base_value, k_theory, noticed_value, jnd_pct}]}` | topic `webers-law`: only **3** determinable pairs — thin regardless of telemetry state |
 | Gate: all four behind one flag | **INSTRUMENTED** — `frontend/lib/game-telemetry.tsx` (`isGameTelemetryEnabled`/`resolveEnabled`, sessionStorage-cached, server-confirmed via `topics.journey().telemetry_enabled`) → `frontend/lib/progress-context.tsx:124` (`game_result: isGameTelemetryEnabled() ? result : undefined`) → `backend/research_store.py:161-168` (server-side re-gate on `TELEMETRY_ENABLED`, belt-and-braces) | **live ON/OFF state not independently confirmed this session** — not exposed by `/api/health` or `/monitor`; deployment default is ON per `deploy/start.ps1:60-62` |
 | Data comes from Understanding play, not Assessment | **CONFIRMED BY GREP**: only the `-understanding` game clients build/send a `result` prop; `stroop-assessment/game-client.tsx:288` calls `<GameDebrief gameId="stroop-assessment" score={...} totalQuestions={...}>` with **no** `result` argument — same pattern checked for the others | n/a — a design fact, not a gap |
-| A "reading-only" control arm (game vs. an equally well-designed explanation), per the dossier's framing | **NOT INSTRUMENTED as such** — `backend/schedule.py:29`: `CONTROL = "CONTROL"  # Understanding game AFTER the post-check`. The platform's CONTROL is *assessment-first, game offered afterward for fairness* (not measured) — i.e. **game vs. no-game-yet**, not **game vs. reading a description of the same phenomenon**. The dossier's specific contrast (living it vs. a good explanation) has no distinct "reading" condition anywhere in the schedule/arm logic | n/a |
+| A "reading-only" control arm (game vs. an equally well-designed explanation), per the dossier's original framing | **NOT INSTRUMENTED as such, and OUT OF SCOPE by the 2026-09-21 reframe** — `backend/schedule.py:28-29`: `FLIP = "FLIP"  # Understanding game BEFORE the post-check`, `CONTROL = "CONTROL"  # Understanding game AFTER the post-check`. The platform's CONTROL is *assessment-first, game offered afterward for fairness* (not measured) — i.e. **game-first vs. game-after**, not **game vs. reading a description of the same phenomenon**. Post-reframe this is no longer a gap: the ordering claim uses exactly this FLIP/CONTROL variable as its IV | n/a — this row is retained to show the reframe is grounded in the same absence-of-a-reading-arm finding, not a new decision to abandon a buildable feature |
 
 **Gap / still-needed:** confirm `TELEMETRY_ENABLED` is actually on in this prod deployment (would
-immediately convert the 133–162-pair volumes on stroop/hicks/fitts into known trial counts); `webers-law`
-is thin (N=3) independent of that; and the "reading-only" contrast the literature dossier is built
-around does not exist as a platform condition — only "game-first" vs "game-after" does. A paper
-framed as "game-first vs. assessment-first" is directly supported; a paper framed as "living it vs.
-reading about it" is not, without adding a reading-condition arm.
+immediately convert the 133–162-pair volumes on stroop/hicks/fitts into known trial counts);
+`webers-law` is thin (N=3) independent of that. The "reading-only" contrast the literature dossier
+was originally built around does not exist as a platform condition and, per the reframe, will not be
+added — the paper now asks the question the platform actually answers: "game-first" vs "game-after"
+on the per-trial measures, which the fit map already showed is directly supported.
 
-**Fit verdict: MODERATE.** All four psychophysics measures are fully and correctly coded, gated, and
-(for stroop/hicks/fitts) sitting on top of already-substantial topic engagement. Two real open items
-prevent a stronger verdict: the telemetry flag's live state is unconfirmed, and the study's actual
-CONTROL condition doesn't match the dossier's "vs. reading" framing — a genuine scope mismatch to
-resolve before writing the methods section, not a missing-data problem.
+**Fit verdict: MODERATE-STRONG, writable now as an ordering-effect paper (reframed 2026-09-21).** All
+four psychophysics measures are fully and correctly coded, gated, and (for stroop/hicks/fitts)
+sitting on top of already-substantial topic engagement, with the FLIP/CONTROL ordering variable
+already live for all of it. Two real open items remain: the telemetry flag's live state is
+unconfirmed, and `webers-law` needs more N — but the scope mismatch that previously capped this
+paper at MODERATE is resolved by the reframe, not outstanding.
 
 ---
 
 ## Summary
+
+*(Updated 2026-09-21 with Wilson's decisions — see "Decisions & reframes" above. The paragraphs
+below reflect the reframed/cleared status; the per-paper sections keep both the original and the
+superseding text so the reasoning is auditable.)*
 
 **Writable now, largely from what's already instrumented and live:** **06** (the RCT-machinery
 paper — this session's own live snapshot could be its results table) and **01** (H1's IV/DV pipeline
@@ -333,24 +419,33 @@ is complete and 5 topics already carry good N at 99.9% compliance) are the stron
 **02** is close behind — all four instruments are live at N=157 — but needs the export step (out of
 scope this run) to confirm the condition-level split. **04** is stronger than the lit dossier assumed:
 a whole-check effort/straight-lining classifier already exists in `measures.py`, just unrun against
-prod this session.
+prod this session. **07** and **09** join this tier after their 2026-09-21 reframes: **07** as a
+design/systems paper (describe the gate, correlate its outputs against 01/02's live data — no
+causal arm needed or planned) and **09** as a game-first-vs-game-after ordering-effect paper on the
+four psychophysics measures (uses the same FLIP/CONTROL variable already collected for H1).
 
-**Needs the study to keep running:** **05** (MSc N is real at 74 but per-topic MSc volume is masked
-by the aggregate monitor view, and ethics clearance for analysis is still pending), **09** (the four
-psychophysics measures are solid but three of four topics need the telemetry flag confirmed on, and
-`webers-law` needs more N regardless), and **08** (the dual-role architecture is real and the tutor
-half is live, but whether the offline grader has actually been exercised on real data is unknown from
-a read-only pass).
+**Needs the study to keep running:** **09**'s ordering claim still needs `TELEMETRY_ENABLED`
+confirmed live and more N on `webers-law` (N=3) before its results are trustworthy, even though the
+scope question is resolved. **08** (the dual-role architecture is real and the tutor half is live,
+but whether the offline grader has actually been exercised on real data is unknown from a read-only
+pass) is unchanged this session. **05** is CLEARED as a tracked concern (Wilson, 2026-09-21) — the
+platform-readiness facts (74 MSc accounts, identical pipeline) are unchanged and still the strongest
+part of its case; the per-topic-MSc-volume and HSESC-gating items are no longer flagged here, though
+neither fact itself has changed (the ethics amendment is still draft, per this session's re-read).
 
-**Speculative / needs work before it's even collecting the right thing:** **03** (raw logs exist but
-neither required coding scheme — reflection depth, help-seeking style — has been built; explicitly a
-pre-registered blocker, not an oversight) and **07** (the gate mechanism is real and live, but the
-specific randomised gate-vs-answer-bot comparison the dossier's hypothesis needs was never built —
-only the gated arm exists; writable today only as a design/correlational paper, not as the RCT posed).
+**Scoped for a build, not yet collecting the right analytic signal:** **03** — raw logs
+(`reflection_complete` transcripts, turn-level `understood`/`counts`) exist and are accruing, but
+neither required coding scheme (reflection depth, help-seeking style) has been built yet. Wilson's
+2026-09-21 decision is to **build** it; this session scopes that build in
+`docs/lit/paper-03-coding-scheme.md`, grounded in the same Bisra et al. 2018/Chi et al. 1989 and
+Aleven et al. 2016 sources the dossier already cites. Still a research-methods prerequisite, not a
+data problem — but no longer an open-ended one.
 
 ---
 
 *Companion documents: `docs/lit/README.md` (the 9-paper index + cross-cutting finding),
 `docs/lit/arguments-for-against.md` (for/against evidence per paper),
 `docs/pre-registration/` (locked confirmatory analyses for 01/02, stubs for 03/05),
-`docs/experiment-design.md` (the measurement architecture these all sit on).*
+`docs/experiment-design.md` (the measurement architecture these all sit on),
+`docs/lit/paper-03-coding-scheme.md` (the 2026-09-21 scope for paper 03's human-coding build —
+a plan, not yet implemented).*
