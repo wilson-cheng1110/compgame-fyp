@@ -145,7 +145,12 @@ FYP_Submission/
         save-lab/        # POST — persists lab result to cookie
         export-data/     # GET — exports user data as JSON
     components/
-      ai-chat-widget.tsx # Floating RAG chatbot (calls localhost:8080)
+      ai-chat-widget.tsx # Floating RAG chatbot (relative /api/ask). Since 2026-09-21 logs a
+                         #   per-question `ask_turn` (usage + latency + length, NEVER the
+                         #   question text) via lib/research-log; research_api._event drops
+                         #   ask_turn/socratic_turn unless TELEMETRY_ENABLED (like telemetry/
+                         #   game_result) — the paper-07 free-chat capture. Reflection is
+                         #   logged separately as reflection_complete.
       reflection-dialog.tsx # Post-game reflection prompt (open + Likert)
       game-card.tsx
       session-map.tsx    # "How this works" on the dashboard. Orientation, which is a

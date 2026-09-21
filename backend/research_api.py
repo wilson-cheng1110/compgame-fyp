@@ -134,6 +134,16 @@ async def research_event(event: ResearchEvent, session: Optional[str] = Cookie(d
     if not await asyncio.to_thread(research_store.has_event, user["sid"], "consent_recorded"):
         raise HTTPException(status_code=403, detail="no_consent")
 
+    # FREE-CHAT TUTOR TURNS (ask_turn / socratic_turn) are BEHAVIOURAL, gated exactly like
+    # the telemetry / game_result fields below: recorded only while TELEMETRY_ENABLED, and
+    # DROPPED (not refused) when off -- so dev/tests and any pre-approval box never
+    # accumulate them, and an old client cannot keep sending after the flag flips off. This
+    # closes paper 07's gap: the floating tutor widget (/api/ask) was the one tutor channel
+    # with no log (reflection is already captured via reflection_complete). Metadata only --
+    # the widget sends usage + latency + length, never the question text.
+    if event.event_type in ("ask_turn", "socratic_turn") and not TELEMETRY_ENABLED:
+        return {"ok": True, "id": 0}
+
     # A topic_id that is not a real topic is rejected rather than stored. The sweep
     # posted topic_id="totally-fake-topic-xyz" and it was accepted, silently
     # inflating the participant×topic denominator. None stays allowed (some events

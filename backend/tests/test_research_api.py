@@ -95,6 +95,34 @@ s = c.get("/api/research/summary")
 check("summary 200", s.status_code == 200)
 check("summary has no identifiers", "24000001A" not in json.dumps(s.json()), s.json())
 
+print("\n-- paper 07: free-chat ask_turn is telemetry-gated (drop off / record on) --")
+# The floating tutor widget logs one ask_turn per free-chat question (usage + latency, NO
+# text). It is BEHAVIOURAL, so it obeys TELEMETRY_ENABLED exactly like the telemetry /
+# game_result fields: dropped (200, id 0, nothing stored) when off, recorded when on.
+_before = len(research_store.fetch_all())
+research_api.TELEMETRY_ENABLED = False
+r_off = c.post("/api/research/event", json={"event_type": "ask_turn", "topic_id": "memory",
+               "duration_ms": 850, "meta": {"chars": 42, "sources": 3}})
+check("ask_turn while telemetry OFF -> 200 (fire-and-forget, not a 4xx)",
+      r_off.status_code == 200, r_off.status_code)
+check("...and it is DROPPED (id 0), nothing added to the sink",
+      r_off.json().get("id") == 0 and len(research_store.fetch_all()) == _before, r_off.json())
+
+research_api.TELEMETRY_ENABLED = True
+try:
+    r_on = c.post("/api/research/event", json={"event_type": "ask_turn", "topic_id": "memory",
+                  "duration_ms": 850, "meta": {"chars": 42, "sources": 3}})
+    check("ask_turn while telemetry ON -> 200 and recorded",
+          r_on.status_code == 200 and bool(r_on.json().get("id")), r_on.json())
+    _row = research_store.fetch_all()[-1]
+    check("the row is an ask_turn, attributed to the SESSION sid",
+          _row["event_type"] == "ask_turn" and _row["participant_id"] == "24000001A", _row["participant_id"])
+    _meta = json.loads(_row["meta"] or "{}")
+    check("meta carries usage metadata (chars/sources), NOT the question text",
+          _meta.get("chars") == 42 and "question" not in _meta and "text" not in _meta, _meta)
+finally:
+    research_api.TELEMETRY_ENABLED = False
+
 print("\n-- consent withdrawal can actually be honoured --")
 # The information sheet promises a participant may have their responses discarded,
 # and /api/auth/withdraw replies "Ask the researcher to erase your recorded data".

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { MessageCircle, X, Send, Loader2, ChevronDown, ChevronRight } from "lucide-react"
 import { TOPICS } from "@/lib/topic-definitions"
 import { API_BASE } from "@/lib/api"
+import { logResearchEvent } from "@/lib/research-log"
 import { inlineMarkdown } from "@/lib/inline-markdown"
 
 interface Message {
@@ -148,6 +149,7 @@ export function AiChatWidget() {
       .slice(-8)
       .map((m) => ({ role: m.role === "user" ? "human" : "assistant", content: m.content }))
 
+    const started = Date.now()
     try {
       const response = await fetch(`${API_BASE}/api/ask`, {
         method: "POST",
@@ -166,6 +168,20 @@ export function AiChatWidget() {
         isSourcesOpen: false,
       }
       setMessages((prev) => [...prev, aiMsg])
+
+      // Paper 07: log that a free-chat tutor turn happened — usage + latency + length,
+      // NEVER the question text. Fire-and-forget (never blocks or throws into the chat);
+      // the server drops it unless TELEMETRY_ENABLED, and reads the SID from the session
+      // cookie. This is the one tutor channel that had no log; reflection already has one.
+      logResearchEvent({
+        event_type: "ask_turn",
+        topic_id: currentTopic?.id,
+        duration_ms: Date.now() - started,
+        meta: {
+          chars: text.trim().length,
+          sources: Array.isArray(data.sources) ? data.sources.length : 0,
+        },
+      })
     } catch {
       setMessages((prev) => [
         ...prev,
