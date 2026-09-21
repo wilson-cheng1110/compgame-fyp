@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { researcher, type ResearcherMonitor, type ForgetPreview } from "@/lib/api"
+import { PAPERS, paperLiveTone } from "@/lib/papers"
 import {
   StaffHeader,
   Panel,
@@ -207,6 +208,97 @@ export default function ResearcherPage() {
             </Banner>
           </div>
         )}
+
+        {/* Papers programme — shared covariates placeholder + the 9-paper grid. Scholarly
+            parts are static (frontend/lib/papers.ts, ported from docs/lit/); the monitor
+            below already carries the real N/arm/coverage/questionnaire figures every
+            paper's live panel is built on. Per-paper live queries are Phase 2 — this is
+            structure only. */}
+        <Panel
+          title="Shared — demographics & cross-paper covariates"
+          testid="researcher-papers-shared"
+          desc="Basic demographics and the covariates common to all nine papers (N, arm balance, compliance, questionnaire completion, topics released) belong here. Live wiring is Phase 2 (a new demographics_summary() measures function + endpoint) — for now, the Accounts & sink, By section, Arm balance, and Questionnaires panels below already carry the shared figures every paper's own page draws on."
+        >
+          <div
+            className="u-card-quiet"
+            style={{ padding: "1rem 1.1rem" }}
+            data-testid="researcher-papers-shared-placeholder"
+          >
+            <p className="u-stem">
+              Demographics summary — age, gender, gaming background, AI-tool familiarity, with
+              decline rates — not wired yet.
+            </p>
+            <p className="u-faint mt-2">
+              Phase 2 reads it from the sink&apos;s <code>questionnaire_demographics</code> events
+              via a new <code>measures.demographics_summary()</code>, aggregate-only, same
+              researcher gate as everything else on this page.
+            </p>
+          </div>
+        </Panel>
+
+        <Panel
+          title="The nine papers"
+          testid="researcher-papers-grid"
+          desc="One card per paper in the research programme — the scholarly argument (hypothesis, venue, fit verdict) plus a live-data status. Each opens its own page with the full artifact part. Ported from docs/lit/ — see frontend/lib/papers.ts."
+        >
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+            data-testid="researcher-papers-cards"
+          >
+            {PAPERS.map((p, i) => {
+              const tone = paperLiveTone(p.liveStatus)
+              const chipClass =
+                tone === "live"
+                  ? "u-chip-open"
+                  : tone === "caveat"
+                    ? "u-chip-late"
+                    : "u-chip-locked"
+              const chipLabel = tone === "live" ? "live" : tone === "caveat" ? "partial" : "pending"
+              return (
+                <Link
+                  key={p.id}
+                  href={`/researcher/paper/${p.id}`}
+                  className="u-card block transition-transform duration-200 hover:-translate-y-0.5"
+                  style={{ padding: "1.1rem 1.2rem" }}
+                  data-testid={`researcher-paper-card-${p.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="u-eyebrow">
+                      #{i + 1} · {p.venue}
+                    </p>
+                    <span className={`u-chip ${chipClass}`}>{chipLabel}</span>
+                  </div>
+                  <p className="u-h2 mt-1" style={{ fontSize: "1.05rem" }}>
+                    {p.title}
+                  </p>
+                  <p
+                    className="u-faint mt-2"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical" as const,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {p.fitVerdict}
+                  </p>
+                  <p
+                    className="u-faint mt-2"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 1,
+                      WebkitBoxOrient: "vertical" as const,
+                      overflow: "hidden",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    {p.liveStatus}
+                  </p>
+                </Link>
+              )
+            })}
+          </div>
+        </Panel>
 
         {/* HERO — the manipulation check, promoted to the top of the page. */}
         {c && (
