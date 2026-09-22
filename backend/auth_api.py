@@ -173,7 +173,10 @@ async def signup(req: SignupRequest, response: Response):
     # its refusals by design because a signup form that won't say "that account already
     # exists" is unusable, so the discovery surface is /session's job to close -- and it
     # does, with one generic 401 for unknown / wrong-password / withdrawn alike.
-    _sid = (req.sid or "").strip().upper()
+    # _canon_sid, not a bare strip+upper: keyed to the SAME identity key
+    # create_account will canonicalise to, or a letter-suffixed SID and its
+    # numeric twin would throttle in two different buckets.
+    _sid = auth_store._canon_sid(req.sid or "")
     if not ops.allow(f"signup:sid:{_sid}", per_minute=15, burst=15):
         response.status_code = 429
         return {"error": "too_many_attempts",
@@ -222,7 +225,7 @@ async def create_session(req: SessionRequest, response: Response):
     # attempts. That change took sign-ins from 23/s to 173/s -- which is also 173
     # guesses a second, so the throttle is part of the same fix, not a separate
     # improvement.
-    if not ops.allow(f"signin:{(req.sid or '').strip().upper()}", per_minute=10, burst=8):
+    if not ops.allow(f"signin:{auth_store._canon_sid(req.sid or '')}", per_minute=10, burst=8):
         response.status_code = 429
         return {"error": "too_many_attempts",
                 "message": "Too many sign-in attempts for that student ID. Wait a minute and try again."}

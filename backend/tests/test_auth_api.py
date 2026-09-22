@@ -61,7 +61,8 @@ check("403 doesn't leak why", r.json().get("error") == "not_enrolled", r.json())
 
 print("\n-- me --")
 r = c.get("/api/auth/me")
-check("/me works with cookie", r.status_code == 200 and r.json()["sid"] == "24012345D", r.json())
+# "24012345" not "24012345D": _canon_sid strips the check-letter at signup.
+check("/me works with cookie", r.status_code == 200 and r.json()["sid"] == "24012345", r.json())
 
 print("\n-- profile --")
 r = c.post("/api/auth/profile", json={"username": "wilson", "avatar_id": "av2"})

@@ -13,10 +13,10 @@ import os, subprocess, sys, re
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SUITES = ["test_auth.py", "test_auth_api.py", "test_admin_api.py", "test_researcher_api.py",
-          "test_schedule.py", "test_checks.py", "test_topic_api.py", "test_research_api.py",
-          "test_module_integrity.py", "test_grade.py", "test_measures.py", "test_questionnaires.py",
-          "test_code_batch.py", "test_retention.py"]
+SUITES = ["test_auth.py", "test_migrate_canon_sid.py", "test_auth_api.py", "test_admin_api.py",
+          "test_researcher_api.py", "test_schedule.py", "test_checks.py", "test_topic_api.py",
+          "test_research_api.py", "test_module_integrity.py", "test_grade.py", "test_measures.py",
+          "test_questionnaires.py", "test_code_batch.py", "test_retention.py"]
 
 total = failures = 0
 for suite in SUITES:

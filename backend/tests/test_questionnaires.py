@@ -254,15 +254,18 @@ check("below the 15 floor is refused (400 invalid_age)",
 r = c3.post("/api/questionnaire/demographics", json={"answers": {"AGE": "150"}})
 check("above the 100 ceiling is refused (400 invalid_age)",
       r.status_code == 400 and r.json().get("error") == "invalid_age", r.json())
+# "24055555" not "24055555D": _canon_sid strips the check-letter at signup, and
+# fetch_for_participant does its own plain strip+upper (not _canon_sid), so it
+# must be asked about the canonical key the events are actually stored under.
 check("none of the refused AGE attempts spent the one-time slot",
       not any(e["event_type"] == "questionnaire_demographics"
-              for e in research_store.fetch_for_participant("24055555D")))
+              for e in research_store.fetch_for_participant("24055555")))
 
 r = c3.post("/api/questionnaire/demographics",
             json={"answers": {"AGE": " 22 ", "GENDER": 1, "GAMING": 1, "AITOOL": 1}})
 check("a valid in-range age (22, with incidental whitespace) is accepted (200)",
       r.status_code == 200, (r.status_code, r.json()))
-stored = [e for e in research_store.fetch_for_participant("24055555D")
+stored = [e for e in research_store.fetch_for_participant("24055555")
           if e["event_type"] == "questionnaire_demographics"][0]
 check("the stored value is trimmed/normalised, not the raw \" 22 \"",
       json.loads(stored["meta"])["answers"]["AGE"] == "22",

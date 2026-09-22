@@ -7,6 +7,9 @@ with open(os.path.join(d, 'enrolled.txt'), 'w', encoding='utf-8') as _fh:
     _fh.write('24012345D,A\n24067890X,B\n24099999Z,C\nbadline_no_section\n')
 os.environ["ENROLMENT_PATH"] = os.path.join(d, "enrolled.txt")
 os.environ["PARTICIPANT_SECRET_PATH"] = os.path.join(d, ".secret")
+# Sandboxed, not the real (gitignored) backend/admin_sids.txt -- the _canon_sid
+# section below writes an admin allowlist fixture and must never touch real data.
+os.environ["ADMIN_PATH"] = os.path.join(d, "admin.txt")
 for f in ("t.db", ".secret"):
     p = os.path.join(d, f)
     if os.path.exists(p): os.remove(p)
@@ -47,7 +50,10 @@ check("password verifies constant-time against a null hash",
       A.verify_password("anything", None, None) is False)
 
 r = A.resolve_session(s["token"])
-check("token resolves to same sid",    r and r["sid"] == "24012345D")
+# "24012345" not "24012345D": _canon_sid strips the check-letter at signup, so the
+# stored/returned sid is the canonical 8-digit form -- this is the fix under test,
+# not a regression.
+check("token resolves to same (canonical) sid", r and r["sid"] == "24012345")
 check("bad token resolves to None",    A.resolve_session("nope") is None)
 check("empty token resolves to None",  A.resolve_session("") is None)
 
@@ -67,6 +73,55 @@ p1, p2 = A.pseudonym("24012345D"), A.pseudonym("24012345d")
 check("pseudonym stable across calls", p1 == p2)
 check("pseudonym differs per sid",     p1 != A.pseudonym("24067890X"))
 check("pseudonym hides the sid",       "24012345" not in p1, p1)
+
+print("\n-- SID check-letter canonicalisation (_canon_sid) --")
+check("letter-suffixed and its canonical numeric form agree",
+      A._canon_sid("12345678d") == A._canon_sid("12345678D") == A._canon_sid("12345678") == "12345678")
+check("'Admin' (not the 8-digit+letter shape) is unchanged, just upper()'d",
+      A._canon_sid("Admin") == "ADMIN")
+check("'24E00001A'-style test SID (letter mid-string, not the 9th trailing char) is unchanged",
+      A._canon_sid("24E00001A") == "24E00001A")
+check("a staff-style non-numeric SID is unchanged",
+      A._canon_sid("teacher-01") == "TEACHER-01")
+check("whitespace is stripped either way",
+      A._canon_sid("  12345678d  ") == "12345678" and A._canon_sid("  Admin  ") == "ADMIN")
+check("empty/None SID canonicalises to empty string",
+      A._canon_sid("") == "" and A._canon_sid(None) == "")
+
+# A genuine PolyU-shaped staff SID (8 digits + check letter -- e.g. the course-leader
+# example in admin_sids.txt.example) DOES get its letter stripped, deliberately and
+# consistently on BOTH sides: the allowlist file parse AND the is_admin() lookup.
+# That is required, not a loophole -- is_admin() must resolve the SAME key
+# create_account/start_session would store for that person, or an admin who signs
+# up with their check-letter would silently lose admin status. Verified here rather
+# than only asserted in prose.
+with open(os.environ["ADMIN_PATH"], "w", encoding="utf-8") as _fh:
+    _fh.write("22000000D  # course leader, check-letter form in the file\n")
+check("admin allowlist entry canonicalises the same way on both sides",
+      A.is_admin("22000000d") is True and A.is_admin("22000000") is True
+      and A.is_admin("22000000D") is True)
+
+print("\n-- letter-suffixed signup resolves a NUMERIC roster entry (the bug itself) --")
+with open(os.environ["ENROLMENT_PATH"], "a", encoding="utf-8") as _fh:
+    _fh.write("88012345,B\n")
+os.utime(os.environ["ENROLMENT_PATH"], (8.9e8, 8.9e8))   # distinct mtime, forces a reload
+A._refresh_enrolment()
+check("roster key is stored numeric, unaffected",     A.enrolled_section("88012345") == "B")
+letter_acc, letter_err = A.create_account("88012345x", "hunter2xyz")
+check("signing up with the check-letter form matches the numeric roster entry",
+      letter_err is None, letter_err)
+check("the stored account sid is canonical (no trailing letter)",
+      letter_acc is not None and letter_acc["sid"] == "88012345", letter_acc)
+
+s_letter = A.start_session("88012345X", "hunter2xyz")
+s_numeric = A.start_session("88012345", "hunter2xyz")
+check("logging in with the letter form resolves an account",  s_letter is not None)
+check("logging in with the numeric form resolves an account", s_numeric is not None)
+check("both forms resolve the SAME account/session sid",
+      s_letter is not None and s_numeric is not None
+      and s_letter["sid"] == s_numeric["sid"] == "88012345")
+check("pseudonym is identical for the letter and numeric forms",
+      A.pseudonym("88012345x") == A.pseudonym("88012345") == A.pseudonym("88012345X"))
 
 print("\n-- withdrawal --")
 check("withdraw reports success",      A.withdraw("24012345D") is True)

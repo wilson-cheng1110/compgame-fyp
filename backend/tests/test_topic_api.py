@@ -142,7 +142,10 @@ print("\n-- a replayed assessment keeps the BEST attempt --")
 # silently dropped the badge level they had already earned (lib/badges.ts:
 # +1 at 60%, +1 at 80%). Every attempt is still its own row in the sink --
 # this is a display derivation, not the measurement.
-sid = "24012345D"
+# "24012345" not "24012345D": the signed-up account's canonical sid
+# (_canon_sid strips the check-letter at signup) -- events must be written
+# under the SAME key /api/topics will query, or they're silently invisible.
+sid = "24012345"
 for s in (88, 25):
     research_store.record_event({
         "participant_id": sid, "event_type": "assessment_complete",

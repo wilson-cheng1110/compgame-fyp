@@ -56,7 +56,9 @@ r = c.post("/api/research/event", json={
     "event_type": "assessment_complete", "topic_id": "gestalt", "score": 90})
 check("accepted", r.status_code == 200, r.json())
 row = research_store.fetch_all()[-1]
-check("stored under the SESSION's sid, not the claim", row["participant_id"] == "24000001A", row["participant_id"])
+# "24000001" not "24000001A": _canon_sid strips the check-letter at signup, so the
+# SESSION's real sid -- what this must be stored under -- is the canonical form.
+check("stored under the SESSION's sid, not the claim", row["participant_id"] == "24000001", row["participant_id"])
 check("spoofed sid absent from sink", all(e["participant_id"] != "24000002B" for e in research_store.fetch_all()))
 
 print("\n-- FIX 2: export fails CLOSED when EXPORT_TOKEN unset --")
@@ -74,15 +76,22 @@ print("\n-- FIX 2b: export is pseudonymised --")
 rows = r.json()
 check("rows returned", len(rows) >= 1, len(rows))
 blob = json.dumps(rows)
-check("NO real SID anywhere in export", "24000001A" not in blob and "24000002B" not in blob)
-check("participant_id is the HMAC", rows[0]["participant_id"] == auth_store.pseudonym("24000001A"), rows[0]["participant_id"])
+# Check BOTH the typed-with-letter form and the canonical (actually-stored) form --
+# "24000001A" was never stored (never in blob trivially), "24000001" IS the real sid
+# and is the substantive check that pseudonymisation actually held.
+check("NO real SID anywhere in export",
+      "24000001A" not in blob and "24000001" not in blob and "24000002B" not in blob)
+# pseudonym() canonicalises internally, so the letter-suffixed and canonical forms of
+# the same SID hash identically -- this is exactly the invariant _canon_sid exists for.
+check("participant_id is the HMAC", rows[0]["participant_id"] == auth_store.pseudonym("24000001A")
+      == auth_store.pseudonym("24000001"), rows[0]["participant_id"])
 check("pseudonym is 16 hex chars", len(rows[0]["participant_id"]) == 16)
 check("no identified escape hatch", c.get("/api/research/export?identified=1",
-      headers={"X-Export-Token":"s3cret-token"}).json()[0]["participant_id"] != "24000001A")
+      headers={"X-Export-Token":"s3cret-token"}).json()[0]["participant_id"] != "24000001")
 
 print("\n-- csv path pseudonymised too --")
 csv = c.get("/api/research/export?format=csv", headers={"X-Export-Token":"s3cret-token"}).text
-check("no real SID in csv", "24000001A" not in csv)
+check("no real SID in csv", "24000001A" not in csv and "24000001" not in csv)
 check("csv has the pseudonym", auth_store.pseudonym("24000001A") in csv)
 check("csv has a header row", csv.split("\n")[0].startswith("id,participant_id"))
 
@@ -93,7 +102,8 @@ check("same pseudonym second time", again[0]["participant_id"] == rows[0]["parti
 print("\n-- summary leaks nothing --")
 s = c.get("/api/research/summary")
 check("summary 200", s.status_code == 200)
-check("summary has no identifiers", "24000001A" not in json.dumps(s.json()), s.json())
+check("summary has no identifiers",
+      "24000001A" not in json.dumps(s.json()) and "24000001" not in json.dumps(s.json()), s.json())
 
 print("\n-- paper 07: free-chat ask_turn is telemetry-gated (drop off / record on) --")
 # The floating tutor widget logs one ask_turn per free-chat question (usage + latency, NO
@@ -116,7 +126,7 @@ try:
           r_on.status_code == 200 and bool(r_on.json().get("id")), r_on.json())
     _row = research_store.fetch_all()[-1]
     check("the row is an ask_turn, attributed to the SESSION sid",
-          _row["event_type"] == "ask_turn" and _row["participant_id"] == "24000001A", _row["participant_id"])
+          _row["event_type"] == "ask_turn" and _row["participant_id"] == "24000001", _row["participant_id"])
     _meta = json.loads(_row["meta"] or "{}")
     check("meta carries usage metadata (chars/sources), NOT the question text",
           _meta.get("chars") == 42 and "question" not in _meta and "text" not in _meta, _meta)
@@ -133,15 +143,21 @@ research_store.record_event({"participant_id": "24000002B", "event_type": "topic
 research_store.record_event({"participant_id": "24000002B", "event_type": "topic_posttest",
                              "topic_id": "gestalt", "score": 5})
 before_target = research_store.count_for("24000002B")
-before_other = research_store.count_for("24000001A")
+# "24000001" not "24000001A": research_store.count_for does its own plain
+# strip+upper (not _canon_sid), so it must be asked about the SAME key the
+# session's events are actually stored under -- the canonical form -- or this
+# "untouched" baseline would silently be counting a key that holds nothing.
+before_other = research_store.count_for("24000001")
 check("the participant has rows to erase", before_target >= 2, before_target)
+check("the OTHER participant genuinely has rows (this check would be vacuous "
+      "otherwise)", before_other >= 1, before_other)
 
 removed = research_store.forget_participant("24000002b")   # lower case on purpose
 check("forget removes their rows", removed == before_target,
       {"removed": removed, "had": before_target})
 check("and they are gone", research_store.count_for("24000002B") == 0)
 check("while everyone else is untouched",
-      research_store.count_for("24000001A") == before_other, before_other)
+      research_store.count_for("24000001") == before_other, before_other)
 check("forgetting twice is harmless", research_store.forget_participant("24000002B") == 0)
 
 try:

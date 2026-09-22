@@ -41,6 +41,7 @@ Re-read automatically when its mtime changes, so a late enrolment needs no resta
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -86,6 +87,31 @@ _enrolment_mtime: float | None = None
 
 # ── identity ──────────────────────────────────────────────────────────────────
 
+_SID_CHECK_LETTER = re.compile(r"\d{8}[A-Za-z]")
+
+
+def _canon_sid(raw: str) -> str:
+    """The ONE canonical identity key for a SID. Every identity boundary in this
+    module must resolve a given SID to the same string, or signup/login/pseudonym/
+    export drift apart for the same person (root cause of the check-letter bug --
+    a numeric roster key like "12345678" never matched a typed "12345678d" once
+    upper()'d to "12345678D").
+
+    NARROW BY DESIGN: only the exact 8-digits-then-one-letter PolyU check-letter
+    shape is stripped down to its 8 digits. Everything else -- "Admin", a test SID
+    like "24E00001A" (the letter isn't the 9th trailing character, so this never
+    matches), a bare numeric SID, any other staff/admin identifier -- only gets
+    strip+upper, byte-for-byte what this module did before. That is what makes the
+    fix safe against 300 live accounts: it can only ever COLLAPSE a numeric SID and
+    its check-lettered twin into one key, never invent a new collision between two
+    otherwise-distinct SIDs.
+    """
+    s = (raw or "").strip()
+    if _SID_CHECK_LETTER.fullmatch(s):
+        return s[:8]
+    return s.upper()
+
+
 def _load_secret() -> bytes:
     """HMAC key for participant pseudonyms (docs/revamp.md Part 13).
 
@@ -112,7 +138,7 @@ def _load_secret() -> bytes:
 
 def pseudonym(sid: str) -> str:
     """Stable pseudonymous ID for research export. Real SIDs never leave the box."""
-    return hmac.new(_load_secret(), sid.strip().upper().encode(), hashlib.sha256).hexdigest()[:16]
+    return hmac.new(_load_secret(), _canon_sid(sid).encode(), hashlib.sha256).hexdigest()[:16]
 
 
 # ── enrolment allowlist ───────────────────────────────────────────────────────
@@ -136,7 +162,7 @@ def _refresh_enrolment() -> None:
             if not line:
                 continue
             sid, _, section = line.partition(",")
-            parsed[sid.strip().upper()] = section.strip().upper() or "A"
+            parsed[_canon_sid(sid)] = section.strip().upper() or "A"
 
     _enrolment, _enrolment_mtime = parsed, mtime
     # ASCII only, deliberately. An emoji here crashed uvicorn at startup on a
@@ -162,7 +188,7 @@ def _refresh_enrolment() -> None:
 def enrolled_section(sid: str) -> str | None:
     """Section for an enrolled SID, or None if not on the list."""
     _refresh_enrolment()
-    return _enrolment.get(sid.strip().upper())
+    return _enrolment.get(_canon_sid(sid))
 
 
 # ── schema ────────────────────────────────────────────────────────────────────
@@ -203,10 +229,10 @@ def is_admin(sid: str) -> bool:
             for line in fh:
                 line = line.split("#", 1)[0].strip()
                 if line:
-                    parsed.add(line.split(",")[0].strip().upper())
+                    parsed.add(_canon_sid(line.split(",")[0]))
         with _lock:
             _admins, _admins_mtime = parsed, mtime
-    return sid.strip().upper() in _admins
+    return _canon_sid(sid) in _admins
 
 
 _researchers: set[str] = set()
@@ -235,10 +261,10 @@ def is_researcher(sid: str) -> bool:
             for line in fh:
                 line = line.split("#", 1)[0].strip()
                 if line:
-                    parsed.add(line.split(",")[0].strip().upper())
+                    parsed.add(_canon_sid(line.split(",")[0]))
         with _lock:
             _researchers, _researchers_mtime = parsed, mtime
-    return sid.strip().upper() in _researchers
+    return _canon_sid(sid) in _researchers
 
 
 def is_staff(sid: str) -> bool:
@@ -368,7 +394,7 @@ def create_account(sid: str, password: str, section: str | None = None,
     Claiming: a row that exists but has no password -- a legacy SID-only account,
     or one an admin pre-created -- is claimed here rather than being a dead end.
     """
-    sid = (sid or "").strip().upper()
+    sid = _canon_sid(sid or "")
     if not sid:
         return None, "bad_sid"
     if len(password or "") < MIN_PASSWORD:
@@ -445,7 +471,7 @@ def start_session(sid: str, password: str) -> dict | None:
     enumerate who is enrolled. Signup is where the distinctions live, because there
     they are unavoidable.
     """
-    sid = (sid or "").strip().upper()
+    sid = _canon_sid(sid or "")
     if not sid:
         return None
 
@@ -523,8 +549,8 @@ def audit(admin_sid: str, action: str, target_sid: str | None = None,
             conn.execute(
                 "INSERT INTO admin_audit (at, admin_sid, action, target_sid, detail)"
                 " VALUES (?, ?, ?, ?, ?)",
-                (datetime.now(timezone.utc).isoformat(), admin_sid.strip().upper(),
-                 action, (target_sid or "").strip().upper() or None, detail),
+                (datetime.now(timezone.utc).isoformat(), _canon_sid(admin_sid),
+                 action, _canon_sid(target_sid or "") or None, detail),
             )
             conn.commit()
         finally:
@@ -581,7 +607,7 @@ def set_section(sid: str, section: str) -> tuple[bool, str | None]:
     no.
     """
     import schedule  # lazy, as in create_account
-    sid = (sid or "").strip().upper()
+    sid = _canon_sid(sid or "")
     if section not in schedule.sections():
         return False, "bad_section"
     if roster_active():
@@ -604,7 +630,7 @@ def set_username(sid: str, username: str) -> tuple[bool, str | None]:
     the label a teacher sees on the roster. Rejects an empty name; `update_profile` is
     not reusable here (it coalesces a blank back to the old value and returns no ok
     signal). Refuses on a withdrawn account, as password reset does."""
-    sid = (sid or "").strip().upper()
+    sid = _canon_sid(sid or "")
     username = (username or "").strip()
     if not username:
         return False, "bad_username"
@@ -626,7 +652,7 @@ def set_password(sid: str, password: str) -> tuple[bool, str | None]:
     """Teacher-side reset. There is no self-serve path and no email, so this is the
     only way back in for a student who forgot -- which is why it exists and why it is
     audited."""
-    sid = (sid or "").strip().upper()
+    sid = _canon_sid(sid or "")
     if len(password or "") < MIN_PASSWORD:
         return False, "weak_password"
     salt, pw = hash_password(password)          # hashed before the lock, as everywhere
@@ -648,7 +674,7 @@ def set_password(sid: str, password: str) -> tuple[bool, str | None]:
 
 def end_all_sessions(sid: str) -> int:
     """Sign a student out everywhere. Used after a reset that WAS a compromise."""
-    sid = (sid or "").strip().upper()
+    sid = _canon_sid(sid or "")
     with _lock:
         conn = _connect()
         try:
@@ -736,7 +762,7 @@ def end_session(token: str) -> None:
 
 def update_profile(sid: str, username: str | None = None, avatar_id: str | None = None) -> None:
     """Onboarding writes the username/avatar the `user` cookie carries."""
-    sid = sid.strip().upper()
+    sid = _canon_sid(sid)
     with _lock:
         conn = _connect()
         try:
@@ -761,7 +787,7 @@ def withdraw(sid: str) -> bool:
     session and reappear in the data. Their research rows are removed separately
     via research_store -- this module does not reach across into that table.
     """
-    sid = sid.strip().upper()
+    sid = _canon_sid(sid)
     with _lock:
         conn = _connect()
         try:
@@ -782,7 +808,7 @@ def set_disabled(sid: str, disabled: bool) -> tuple[bool, str | None]:
     recorded events stay and are STILL exported -- withdrawal, not this, is how a
     participant leaves the study. Refuses to disable a teacher so the panel cannot
     lock itself out. Re-enabling is just disabled=0; the student signs in fresh."""
-    sid = (sid or "").strip().upper()
+    sid = _canon_sid(sid or "")
     if disabled and is_admin(sid):
         return False, "cannot_disable_admin"
     with _lock:

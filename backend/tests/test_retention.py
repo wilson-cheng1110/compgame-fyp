@@ -163,7 +163,10 @@ check("403 topic_not_complete before the topic is finished",
       r.status_code == 403 and r.json()["error"] == "topic_not_complete", r.json())
 
 # Complete "memory" the same way the real app would leave the sink: a post-check row.
-research_store.record_event({"participant_id": "24012345D", "event_type": "topic_posttest",
+# "24012345" not "24012345D": _canon_sid strips the check-letter at signup, so
+# the event must be written under the SAME key the SESSION resolves to, or the
+# retention endpoint's completion check can never see it.
+research_store.record_event({"participant_id": "24012345", "event_type": "topic_posttest",
                              "topic_id": "memory", "score": 66.7})
 
 print("\n-- HTTP: served, graded, recorded, and locked to one submission --")
@@ -181,7 +184,7 @@ r = student.post("/api/retention/memory", json={"answers": answers, "duration_ms
 check("POST succeeds and reveals a score (end of study -- no contamination risk)",
       r.status_code == 200 and r.json().get("ok") is True and "score" in r.json(), r.json())
 check("topic_retention landed in the sink, once",
-      sum(1 for e in research_store.fetch_for_participant("24012345D")
+      sum(1 for e in research_store.fetch_for_participant("24012345")
           if e["event_type"] == "topic_retention" and e["topic_id"] == "memory") == 1)
 
 r2 = student.get("/api/retention/memory")
@@ -191,17 +194,17 @@ r3 = student.post("/api/retention/memory", json={"answers": answers})
 check("a second POST is refused (409), does not overwrite the recorded answers",
       r3.status_code == 409 and r3.json()["error"] == "already_submitted", r3.json())
 check("still exactly one topic_retention row for memory",
-      sum(1 for e in research_store.fetch_for_participant("24012345D")
+      sum(1 for e in research_store.fetch_for_participant("24012345")
           if e["event_type"] == "topic_retention" and e["topic_id"] == "memory") == 1)
 
 print("\n-- HTTP: an empty submission is refused, same as the live check endpoints --")
-research_store.record_event({"participant_id": "24012345D", "event_type": "topic_posttest",
+research_store.record_event({"participant_id": "24012345", "event_type": "topic_posttest",
                              "topic_id": "problem-solving", "score": 50.0})
 r = student.post("/api/retention/problem-solving", json={"answers": {}})
 check("400 empty", r.status_code == 400 and r.json()["error"] == "empty", r.json())
 check("nothing recorded for the empty submission",
       not any(e["event_type"] == "topic_retention" and e["topic_id"] == "problem-solving"
-              for e in research_store.fetch_for_participant("24012345D")))
+              for e in research_store.fetch_for_participant("24012345")))
 
 
 print("\n-- HTTP: the terminal end-of-study marker --")
@@ -227,7 +230,7 @@ check("_complete is one-submission (409 on a second call)",
 check("exactly one questionnaire_end_of_study row",
       sum(1 for e in research_store.fetch_all()
           if e["event_type"] == "questionnaire_end_of_study"
-          and e["participant_id"] == "24012345D") == 1)
+          and e["participant_id"] == "24012345") == 1)
 
 schedule.end_of_study_open = _real_eos_open
 check("restoring the real end_of_study_open still refuses (real window is Nov 2026)",

@@ -300,6 +300,33 @@ rows were never touched.**
 **SID + password** (stdlib `hashlib.scrypt`, per-user salt; no bcrypt/passlib), and the enrolled-SID
 allowlist became **OPTIONAL**. `backend/enrolled_sids.txt` is still gitignored — it holds real SIDs.
 
+- **SID identity is CANONICALISED (2026-09-22, Wilson, `feat/sid-canon`) — the check-letter fix.**
+  Every identity boundary already normalised case (`.strip().upper()`); the live bug was letter
+  PRESENCE vs ABSENCE, not case — with the roster off (self-enroll, the mode this deployment has run
+  in the whole live rollout), a student typing `12345678d` never matched a roster/account keyed
+  `12345678`. `backend/auth_store._canon_sid(raw)` now strips the check-letter for the exact
+  `\d{8}[A-Za-z]` shape (→ the 8 digits) and otherwise only strip+upper's, unchanged — so `Admin`, a
+  test SID like `24E00001A` (letter not the 9th trailing char), and any existing pure-numeric account
+  are byte-for-byte untouched. Applied at every sid boundary in `auth_store.py` (signup, sign-in,
+  session resolve, enrolment/roster lookup, pseudonym, admin/researcher allowlist checks, teacher
+  section/username/password edits, disable/withdraw) and to the `/api/auth` throttle keys, so signup,
+  login, the allowlists, and a pseudonymised export line all resolve the SAME key for both the
+  numeric and check-lettered forms of one SID.
+  **`backend/migrate_canon_sid.py`** folds a PRE-EXISTING letter-suffixed account (`users.sid` still
+  `\d{8}[A-Za-z]`, from before this fix) onto its canonical key — users/sessions/admin_audit in the
+  auth DB plus `research_events.participant_id` in the research DB, atomically per account (SQLite
+  `ATTACH` + one SAVEPOINT), each write audited. **Dry-run by default; `--apply` is required to write
+  anything.** REFUSES rather than merges on a collision (the canonical key already belongs to a
+  SEPARATE account — realistic on a self-enroll deployment where the same student may have signed up
+  twice, once with the letter and once without): both sides are left completely untouched and the
+  pair is reported every run until a human resolves it by hand. **DEPLOY ORDERING MATTERS**: once the
+  fixed code is live, every lookup canonicalises the KEY IT QUERIES WITH, but an un-migrated row's
+  primary key still has the letter — so shipping the code before running `migrate_canon_sid.py --apply`
+  locks every still-letter-suffixed account out cold (indistinguishable from `bad_credentials`, same as
+  every other sign-in failure, by design — so it fails silent). Run the dry run, read it, then
+  `--apply`, as part of the SAME deploy step, before the box takes real traffic. Do not trust a
+  specific headcount of affected accounts from anywhere other than this script's own dry-run output
+  against the real database being migrated.
 - **Sign up** at `/signup`: SID + password (+ section when no roster is configured). Roster present →
   it gates who may sign up AND dictates the section; roster absent → open signup and the student picks
   their section, which is then the ONLY source of their release window.
