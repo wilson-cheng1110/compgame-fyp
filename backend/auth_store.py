@@ -112,6 +112,52 @@ def _canon_sid(raw: str) -> str:
     return s.upper()
 
 
+_SID_BARE = re.compile(r"\d{8}")  # SHIM: remove after migrate_canon_sid.py --apply
+
+
+def _lookup_account_row(conn, raw):  # SHIM: remove after migrate_canon_sid.py --apply
+    """SHIM (temporary compat, delete after migrate_canon_sid.py --apply): find a
+    user row for a typed SID, tolerating a still-un-migrated letter-PK account.
+
+    WHY THIS EXISTS. The SID-canon fix (commit 44ad717) is landing on this branch,
+    but live prod still stores most accounts under their check-letter primary key
+    (`users.sid = "12345678D"`). Once the canon code is live, every lookup queries
+    the CANONICAL key ("12345678"), which misses a letter PK -- so an un-migrated
+    student is silently locked out until `migrate_canon_sid.py --apply` remaps the
+    rows. This helper makes the migrate-before-restart ordering non-fatal: it tries
+    the canonical key FIRST (UNCHANGED behaviour) and ONLY on a miss falls back to the
+    legacy letter form. Once migration has converged every PK to its 8-digit canonical
+    key, delete this helper and its call sites and restore the plain
+    `SELECT ... WHERE sid = <canon>` lookups.
+
+    Returns the raw sqlite Row -- whose ["sid"] is the ACTUAL stored key (the letter
+    form for an un-migrated account, so callers key writes/sessions off row["sid"] to
+    stay referentially consistent) -- or None.
+    """
+    canon = _canon_sid(raw)
+    row = conn.execute("SELECT * FROM users WHERE sid = ?", (canon,)).fetchone()
+    if row is not None:
+        return row  # canonical hit: migrated / numeric / non-SID account -- shim inert
+    up = (raw or "").strip().upper()
+    # (a) the typed value already carries a check letter -> try that exact legacy PK.
+    if _SID_CHECK_LETTER.fullmatch(up):
+        row = conn.execute("SELECT * FROM users WHERE sid = ?", (up,)).fetchone()
+        if row is not None:
+            return row
+    # (b) a bare 8-digit input (or a letter form whose exact PK was absent): a letter-PK
+    # twin may still exist. Match the 8-digit prefix + one char, keep only the exact
+    # check-letter shape, and require a UNIQUE hit -- never GUESS between two twins (that
+    # ambiguity is exactly what migrate_canon_sid.py refuses to merge). The prefix is all
+    # digits, so it carries no LIKE wildcard of its own; the trailing "_" is the wildcard.
+    if _SID_BARE.fullmatch(canon):
+        cands = [r for r in conn.execute(
+                    "SELECT * FROM users WHERE sid LIKE ?", (canon + "_",)).fetchall()
+                 if _SID_CHECK_LETTER.fullmatch(r["sid"])]
+        if len(cands) == 1:
+            return cands[0]
+    return None
+
+
 def _load_secret() -> bytes:
     """HMAC key for participant pseudonyms (docs/revamp.md Part 13).
 
@@ -394,7 +440,8 @@ def create_account(sid: str, password: str, section: str | None = None,
     Claiming: a row that exists but has no password -- a legacy SID-only account,
     or one an admin pre-created -- is claimed here rather than being a dead end.
     """
-    sid = _canon_sid(sid or "")
+    raw_sid = sid or ""              # SHIM: remove after migrate_canon_sid.py --apply
+    sid = _canon_sid(raw_sid)
     if not sid:
         return None, "bad_sid"
     if len(password or "") < MIN_PASSWORD:
@@ -420,7 +467,10 @@ def create_account(sid: str, password: str, section: str | None = None,
     with _lock:
         conn = _connect()
         try:
-            row = conn.execute("SELECT * FROM users WHERE sid = ?", (sid,)).fetchone()
+            # SHIM: existence check consults the letter-PK fallback so a student who
+            # already has an un-migrated letter account and re-signs-up (numeric or
+            # letter form) is refused as existing, not handed a DUPLICATE numeric row.
+            row = _lookup_account_row(conn, raw_sid)  # SHIM (was WHERE sid = <canon>)
             if row and row["withdrawn"]:
                 return None, "withdrawn"
             if row and row["disabled"]:
@@ -428,6 +478,9 @@ def create_account(sid: str, password: str, section: str | None = None,
             if row and row["pw_hash"]:
                 return None, "exists"
 
+            # SHIM: claim/session write against the row's ACTUAL stored key (letter for
+            # an un-migrated, still-unclaimed row); a brand-new account keys off `sid`.
+            store_sid = row["sid"] if row is not None else sid  # SHIM
             if row is None:
                 conn.execute(
                     "INSERT INTO users (sid, username, avatar_id, section, pw_salt, pw_hash,"
@@ -440,13 +493,13 @@ def create_account(sid: str, password: str, section: str | None = None,
                 conn.execute(
                     "UPDATE users SET pw_salt = ?, pw_hash = ?, section = ?, username = ?,"
                     " avatar_id = ?, last_seen_at = ? WHERE sid = ?",
-                    (salt, pw, section, username, avatar_id, now.isoformat(), sid),
+                    (salt, pw, section, username, avatar_id, now.isoformat(), store_sid),  # SHIM: store_sid
                 )
 
             conn.execute(
                 "INSERT INTO sessions (token, sid, created_at, expires_at, last_seen_at)"
                 " VALUES (?, ?, ?, ?, ?)",
-                (token, sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat(),
+                (token, store_sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat(),  # SHIM: store_sid
                  now.isoformat()),
             )
             conn.commit()
@@ -455,7 +508,7 @@ def create_account(sid: str, password: str, section: str | None = None,
 
     return {
         "token": token,
-        "sid": sid,
+        "sid": store_sid,  # SHIM: actual stored key (letter form for an un-migrated claim)
         "username": username,
         "avatar_id": avatar_id,
         "section": section,
@@ -471,7 +524,8 @@ def start_session(sid: str, password: str) -> dict | None:
     enumerate who is enrolled. Signup is where the distinctions live, because there
     they are unavoidable.
     """
-    sid = _canon_sid(sid or "")
+    raw_sid = sid or ""              # SHIM: remove after migrate_canon_sid.py --apply
+    sid = _canon_sid(raw_sid)
     if not sid:
         return None
 
@@ -481,7 +535,10 @@ def start_session(sid: str, password: str) -> dict | None:
     with _lock:
         conn = _connect()
         try:
-            row = conn.execute("SELECT * FROM users WHERE sid = ?", (sid,)).fetchone()
+            # SHIM: letter-PK fallback so an un-migrated account (users.sid still carries
+            # its check letter) can still sign in. On a hit it returns the real stored
+            # row; usable/decoy/constant-time logic below is UNCHANGED and runs on it.
+            row = _lookup_account_row(conn, raw_sid)  # SHIM (was WHERE sid = <canon>)
         finally:
             conn.close()
 
@@ -509,6 +566,11 @@ def start_session(sid: str, password: str) -> dict | None:
     if not usable or not matched:
         return None
 
+    # SHIM: key the UPDATE, the session, and the returned sid to the account's ACTUAL
+    # stored key (letter form for an un-migrated row) so they stay referentially
+    # consistent; migrate_canon_sid.py remaps sessions letter->numeric, so this
+    # converges post-migration. For a numeric/migrated row store_sid == sid (no-op).
+    store_sid = row["sid"]           # SHIM: remove after migrate_canon_sid.py --apply
     # A student the lecturer moved between days gets the new window on next sign-in.
     section = enrolled_section(sid) or row["section"]
     now = datetime.now(timezone.utc)
@@ -518,11 +580,11 @@ def start_session(sid: str, password: str) -> dict | None:
         conn = _connect()
         try:
             conn.execute("UPDATE users SET last_seen_at = ?, section = ? WHERE sid = ?",
-                         (now.isoformat(), section, sid))
+                         (now.isoformat(), section, store_sid))  # SHIM: store_sid
             conn.execute(
                 "INSERT INTO sessions (token, sid, created_at, expires_at, last_seen_at)"
                 " VALUES (?, ?, ?, ?, ?)",
-                (token, sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat(),
+                (token, store_sid, now.isoformat(), (now + timedelta(days=SESSION_DAYS)).isoformat(),  # SHIM: store_sid
                  now.isoformat()),
             )
             conn.commit()
@@ -531,7 +593,7 @@ def start_session(sid: str, password: str) -> dict | None:
 
     return {
         "token": token,
-        "sid": sid,
+        "sid": store_sid,  # SHIM: actual stored key (letter form for an un-migrated row)
         "username": row["username"],
         "avatar_id": row["avatar_id"],
         "section": section,
@@ -694,26 +756,31 @@ def resolve_session(token: str) -> dict | None:
     if not token:
         return None
     now = datetime.now(timezone.utc)
+    # SHIM: was a single `sessions s JOIN users u ON u.sid = s.sid` -- fetch the session
+    # row, then re-validate the user through the letter-PK fallback, so a session created
+    # for an un-migrated letter account (users.sid still carries the check letter) keeps
+    # resolving. `_lookup_account_row` tries the canonical key first, so a migrated/
+    # numeric session is a plain hit. Restore the JOIN after migrate_canon_sid.py --apply.
     with _lock:
         conn = _connect()
         try:
-            row = conn.execute(
-                "SELECT s.expires_at, s.last_seen_at AS s_last_seen, u.*"
-                " FROM sessions s JOIN users u ON u.sid = s.sid WHERE s.token = ?",
+            srow = conn.execute(
+                "SELECT sid, expires_at, last_seen_at FROM sessions WHERE token = ?",
                 (token,),
             ).fetchone()
+            row = _lookup_account_row(conn, srow["sid"]) if srow is not None else None  # SHIM
         finally:
             conn.close()
 
-    if row is None or row["withdrawn"] or row["disabled"]:
+    if srow is None or row is None or row["withdrawn"] or row["disabled"]:  # SHIM: srow guard
         return None
-    if datetime.fromisoformat(row["expires_at"]) < now:
+    if datetime.fromisoformat(srow["expires_at"]) < now:  # SHIM: expiry from the session row
         return None
 
     # IDLE TIMEOUT (SESSION_IDLE_MINUTES). last_seen_at is NULL only on a session that
     # predates the column; treat NULL as "seen just now" so shipping this logs nobody
     # out retroactively, and stamp it below so its clock starts.
-    seen = row["s_last_seen"]
+    seen = srow["last_seen_at"]  # SHIM: was row["s_last_seen"] from the JOIN alias
     if seen is not None:
         idle_s = (now - datetime.fromisoformat(seen)).total_seconds()
         if idle_s > SESSION_IDLE_MINUTES * 60:
