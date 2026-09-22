@@ -79,22 +79,41 @@ READS `AUTH_DB_PATH` / `RESEARCH_DB_PATH` exactly like `auth_store.py` /
 `research_store.py` (imported, not re-implemented, so there is one source of
 truth for both the DB location and the canonicalisation rule itself).
 
-KNOWN, DELIBERATELY OUT OF SCOPE (flagged, not fixed, here): `schedule.arm_for`
-derives a participant's FLIP/CONTROL arm PURELY from `hash(sid)` with nothing
-stored -- "deterministic from the SID alone... survives a reload... with
-nothing stored" (schedule.py's own docstring). Migrating a participant's sid
-changes that hash, so any topic NOT YET released to a migrated account would
-compute a DIFFERENT arm after migration than it would have before. Topics
-already released/recorded are unaffected in the sense that their arm is
-whatever `arm_for` returns for a given (sid, topic_index) at read time -- but
-that means a re-run of `measures.py` against OLD events (pre-migration
-participant_id, still on disk until this script runs) vs NEW events
-(post-migration) for the SAME already-completed topic could disagree on which
-arm that topic was in, if `arm_for` is ever recomputed after migrating that
-account. Check this is empty (it should be, per the grounding above) before
-trusting `--apply` on the live box, and treat any non-empty --apply as a
-reason to review `measures.py` output for the migrated SIDs' already-released
-topics before analysis.
+FREEZES THE ARM SO THE MIGRATION CANNOT RELABEL THE INDEPENDENT VARIABLE.
+`schedule.arm_for` derives a participant's FLIP/CONTROL arm PURELY from
+`sha256(sid).parity` with nothing stored -- "deterministic from the SID
+alone... survives a reload... with nothing stored" (schedule.py's own
+docstring). That parity is keyed on the SID STRING, so folding `12345678D`
+down to `12345678` FLIPS the assigned arm for ~half of the migrated accounts
+on EVERY topic. For a within-subjects design whose whole point is the FLIP-vs-
+CONTROL contrast, silently relabelling the arm of an already-released topic for
+~155 real students is a data-integrity failure, not a cosmetic one.
+
+So BEFORE it renames any sid, `--apply` writes a `topic_arm_assigned` event
+(one per topic the account already has events for) carrying the arm computed
+from the account's CURRENT (letter) sid -- the arm the live server actually
+assigned that student under the OLD identity. The event is keyed to the OLD
+participant_id and lives in the SAME SAVEPOINT as the rename, so the existing
+`research.events.participant_id` remap carries it onto the canonical key
+atomically. `measures.py._resolved_arm` then reads that frozen row IN
+PREFERENCE to re-deriving from the (now numeric) sid, so a migrated account's
+already-released topics keep the arm they were run under. The dry run REPORTS
+how many arm rows it WOULD freeze and writes nothing; a second `--apply` finds
+no letter-shaped candidate left and so re-freezes nothing (idempotent).
+
+The frozen history is the load-bearing guarantee, and it is why `arm_for`'s
+sha256 formula is DELIBERATELY left keyed on the raw string rather than
+canonicalised through `_canon_sid`: canonicalising the input would make
+`arm_for(letter) == arm_for(numeric)`, collapsing the frozen letter-parity arm
+into the numeric-parity fallback and ERASING the very history this freezes.
+
+ONE ACKNOWLEDGED, ACCEPTABLE BOUNDARY for a migrated MID-study student: only
+topics they had ALREADY engaged (have events for) at migration time are frozen.
+A topic released AFTER migration is served -- and therefore analysed -- from the
+new numeric sid on both sides, so the served arm and the analysed arm still
+agree for it. That residual parity boundary is unavoidable once identity
+changes and is fine for a within-subjects, observed-IV design (`played_first`
+is read from timestamps, not from the arm).
 
 Usage:
     python backend/migrate_canon_sid.py             # dry run, report only
@@ -102,6 +121,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import re
 import sqlite3
@@ -114,6 +134,7 @@ if _HERE not in sys.path:
 
 import auth_store        # noqa: E402  (path insert must come first)
 import research_store    # noqa: E402  -- lightweight: no chromadb/langchain import
+import schedule          # noqa: E402  -- stdlib only (arm_for + the topic order)
 
 AUTH_DB_PATH = auth_store.DB_PATH
 RESEARCH_DB_PATH = research_store.DB_PATH
@@ -139,6 +160,35 @@ def _find_candidates(conn: sqlite3.Connection) -> list[tuple[str, str]]:
     return out
 
 
+def _topic_index() -> dict:
+    """topic_id -> release-order index, exactly what schedule.arm_for keys on and what
+    measures.topic_index() reads. Read once per run, not per account."""
+    return {t["id"]: i for i, t in enumerate(schedule._load().get("topics", []))}
+
+
+def _arm_rows_to_freeze(conn: sqlite3.Connection, old_sid: str, idx_of: dict) -> list[tuple[str, int, str]]:
+    """(topic_id, topic_index, arm) to FREEZE for one about-to-be-renamed account.
+
+    The arm is computed from the account's CURRENT (letter) sid via schedule.arm_for
+    -- i.e. the arm the live server assigned under the OLD identity -- for every topic
+    the account ALREADY has an event for. Topics with no event yet are deliberately
+    left out: a topic released AFTER migration is served from the new numeric sid, so
+    freezing a letter-parity arm for it would make the analysed arm disagree with the
+    served one (see the module docstring's acceptable-boundary note). Requires the
+    research DB to be ATTACHed as `research`; caller guards on has_research.
+    """
+    rows = conn.execute(
+        "SELECT DISTINCT topic_id FROM research.events"
+        " WHERE participant_id = ? AND topic_id IS NOT NULL AND event_type != 'topic_arm_assigned'",
+        (old_sid,),
+    ).fetchall()
+    out = []
+    for (tid,) in rows:
+        if tid in idx_of:
+            out.append((tid, idx_of[tid], schedule.arm_for(old_sid, idx_of[tid])))
+    return out
+
+
 def run(apply: bool) -> dict:
     """Report (and, with apply=True, perform) the migration. Returns a summary
     dict rather than only printing, so tests can assert on it directly.
@@ -159,7 +209,8 @@ def run(apply: bool) -> dict:
                   `colliding` on every subsequent run -- that repetition is
                   the point, not a bug, until someone resolves it by hand.
     """
-    summary = {"found": 0, "remappable": [], "colliding": [], "migrated": 0}
+    summary = {"found": 0, "remappable": [], "colliding": [], "migrated": 0,
+               "arm_rows_would_freeze": 0, "arm_rows_frozen": 0}
 
     if not os.path.exists(AUTH_DB_PATH):
         print(f"[migrate] no auth DB at {AUTH_DB_PATH} -- nothing to do.")
@@ -203,13 +254,39 @@ def run(apply: bool) -> dict:
                 remappable.append((old, target))
         summary["colliding"] = colliding
 
+        # The release order arm_for keys on, read once (not per account).
+        idx_of = _topic_index()
+
         # PASS 2: only ever touches the `remappable` bucket. `colliding` pairs
         # are never written to, in dry-run OR --apply.
         for old, target in remappable:
+            # FREEZE THE ARM before the rename can flip it. The arm rows are computed
+            # from the CURRENT (letter) sid -- the parity the live server assigned this
+            # student -- for every topic they already have an event for. Computed for
+            # both dry-run (report only) and --apply (report + write).
+            arm_rows = _arm_rows_to_freeze(conn, old, idx_of) if has_research else []
+            summary["arm_rows_would_freeze"] += len(arm_rows)
             if not apply:
+                if arm_rows:
+                    print(f"        would freeze {len(arm_rows)} arm row(s) for {old} "
+                          f"(topics already released to them)")
                 continue
             try:
                 conn.execute("SAVEPOINT sid_migrate")
+                # Written keyed to the OLD participant_id and in the SAME savepoint as
+                # the rename, so the research.events remap below carries them onto the
+                # canonical key atomically. topic_arm_assigned is NOT in the once-only
+                # index, so re-freezing is not a constraint error -- but a second run
+                # never reaches here for a migrated account (it is no longer a
+                # letter-shaped candidate), which is what makes the freeze idempotent.
+                for tid, tidx, arm in arm_rows:
+                    conn.execute(
+                        "INSERT INTO research.events (participant_id, event_type, topic_id,"
+                        " server_ts, meta) VALUES (?, 'topic_arm_assigned', ?, ?, ?)",
+                        (old, tid, datetime.now(timezone.utc).isoformat(),
+                         json.dumps({"arm": arm, "topic_index": tidx,
+                                     "source": "sid_canon_migrate", "frozen_from": old})),
+                    )
                 conn.execute("UPDATE users SET sid = ? WHERE sid = ?", (target, old))
                 conn.execute("UPDATE sessions SET sid = ? WHERE sid = ?", (target, old))
                 conn.execute("UPDATE admin_audit SET admin_sid = ? WHERE admin_sid = ?", (target, old))
@@ -226,12 +303,16 @@ def run(apply: bool) -> dict:
                      target, f"from={old}"),
                 )
                 conn.execute("RELEASE sid_migrate")
-                print(f"    MIGRATED     {old} -> {target}")
+                print(f"    MIGRATED     {old} -> {target}"
+                      f"{f'  (+{len(arm_rows)} arm row(s) frozen)' if arm_rows else ''}")
                 summary["migrated"] += 1
+                summary["arm_rows_frozen"] += len(arm_rows)   # only count committed freezes
             except sqlite3.IntegrityError as exc:
                 # A collision the upfront `users` check could not see (e.g. the
                 # once-only research_events index) -- rolled back for THIS pair
-                # only, reclassified as colliding, everything else proceeds.
+                # only (the ROLLBACK also unwinds the arm rows inserted just above,
+                # so a refused account is never left with a frozen arm),
+                # reclassified as colliding, everything else proceeds.
                 conn.execute("ROLLBACK TO sid_migrate")
                 conn.execute("RELEASE sid_migrate")
                 print(f"    COLLIDING    {old} -> {target}  "
@@ -245,8 +326,10 @@ def run(apply: bool) -> dict:
 
         summary["remappable"] = remappable
         n_remap, n_collide, n_mig = len(remappable), len(colliding), summary["migrated"]
+        arm_word = (f"arm_rows_frozen={summary['arm_rows_frozen']}" if apply
+                    else f"arm_rows_would_freeze={summary['arm_rows_would_freeze']}")
         print(f"\n[migrate] SUMMARY: found={summary['found']}  remappable={n_remap}  "
-              f"colliding={n_collide}  migrated={n_mig}"
+              f"colliding={n_collide}  migrated={n_mig}  {arm_word}"
               f"{'  (DRY RUN -- nothing written)' if not apply else ''}")
         if colliding:
             print("[migrate] COLLIDING pairs are untouched on BOTH sides and need a human decision "

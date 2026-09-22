@@ -227,11 +227,53 @@ _ar_topic = next(t for t in ar["by_topic"] if t["topic_id"] == T)
 check("by_topic aggregates BOTH arms' responses for that topic (n=2 per item)",
       _ar_topic["items"]["AR2"]["n"] == 2, _ar_topic)
 
+print("\n-- FROZEN ARM (SID-canon study-integrity fix): read in preference to arm_for --")
+# A migrated account is one the SID-canon migration renamed letter->numeric. It leaves a
+# `topic_arm_assigned` row keyed to the (post-migration) numeric sid carrying the arm the
+# student was ACTUALLY run under. measures must read that FROZEN arm, not re-derive from the
+# new sid -- re-deriving would flip ~half of ~155 real students' arm on every topic.
+# MIGN: natural arm_for == FLIP, but frozen to the OPPOSITE (CONTROL). PLAIN: no frozen row.
+MIGN = next(s for s in (f"2007{i:04d}" for i in range(3000)) if S.arm_for(s, idx) == S.FLIP)
+PLAIN = next(s for s in (f"2008{i:04d}" for i in range(3000)) if S.arm_for(s, idx) == S.CONTROL)
+FROZEN = S.CONTROL   # deliberately the opposite of MIGN's natural FLIP
+
+ev(MIGN, "topic_pretest", T, "2026-09-02T09:00:00+00:00", score=2)
+ev(MIGN, "topic_posttest", T, "2026-09-02T09:20:00+00:00", score=4)
+evm(MIGN, "topic_arm_assigned", T, {"arm": FROZEN, "topic_index": idx, "source": "sid_canon_migrate"})
+ev(PLAIN, "topic_pretest", T, "2026-09-02T09:00:00+00:00", score=2)
+ev(PLAIN, "topic_posttest", T, "2026-09-02T09:20:00+00:00", score=4)
+conn.commit()
+
+migrows = {r["participant_id"]: r for r in measures.per_topic(DB)}
+check("(b) per_topic reads the FROZEN arm, not arm_for", migrows[MIGN]["arm"] == FROZEN, migrows[MIGN])
+check("...which is the OPPOSITE of the naive re-derivation", FROZEN != S.arm_for(MIGN, idx))
+check("(c) a non-migrated account (no frozen row) falls back to arm_for",
+      migrows[PLAIN]["arm"] == S.arm_for(PLAIN, idx), migrows[PLAIN])
+
+# All four arm call sites go through the same _resolved_arm helper. Prove the three besides
+# per_topic honour the freeze too, by landing MIGN's per-topic data in the FROZEN (control)
+# bucket. Prior committed state on topic T: retention flip=[80]/ctrl=[40]; PAAS flip=[8]/
+# ctrl=[3]; affect AR1 flip=[5]/ctrl=[3]. MIGN (frozen CONTROL) adds to the control side.
+ev(MIGN, "topic_retention", T, "2026-11-20T09:00:00+00:00", score=70.0)
+evm(MIGN, "questionnaire_paas", T, {"answers": {"P1": 9}})
+evm(MIGN, "questionnaire_affect_recall", T, {"answers": {"AR1": 1, "AR2": 1, "AR3": 1}})
+conn.commit()
+
+ret2 = measures.retention_summary(DB)
+check("retention_summary buckets the frozen account under CONTROL (mean 55), not FLIP",
+      ret2["control"]["mean_score"] == 55.0 and ret2["flip"]["mean_score"] == 80.0, ret2)
+qa2 = measures.questionnaire_by_arm(DB)
+check("questionnaire_by_arm PAAS buckets it under CONTROL (mean 6), not FLIP",
+      qa2["paas"]["control"]["mean_effort"] == 6.0 and qa2["paas"]["flip"]["mean_effort"] == 8.0, qa2["paas"])
+ar2 = measures.affect_recall_summary(DB)
+check("affect_recall_summary buckets it under CONTROL (AR1 mean 2), not FLIP",
+      ar2["control"]["items"]["AR1"]["mean"] == 2.0 and ar2["flip"]["items"]["AR1"]["mean"] == 5.0, ar2)
+
 print("\n-- NO SID LEAK: every slice returns counts, never a participant id --")
 _blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_by_arm(DB),
                      measures.reflection_summary(DB), measures.game_result_summary(DB),
                      measures.retention_summary(DB), measures.affect_recall_summary(DB)])
-for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A"):
+for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A", MIGN, PLAIN):
     check(f"{_sid} does not appear in any slice", _sid not in _blob, _blob[:200])
 
 conn.close()

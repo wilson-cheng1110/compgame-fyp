@@ -13,7 +13,7 @@ Three accounts:
                same-student-signed-up-twice scenario flagged in migrate_canon_sid.py's
                docstring). Must be refused and BOTH sides left untouched, every run.
 """
-import os, sys, sqlite3
+import os, sys, sqlite3, json
 from datetime import datetime, timezone
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -125,6 +125,17 @@ def _events():
 
 
 import migrate_canon_sid as M
+import schedule as SCH
+import measures as MEAS   # to prove the freeze end-to-end at the analysis layer
+
+
+def _arm_events():
+    c = sqlite3.connect(RESEARCH_DB); c.row_factory = sqlite3.Row
+    rows = [dict(r) for r in c.execute(
+        "SELECT * FROM events WHERE event_type = 'topic_arm_assigned' ORDER BY id")]
+    c.close()
+    return rows
+
 
 print("\n-- dry run reports the plan and writes NOTHING --")
 before_users, before_sessions, before_audit, before_events = _users(), _sessions(), _audit(), _events()
@@ -141,6 +152,21 @@ check("dry run touched no users rows",    _users() == before_users)
 check("dry run touched no sessions rows", _sessions() == before_sessions)
 check("dry run touched no audit rows",    _audit() == before_audit)
 check("dry run touched no research events", _events() == before_events)
+
+print("\n-- dry run REPORTS the arm freeze but writes no arm rows (study-integrity fix) --")
+# 12345678D has one already-released topic ('memory'); the colliding 22334455E is never
+# frozen. So exactly one arm row WOULD be frozen, and none is written in a dry run.
+check("dry run reports arm_rows_would_freeze == 1", summary["arm_rows_would_freeze"] == 1, summary)
+check("dry run freezes nothing (arm_rows_frozen == 0)", summary["arm_rows_frozen"] == 0, summary)
+check("dry run wrote no topic_arm_assigned rows", _arm_events() == [], _arm_events())
+
+# CAPTURE the resolved arm BEFORE migration -- while the event is still keyed 12345678D.
+# This account's letter/numeric parities differ, so the arm WOULD flip on a naive re-derive.
+idx_mem = MEAS.topic_index()["memory"]
+arm_before = SCH.arm_for("12345678D", idx_mem)
+pre = {r["participant_id"]: r for r in MEAS.per_topic(RESEARCH_DB)}
+check("BEFORE migration, measures resolves 12345678D's arm from its (letter) sid",
+      pre["12345678D"]["arm"] == arm_before, pre.get("12345678D"))
 
 print("\n-- --apply migrates the remappable pair, refuses the colliding pair --")
 summary2 = M.run(apply=True)
@@ -188,6 +214,31 @@ check("the pre-existing numeric account's event is untouched",
       any(e["participant_id"] == "22334455" and e["score"] == 55.0 for e in events_after),
       events_after)
 
+print("\n-- the assigned arm is FROZEN so the rename cannot relabel the IV --")
+check("--apply froze exactly the one already-released arm row", summary2["arm_rows_frozen"] == 1, summary2)
+arm_rows = _arm_events()
+check("exactly one topic_arm_assigned row exists", len(arm_rows) == 1, arm_rows)
+_am = json.loads(arm_rows[0]["meta"]) if arm_rows else {}
+check("the frozen row was carried onto the CANONICAL sid by the remap",
+      bool(arm_rows) and arm_rows[0]["participant_id"] == "12345678", arm_rows)
+check("...for the already-released topic ('memory')",
+      bool(arm_rows) and arm_rows[0]["topic_id"] == "memory", arm_rows)
+check("...carrying the LETTER-parity arm -- the historical ground truth",
+      _am.get("arm") == arm_before, (_am, arm_before))
+check("...stamped with the migration's provenance",
+      _am.get("source") == "sid_canon_migrate" and _am.get("frozen_from") == "12345678D", _am)
+check("the colliding account was NOT frozen (neither the letter nor numeric side)",
+      not any(r["participant_id"] in ("22334455E", "22334455") for r in arm_rows), arm_rows)
+
+# CORE GUARANTEE, end to end: the resolved arm is IDENTICAL before vs after migration,
+# and the freeze is doing the work -- a naive re-derivation from the new numeric sid flips it.
+post = {r["participant_id"]: r for r in MEAS.per_topic(RESEARCH_DB)}
+check("AFTER migration the resolved arm is UNCHANGED (frozen row preserved it)",
+      post["12345678"]["arm"] == arm_before, (arm_before, post.get("12345678")))
+check("without the freeze the arm WOULD have flipped (parity differs for this account)",
+      SCH.arm_for("12345678", idx_mem) != arm_before, SCH.arm_for("12345678", idx_mem))
+check("the letter sid no longer appears in per_topic", "12345678D" not in post, list(post))
+
 print("\n-- second --apply run is idempotent: nothing left to remap, collision still refused --")
 summary3 = M.run(apply=True)
 check("found is now 1 (only the unresolved collision remains a candidate)",
@@ -200,6 +251,11 @@ check("second run migrates nothing", summary3["migrated"] == 0)
 mig_rows_2 = [r for r in _audit() if r["action"] == "sid_canon_migrate"]
 check("no duplicate migration audit row was written on the idempotent re-run",
       len(mig_rows_2) == 1, mig_rows_2)
+
+check("second --apply freezes nothing (already-migrated account is no longer a candidate)",
+      summary3["arm_rows_frozen"] == 0, summary3)
+check("no duplicate topic_arm_assigned row on the idempotent re-run",
+      len(_arm_events()) == 1, _arm_events())
 
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

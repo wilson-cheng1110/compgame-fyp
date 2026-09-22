@@ -65,6 +65,49 @@ DB = os.environ.get("RESEARCH_DB_PATH",
 ACTIVITY = "understanding_complete"
 POSTTEST = "topic_posttest"
 
+# The migration's frozen-arm marker (migrate_canon_sid.py). See _resolved_arm.
+ARM_ASSIGNED = "topic_arm_assigned"
+
+
+def _frozen_arms(db_path=None) -> dict:
+    """(participant_id, topic_id) -> the arm FROZEN at SID-canon migration time.
+
+    migrate_canon_sid.py writes a `topic_arm_assigned` event -- keyed by
+    participant_id, so its own participant_id remap carries it from the letter key to
+    the numeric one -- for every already-released topic of an account whose SID it
+    folds from `\\d{8}[LETTER]` to the 8-digit form. schedule.arm_for keys on the SID
+    STRING (its sha256 parity), so stripping the check-letter would otherwise flip the
+    assigned arm for ~half of the migrated students on every topic. This is the
+    preserved ground truth; _resolved_arm reads it in preference to re-deriving.
+    First row per pair wins (the migration writes exactly one, but a hand-seeded
+    double must not matter)."""
+    out: dict = {}
+    for r in _meta_events([ARM_ASSIGNED], db_path):
+        arm = (r["meta"] or {}).get("arm")
+        if arm in (schedule.FLIP, schedule.CONTROL):
+            out.setdefault((r["participant_id"], r["topic_id"]), arm)
+    return out
+
+
+def _resolved_arm(participant_id, topic_id, topic_idx, frozen):
+    """The arm to USE in analysis for one (participant, topic).
+
+    FROZEN row if the migration recorded one -- a migrated account's already-released
+    topics keep the arm they were actually run under. Otherwise schedule.arm_for(sid,
+    idx): unchanged for every non-migrated account, and the right source for a migrated
+    account's topics released AFTER migration (served from the new numeric sid too).
+
+    arm_for's sha256 formula is deliberately NOT canonicalised through _canon_sid: the
+    frozen rows ARE the letter-parity history, and canonicalising the input would make
+    arm_for(letter) == arm_for(numeric), collapsing the frozen arm into the fallback
+    and erasing the very thing being preserved."""
+    if topic_idx is None:
+        return None
+    fa = frozen.get((participant_id, topic_id))
+    if fa in (schedule.FLIP, schedule.CONTROL):
+        return fa
+    return schedule.arm_for(participant_id, topic_idx)
+
 
 def _rows(db_path=None):
     conn = sqlite3.connect(db_path or DB)
@@ -92,6 +135,7 @@ def topic_index() -> dict:
 def per_topic(db_path=None) -> list[dict]:
     """One row per (participant, topic) that has any event at all."""
     idx = topic_index()
+    frozen = _frozen_arms(db_path)
 
     # first occurrence of each event type, per pair. FIRST, not last: a student who
     # replays the activity after finishing the unit must not retro-actively turn a
@@ -118,8 +162,7 @@ def per_topic(db_path=None) -> list[dict]:
         else:
             played_first, basis = None, "post-check not sat"
 
-        arm = (schedule.arm_for(sid, idx[topic])
-               if topic in idx else None)
+        arm = _resolved_arm(sid, topic, idx.get(topic), frozen)
         out.append({
             "participant_id": sid,
             "topic_id": topic,
@@ -432,6 +475,7 @@ def questionnaire_by_arm(db_path=None) -> dict:
     applied here -- the raw mean is descriptive monitor colour; the codebook scores at
     analysis time (same principle as questionnaire_api storing raw responses)."""
     idx = topic_index()
+    frozen = _frozen_arms(db_path)
 
     def _cohort(name):
         rows, _ = enrolled_only(_meta_events([f"questionnaire_{name}"], db_path))
@@ -452,7 +496,7 @@ def questionnaire_by_arm(db_path=None) -> dict:
         tid = r["topic_id"]
         if tid not in idx:
             continue
-        arm = schedule.arm_for(r["participant_id"], idx[tid])
+        arm = _resolved_arm(r["participant_id"], tid, idx.get(tid), frozen)
         v = (r["meta"].get("answers") or {}).get("P1")
         if arm in bucket and isinstance(v, int) and not isinstance(v, bool):
             bucket[arm].append(v)
@@ -532,6 +576,7 @@ def retention_summary(db_path=None) -> dict:
     can still separate FLIP from CONTROL even when the immediate post-test cannot.
     Aggregate-only, no SID (test_measures.py asserts this like every slice here)."""
     idx = topic_index()
+    frozen = _frozen_arms(db_path)
     posttest_at: dict = {}
     retention: dict = {}
     for r in _rows(db_path):
@@ -543,7 +588,7 @@ def retention_summary(db_path=None) -> dict:
 
     rows = [
         {"participant_id": sid, "topic_id": topic, "score": v["score"],
-         "arm": schedule.arm_for(sid, idx[topic]) if topic in idx else None,
+         "arm": _resolved_arm(sid, topic, idx.get(topic), frozen),
          "weeks_since_post": _weeks_between(posttest_at.get((sid, topic)), v["at"])}
         for (sid, topic), v in retention.items()
     ]
@@ -581,6 +626,7 @@ def affect_recall_summary(db_path=None) -> dict:
     meaningful). Aggregate-only, raw means only -- no reverse-scoring here, same
     principle as questionnaire_api storing raw responses."""
     idx = topic_index()
+    frozen = _frozen_arms(db_path)
     rows, dropped = enrolled_only(_meta_events(["questionnaire_affect_recall"], db_path))
 
     ITEMS = ("AR1", "AR2", "AR3")
@@ -592,7 +638,7 @@ def affect_recall_summary(db_path=None) -> dict:
         tid = r["topic_id"]
         if tid not in idx:
             continue
-        arm = schedule.arm_for(r["participant_id"], idx[tid])
+        arm = _resolved_arm(r["participant_id"], tid, idx.get(tid), frozen)
         answers = r["meta"].get("answers") or {}
         for item_id in ITEMS:
             v = answers.get(item_id)
