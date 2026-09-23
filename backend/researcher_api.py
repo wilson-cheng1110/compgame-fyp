@@ -54,6 +54,7 @@ import auth_store
 import check_corpus_coverage
 import check_measurement_coverage
 import measures
+import ops
 import research_api
 import research_store
 import schedule
@@ -234,6 +235,25 @@ GRADES_DIR = os.environ.get(
     "GRADES_DIR",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reports", "grades"))
 
+# The OFFLINE reflection/help-seeking coding artifacts (code_batch.py's territory), read the
+# same way GRADES_DIR is read for paper 08 -- result-only, the human coding RUN stays offline.
+CODING_DIR = os.environ.get(
+    "CODING_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reports", "coding"))
+
+# A by-cell N below this is too thin to stand on its own as an estimate. The DV tables that can
+# be sparse (paper 05 population×arm gain, paper 09 psychophysics-by-arm) mark any such cell
+# inline with "⚠ low N" so an underpowered cell is visibly flagged, not silently read as a
+# finding. Only a cell that HAS data but too little is flagged (0 < n < LOW_N) -- an empty cell
+# already reads as "—" and needs no warning.
+LOW_N = 10
+
+
+def _low_n(n) -> str:
+    """The inline low-power marker for a thin by-cell N (appended to a string cell so the
+    numeric columns stay numeric for the generic table renderer). Empty string otherwise."""
+    return " ⚠ low N" if isinstance(n, int) and 0 < n < LOW_N else ""
+
 
 def _grades_report() -> Optional[dict]:
     """Grader reliability for paper 08, read from the OFFLINE grades dir -- NOT the sink.
@@ -268,6 +288,35 @@ def _grades_report() -> Optional[dict]:
     if latest is None and kappa is None:
         return None
     return {"kappa": kappa, "batch": latest}
+
+
+def _coding_report() -> Optional[dict]:
+    """Paper 03's coded-depth reliability, read from the OFFLINE coding dir -- NOT the sink.
+
+    Mirrors _grades_report()'s shape and discipline for the reflection/help-seeking coding pass
+    (code_batch.py). code_batch.py itself writes blind double-coding CSVs and, so far, only PRINTS
+    its per-axis Cohen's kappa (code_batch.kappa_report()); it does not yet persist a JSON. So the
+    format here is not finalised in code_batch -- this reads whatever code_batch DOCUMENTS: the
+    exact dict kappa_report() returns, persisted as a JSON under CODING_DIR (per-axis kappa +
+    each coder's code distribution). Returns the newest such blob, or None when no coding pass has
+    been persisted -- in which case paper 03 keeps its live-proxy 'pending' status, nothing is
+    fabricated. The human coding RUN stays entirely offline; this only surfaces a persisted result.
+    """
+    try:
+        files = [f for f in os.listdir(CODING_DIR) if f.endswith(".json")]
+    except OSError:
+        return None
+    for f in sorted(files, reverse=True):
+        try:
+            with open(os.path.join(CODING_DIR, f), encoding="utf-8") as fh:
+                blob = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        # A coding artifact is one that carries the per-axis kappa block. Anything else in the
+        # dir (a stray file) is skipped rather than mis-read as a reliability report.
+        if isinstance(blob, dict) and isinstance(blob.get("axes"), dict):
+            return blob
+    return None
 
 
 def _paper_slice(pid: str) -> dict:
@@ -475,6 +524,46 @@ def _paper_slice(pid: str) -> dict:
             stats.append({"label": "Mean per-turn latency", "value": f"{rs['mean_turn_latency_s']}s"})
 
         if pid.startswith("03"):
+            # The CODED-DEPTH result, read from the offline coding report when one exists
+            # (result-only; the two-human coding RUN stays offline in code_batch.py). Until then
+            # the engagement metrics above are the live proxy and the status stays 'proxy'
+            # (renders 'pending') — the depth κ is never fabricated as a number.
+            cr = _coding_report()
+            if cr:
+                axes = cr.get("axes") or {}
+                _axis_labels = {"reflection_depth": "Reflection depth (Axis A)",
+                                "help_seeking_style": "Help-seeking (Axis B)"}
+                for _key, _lab in _axis_labels.items():
+                    ax = axes.get(_key) or {}
+                    kv = ax.get("kappa")
+                    usable = ax.get("usable_ge_0_6")
+                    if usable is None and kv is not None:
+                        usable = kv >= 0.6
+                    stats.append({
+                        "label": f"{_lab} — Cohen's κ",
+                        "value": kv if kv is not None else "—",
+                        "sub": (f"n={ax.get('n')} · "
+                                + ("usable ≥0.6" if usable else "below 0.6 — descriptive only"))
+                        if kv is not None else "no rows coded on this axis",
+                    })
+                # The per-axis code distribution (each coder's counts) — aggregate-only, never a
+                # transcript or a SID. Rendered by the generic {columns, rows} table renderer.
+                dist_rows = []
+                for _key, _lab in _axis_labels.items():
+                    ax = axes.get(_key) or {}
+                    da = ax.get("distribution_a") or {}
+                    db = ax.get("distribution_b") or {}
+                    for code in sorted(set(da) | set(db)):
+                        dist_rows.append([_lab, code, da.get(code, 0), db.get(code, 0)])
+                table = ({"columns": ["Axis", "Code", "coder A", "coder B"], "rows": dist_rows}
+                         if dist_rows else None)
+                return env("Reflection ENGAGEMENT + gate outputs from the tutor transcripts PLUS "
+                           "the offline human double-coded DEPTH / help-seeking reliability — "
+                           "per-axis Cohen's κ + each coder's code distribution — read from the "
+                           "coding report (code_batch.py's persisted result).", "live", stats,
+                           "Coded depth (none/shallow/generative) is the primary construct; "
+                           "κ ≥ 0.6 is the usability bar. The two-human coding RUN stays offline — "
+                           "this only surfaces the persisted result.", table)
             return env("Reflection ENGAGEMENT + gate outputs from the tutor transcripts (turns, "
                        "counted turns, insight rate, end-reason split, turn quality, direct-answer "
                        "use) — the live proxy. Coded DEPTH is the offline code_batch.py human "
@@ -596,10 +685,12 @@ def _paper_slice(pid: str) -> dict:
             "sub": (f"interaction {gpa['interaction']}" if gpa["interaction"] is not None
                     else "interaction —"),
         })
+        # A thin (population, arm) cell is flagged inline (⚠ low N appended to the Arm cell, so
+        # the numeric columns stay numeric) — an underpowered gain is not silently trusted.
         table = {
             "columns": ["Population", "Arm", "n (pre+post)", "mean pre", "mean post", "⟨g⟩", "SD"],
-            "rows": [[c["population"], c["arm"], c["n"], c["pre_mean"], c["post_mean"],
-                      c["gain"], c["gain_sd"]] for c in gpa["cells"]],
+            "rows": [[c["population"], c["arm"] + _low_n(c["n"]), c["n"], c["pre_mean"],
+                      c["post_mean"], c["gain"], c["gain_sd"]] for c in gpa["cells"]],
         }
         return env("The cross-population INTERACTION DV: normalised gain ⟨g⟩ per (population, "
                    "arm) — does the flip effect (the FLIP−CONTROL gain gap) differ between UG "
@@ -636,6 +727,19 @@ def _paper_slice(pid: str) -> dict:
             {"label": "Enrolment by section", "value": enrol_line},
         ]
 
+        # BLINDED-GRADING evidence: this methods paper CLAIMS blinded short-answer grading but
+        # showed no number for it. Surface the OFFLINE grader reliability κ (the SAME _grades_report
+        # paper 08 reads) as a one-line stat — result-only; the grading RUN stays offline
+        # (grade_batch.py). "—/pending" when no real pass has been persisted; never fabricated.
+        _bg = (_grades_report() or {}).get("kappa") or {}
+        if _bg.get("kappa") is not None:
+            stats.append({"label": "Blinded grading — Cohen's κ", "value": _bg["kappa"],
+                          "sub": ("usable ≥0.6" if _bg.get("usable")
+                                  else "below 0.6 — descriptive only")})
+        else:
+            stats.append({"label": "Blinded grading — Cohen's κ", "value": "—",
+                          "sub": "pending — offline grade_batch.py --kappa not yet run"})
+
         # The per-topic arm-balance table _build_monitor already computes (mon["arms"]) but
         # this slice previously read only its coverage totals from. Compliance shown as a
         # RATE (complied/determinable) beside the count. Aggregate-only: counts per topic,
@@ -655,13 +759,31 @@ def _paper_slice(pid: str) -> dict:
                    "Compliance is complied/determinable per topic.", table)
 
     if pid == "08-small-local-model":
+        # THE DUAL ROLE. The paper's claim is the small local model is good enough as TUTOR *and*
+        # grader; only the grader half was ever shown. The tutor-serving half — how many tutor
+        # calls the model served, its p50 latency, and the model floor — comes from the in-process
+        # ops concurrency-gate counters (aggregate, no SID; the same numbers /api/health surfaces)
+        # and OLLAMA_LLM (read from env like grade_batch, so the heavy RAG stack need not import
+        # here). Shown in BOTH the pending and live branches — it does not depend on a grade pass.
+        _qs = ops.queue_stats()
+        tutor_stats = [
+            {"label": "Tutor served (this process)", "value": _qs["served"],
+             "sub": (f"{_qs['refused']} refused (gate saturated)" if _qs["refused"] else None)},
+            {"label": "Tutor p50 latency",
+             "value": f"{_qs['p50_seconds']}s" if _qs["p50_seconds"] is not None else "—",
+             "sub": f"≤{_qs['max_concurrent']} concurrent on the GPU gate"},
+            {"label": "Tutor model", "value": os.environ.get("OLLAMA_LLM", "gemma4:e4b")},
+        ]
         rep = _grades_report()
         if not rep:
-            return env("Grader reliability (Cohen's κ, level distribution, model, N) for the "
-                       "small local model, read from the OFFLINE grades report — not the sink.",
-                       "pending", [{"label": "Grader κ", "value": "—", "sub": "no grade pass yet"}],
-                       "Run grade_batch.py (a real pass) + --kappa against ~60 hand-coded "
-                       "answers; the panel then reads reports/grades/kappa.json.")
+            return env("The small local model's DUAL role: grader reliability (Cohen's κ, level "
+                       "distribution, N) read from the OFFLINE grades report — not the sink — AND "
+                       "its tutor-serving load (served count, p50 latency, model).",
+                       "pending",
+                       [{"label": "Grader κ", "value": "—", "sub": "no grade pass yet"}] + tutor_stats,
+                       "Grader side: run grade_batch.py (a real pass) + --kappa against ~60 "
+                       "hand-coded answers; the panel then reads reports/grades/kappa.json. Tutor "
+                       "side is live from the gate counters (per process).")
         k = rep.get("kappa") or {}
         batch = rep.get("batch") or {}
         summary = batch.get("summary") or {}
@@ -688,10 +810,11 @@ def _paper_slice(pid: str) -> dict:
                           s.get("none"), s.get("ungradeable"), s.get("full_pct")]
                          for t, s in sorted(summary.items())],
             }
-        return env("Grader reliability against a human coder (Cohen's κ) plus the by-topic "
-                   "grader level distribution, read from the offline grades report — the sink "
-                   "is never routed through a grader, preserving the blind boundary.",
-                   "live", stats,
+        return env("The small local model's DUAL role: grader reliability against a human coder "
+                   "(Cohen's κ) + the by-topic grader level distribution read from the offline "
+                   "grades report (the sink is never routed through a grader, preserving the blind "
+                   "boundary), AND its tutor-serving load — served count, p50 latency, model.",
+                   "live", stats + tutor_stats,
                    None if (k and k.get("usable")) else "κ below 0.6 (or unrun): report the "
                    "short-answer grades as descriptive colour, not a measure.", table)
 
@@ -732,7 +855,10 @@ def _paper_slice(pid: str) -> dict:
                                   ("fitts", schedule.FLIP), ("fitts", schedule.CONTROL),
                                   ("weber", schedule.FLIP), ("weber", schedule.CONTROL)):
                 side = gp[paradigm]["flip" if arm == schedule.FLIP else "control"]
-                rows.append([paradigm.capitalize(), arm, side["n"], _stat_for(paradigm, side)])
+                # A thin (paradigm, arm) cell is flagged inline (⚠ low N appended to the Statistic
+                # string) so an underpowered per-paradigm estimate is not silently trusted.
+                rows.append([paradigm.capitalize(), arm, side["n"],
+                             _stat_for(paradigm, side) + _low_n(side["n"])])
             table = {"columns": ["Paradigm", "Arm", "N", "Statistic"], "rows": rows}
         return env("Per-paradigm psychophysics DV split by assigned arm — Stroop congruency "
                    "delta, Hick RT×n_choices, Fitts MT by condition (distance/size), Weber JND — "

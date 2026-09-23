@@ -505,6 +505,123 @@ check("corpus.ok is False while a topic is uncovered", _corp["ok"] is False, _co
 for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z", "24TEACH01A", "24RSRCHR1A"):
     check(f"the health payload leaks no raw SID ({_leak})", _leak not in _h.text, _h.text[:160])
 
+print("\n-- SLICE FINISH P06: the RCT-methods paper surfaces the OFFLINE blinded-grading κ --")
+import shutil as _shutil   # for cleaning the synthetic offline dirs these blocks create (hygiene)
+# _rapi.GRADES_DIR currently points at the P08 synthetic dir, which has a BATCH report but NO
+# kappa.json, so the blinded-grading κ must read pending (—), never a fabricated number.
+_p06k = pi.get("/api/researcher/paper/06-classroom-rct-methods").json()
+_bgstat = next((s for s in _p06k["stats"] if s["label"] == "Blinded grading — Cohen's κ"), None)
+check("P06 carries a Blinded-grading κ stat", _bgstat is not None, [s["label"] for s in _p06k["stats"]])
+check("P06 blinded-grading κ is pending (—) with no persisted kappa.json",
+      _bgstat and _bgstat["value"] == "—" and "pending" in (_bgstat.get("sub") or ""), _bgstat)
+# Now place a synthetic OFFLINE kappa.json (grade_batch.py --kappa's persisted artifact) and
+# confirm the SAME stat surfaces the reliability number. RESTORE GRADES_DIR afterwards (hygiene).
+_saved_gd06 = _rapi.GRADES_DIR
+_gd06 = os.path.join(d, "grades06")
+try:
+    os.makedirs(_gd06, exist_ok=True)
+    with open(os.path.join(_gd06, "kappa.json"), "w", encoding="utf-8") as fh:
+        _json.dump({"generated": "20260101T000000Z", "model": "gemma4:e4b", "n": 60,
+                    "hand_coded": 60, "agreement": 0.9, "kappa": 0.74, "usable": True}, fh)
+    _rapi.GRADES_DIR = _gd06
+    _p06resp = pi.get("/api/researcher/paper/06-classroom-rct-methods")
+    _bg2 = next((s for s in _p06resp.json()["stats"]
+                 if s["label"] == "Blinded grading — Cohen's κ"), None)
+    check("P06 surfaces the persisted blinded-grading κ once a kappa.json exists",
+          _bg2 and _bg2["value"] == 0.74 and "usable" in (_bg2.get("sub") or ""), _bg2)
+    for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+        check(f"P06 blinding-κ leaks no raw SID ({_leak})", _leak not in _p06resp.text, _p06resp.text[:160])
+finally:
+    _rapi.GRADES_DIR = _saved_gd06
+    _shutil.rmtree(_gd06, ignore_errors=True)
+
+print("\n-- SLICE FINISH P08: the dual-role tutor-serving block (served/p50/model), aggregate-only --")
+# GRADES_DIR is restored to the synthetic BATCH dir, so P08 is 'live'; the tutor block rides on top.
+_p08resp = pi.get("/api/researcher/paper/08-small-local-model")
+_p08tj = _p08resp.json()
+_p08tl = [s["label"] for s in _p08tj["stats"]]
+check("P08 carries the tutor-serving stat block (served + p50 + model)",
+      {"Tutor served (this process)", "Tutor p50 latency", "Tutor model"} <= set(_p08tl), _p08tl)
+_tmodel = next(s for s in _p08tj["stats"] if s["label"] == "Tutor model")
+check("P08 tutor model reports the OLLAMA_LLM floor",
+      _tmodel["value"] == os.environ.get("OLLAMA_LLM", "gemma4:e4b"), _tmodel)
+_tserved = next(s for s in _p08tj["stats"] if s["label"] == "Tutor served (this process)")
+check("P08 tutor served is an integer count (aggregate, no SID)", isinstance(_tserved["value"], int), _tserved)
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"P08 tutor-serving leaks no raw SID ({_leak})", _leak not in _p08resp.text, _p08resp.text[:160])
+# The tutor block must appear even when NO grade pass exists (the pending branch), not only live.
+_saved_gd08 = _rapi.GRADES_DIR
+_gd08empty = os.path.join(d, "grades08empty")
+try:
+    os.makedirs(_gd08empty, exist_ok=True)
+    _rapi.GRADES_DIR = _gd08empty
+    _p08p = pi.get("/api/researcher/paper/08-small-local-model").json()
+    _p08pl = [s["label"] for s in _p08p["stats"]]
+    check("P08 tutor-serving block is present even in the pending (no-grades) branch",
+          _p08p["status"] == "pending"
+          and {"Tutor served (this process)", "Tutor model"} <= set(_p08pl), (_p08p["status"], _p08pl))
+finally:
+    _rapi.GRADES_DIR = _saved_gd08
+    _shutil.rmtree(_gd08empty, ignore_errors=True)
+
+print("\n-- SLICE FINISH P03: the OFFLINE coded-depth reader (result-only, per-axis κ + distribution) --")
+_saved_cd = _rapi.CODING_DIR
+_cd = os.path.join(d, "coding")
+_shutil.rmtree(_cd, ignore_errors=True)   # start clean: a leftover artifact from a prior run
+                                          # would wrongly flip the pending-first assertion to live
+try:
+    # No coding artifact yet -> P03 keeps its live-proxy 'proxy' status and has no coding table.
+    _rapi.CODING_DIR = _cd    # dir does not exist yet
+    _p03p = pi.get("/api/researcher/paper/03-reflection-help-seeking").json()
+    check("P03 keeps 'proxy' status with no coding table before any coding artifact",
+          _p03p["status"] == "proxy" and _p03p.get("table") is None, (_p03p["status"], _p03p.get("table")))
+    # Place a synthetic OFFLINE coding report (code_batch.kappa_report()'s shape) and confirm the
+    # per-axis κ + code-distribution table surface. The two-human coding RUN stays offline.
+    os.makedirs(_cd, exist_ok=True)
+    with open(os.path.join(_cd, "coding-20260101T000000Z.json"), "w", encoding="utf-8") as fh:
+        _json.dump({"generated": "20260101T000000Z", "n_common_tags": 12, "n_a": 12, "n_b": 12,
+                    "axes": {
+                        "reflection_depth": {"kappa": 0.71, "n": 12, "agreement": 0.83,
+                                             "usable_ge_0_6": True,
+                                             "distribution_a": {"shallow": 7, "generative": 5},
+                                             "distribution_b": {"shallow": 8, "generative": 4}},
+                        "help_seeking_style": {"kappa": 0.55, "n": 10, "agreement": 0.7,
+                                               "usable_ge_0_6": False,
+                                               "distribution_a": {"none": 6, "instrumental": 4},
+                                               "distribution_b": {"none": 5, "instrumental": 5}}}}, fh)
+    _p03resp = pi.get("/api/researcher/paper/03-reflection-help-seeking")
+    _p03rj = _p03resp.json()
+    _p03rl = [s["label"] for s in _p03rj["stats"]]
+    check("P03 flips to 'live' once a coding κ artifact exists", _p03rj["status"] == "live", _p03rj["status"])
+    check("P03 surfaces per-axis coded-depth κ once a coding artifact exists",
+          any("depth" in l.lower() and "κ" in l for l in _p03rl)
+          and any("help" in l.lower() and "κ" in l for l in _p03rl), _p03rl)
+    check("P03 returns the coded code-distribution table (Axis/Code/coder A/coder B)",
+          _p03rj.get("table") is not None
+          and _p03rj["table"]["columns"] == ["Axis", "Code", "coder A", "coder B"], _p03rj.get("table"))
+    check("the distribution table carries a reflection-depth generative row (coder A=5, coder B=4)",
+          any(r[1] == "generative" and r[2] == 5 and r[3] == 4 for r in _p03rj["table"]["rows"]),
+          [r for r in _p03rj["table"]["rows"] if r[1] == "generative"])
+    check("P03 still carries the reflection-gate outputs alongside the coded κ",
+          "Reached insight" in _p03rl, _p03rl)
+    for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+        check(f"P03 coded reader leaks no raw SID ({_leak})", _leak not in _p03resp.text, _p03resp.text[:160])
+finally:
+    _rapi.CODING_DIR = _saved_cd
+    _shutil.rmtree(_cd, ignore_errors=True)
+
+print("\n-- SLICE FINISH: low-N flag marks thin by-cell DV rows (P05 pop×arm, P09 psychophysics) --")
+# The synthetic data above made a UG (stroop) cell and Stroop-by-arm cells with n=1 (0 < n < LOW_N).
+_p05m = pi.get("/api/researcher/paper/05-cross-population-transfer").json()
+check("P05 marks a thin population×arm cell inline (⚠ low N in the row)",
+      any("low N" in str(c) for r in _p05m["table"]["rows"] for c in r), _p05m["table"]["rows"])
+_p09m = pi.get("/api/researcher/paper/09-game-psychophysics").json()
+check("P09 marks a thin psychophysics cell inline (⚠ low N in the row)",
+      any("low N" in str(c) for r in _p09m["table"]["rows"] for c in r), _p09m["table"]["rows"])
+# The marker rides in a STRING cell, so the numeric columns are untouched (generic renderer safe).
+check("P05 low-N marker does not touch the numeric n column (still an int)",
+      all(isinstance(r[2], int) for r in _p05m["table"]["rows"]), _p05m["table"]["rows"][:2])
+
 print("\n-- export is pseudonymised: the real SID never leaves --")
 j = pi.get("/api/researcher/export")
 check("export json is 200", j.status_code == 200, j.status_code)
