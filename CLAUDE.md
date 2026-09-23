@@ -340,7 +340,13 @@ allowlist became **OPTIONAL**. `backend/enrolled_sids.txt` is still gitignored �
   exist before the password did — both auth modules forbade it in their own docstrings. It cannot read answers
   or scores, return password material, or delete anything — **disable is a REVERSIBLE off switch** (blocks
   sign-in via all three gates: `resolve_session` / `start_session` / `create_account`, and keeps their data),
-  distinct from withdrawal, which is the study-exit tombstone.
+  distinct from withdrawal, which is the study-exit tombstone. **It can now also TRIGGER the offline blind
+  grading pass (2026-09-23, Wilson): `POST /api/admin/grade-run` → `backend/grade_runner.py` (admin-only,
+  rate-limited, single-flight, background daemon thread, audited on start), the affordance that was previously
+  shell-only.** This does NOT breach the blind boundary: it launches the SAME `grade_batch.run()` pass whose
+  blindness is structural (`grade.blind()` strips the FLIP/CONTROL arm and participant id before any prompt),
+  returns only `{ok, state}` (never a grade/answer/SID/arm), and the RESEARCHER surface still has no grading
+  route. Admin still cannot read answers/scores.
 - **Researcher panel** at `/researcher` (`backend/researcher_api.py`), gated on a session AND
   `backend/researcher_sids.txt` (gitignored; `.example` committed) — a SEPARATE allowlist from the teacher one,
   added 2026-09-05. This is where the manipulation lives: FLIP/CONTROL arm balance + compliance, coverage
