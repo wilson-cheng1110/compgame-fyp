@@ -189,6 +189,67 @@ def _arm_rows_to_freeze(conn: sqlite3.Connection, old_sid: str, idx_of: dict) ->
     return out
 
 
+def _sink_event_summary(conn_or_path) -> list[tuple[str, int, str]]:
+    """(event_type, count, last_seen) per event_type across the WHOLE research sink.
+
+    READ-ONLY and ADDITIVE -- this runs exactly one SELECT and writes nothing. It is
+    the same per-event-type census the /researcher coverage panel gives, surfaced here
+    so the dry run the operator must run anyway doubles as a sink integrity check: a
+    healthy, growing sink with ONE event_type silently writing nothing (the
+    2026-08-30 completion-events-loss class of bug) shows up as a type missing from
+    this list, or frozen at a stale last_seen.
+
+    AGGREGATE ONLY. The GROUP BY is over `event_type` alone and `participant_id` is
+    NEVER in the projection, so no per-participant row -- and no real SID -- can be
+    returned or printed from here. Do not add participant_id to this query.
+
+    Accepts either the migration's own connection (with the research DB ATTACHed as
+    `research`) or a bare path to a research DB (opened read-only for standalone use).
+    Returns [] if the events table is absent, so a partial/empty sink never raises.
+    """
+    own = isinstance(conn_or_path, (str, bytes, os.PathLike))
+    if own:
+        import pathlib
+        # Read-only URI (mode=ro): never creates the file, so a mistyped path errors
+        # instead of silently minting an empty sink. as_uri() percent-encodes spaces.
+        uri = pathlib.Path(os.fsdecode(conn_or_path)).absolute().as_uri() + "?mode=ro"
+        conn = sqlite3.connect(uri, uri=True)
+        table = "events"
+    else:
+        conn = conn_or_path
+        table = "research.events"
+    try:
+        rows = conn.execute(
+            "SELECT event_type, COUNT(*) AS n, MAX(server_ts) AS last_seen"
+            f" FROM {table} GROUP BY event_type ORDER BY n DESC"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        # No events table yet (a freshly-created / empty sink). Nothing to report.
+        return []
+    finally:
+        if own:
+            conn.close()
+    return [(et, n, last_seen) for (et, n, last_seen) in rows]
+
+
+def _print_sink_summary(rows: list[tuple[str, int, str]]) -> None:
+    """Print the read-only sink census as a clearly-labelled section.
+
+    AGGREGATE ONLY: prints event_type, count and last_seen -- never a participant_id.
+    """
+    print("\n=== RESEARCH SINK: events by type (read-only health readout) ===")
+    if not rows:
+        print("    (no events recorded in the sink -- nothing to report)")
+        return
+    width = max(len(str(et)) for et, _, _ in rows)
+    grand_total = sum(n for _, n, _ in rows)
+    overall_last = max((ls for _, _, ls in rows if ls), default=None)
+    for et, n, last_seen in rows:
+        print(f"    {str(et):<{width}}  n={n:<7} last_seen={last_seen}")
+    print(f"    {'TOTAL':<{width}}  n={grand_total:<7} last_seen={overall_last}")
+    print("    (aggregate only -- no participant_id is ever printed here)")
+
+
 def run(apply: bool) -> dict:
     """Report (and, with apply=True, perform) the migration. Returns a summary
     dict rather than only printing, so tests can assert on it directly.
@@ -210,7 +271,10 @@ def run(apply: bool) -> dict:
                   the point, not a bug, until someone resolves it by hand.
     """
     summary = {"found": 0, "remappable": [], "colliding": [], "migrated": 0,
-               "arm_rows_would_freeze": 0, "arm_rows_frozen": 0}
+               "arm_rows_would_freeze": 0, "arm_rows_frozen": 0,
+               # AGGREGATE-ONLY read-only census of the research sink (event_type ->
+               # count + last_seen). Never holds a participant_id. See _sink_event_summary.
+               "sink_event_summary": []}
 
     if not os.path.exists(AUTH_DB_PATH):
         print(f"[migrate] no auth DB at {AUTH_DB_PATH} -- nothing to do.")
@@ -226,6 +290,15 @@ def run(apply: bool) -> dict:
     try:
         if has_research:
             conn.execute("ATTACH DATABASE ? AS research", (RESEARCH_DB_PATH,))
+            # READ-ONLY sink health readout, printed on BOTH dry-run and --apply (it is
+            # pure reporting), so the dry run the operator must run anyway doubles as a
+            # research-sink integrity check. Runs before candidate discovery so it is
+            # emitted even when there are zero SIDs to migrate. Aggregate only.
+            sink_rows = _sink_event_summary(conn)
+            summary["sink_event_summary"] = [
+                {"event_type": et, "n": n, "last_seen": ls} for et, n, ls in sink_rows
+            ]
+            _print_sink_summary(sink_rows)
 
         candidates = _find_candidates(conn)
         summary["found"] = len(candidates)

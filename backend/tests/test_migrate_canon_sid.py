@@ -257,5 +257,40 @@ check("second --apply freezes nothing (already-migrated account is no longer a c
 check("no duplicate topic_arm_assigned row on the idempotent re-run",
       len(_arm_events()) == 1, _arm_events())
 
+print("\n-- the run ALSO prints a read-only, AGGREGATE-ONLY research-sink census --")
+# The sink now holds 2 topic_pretest rows (one migrated onto 12345678, one on 22334455)
+# and the 1 frozen topic_arm_assigned row -- a well-defined per-type distribution.
+import io as _io, contextlib as _ctx
+
+# (a) counts + last_seen via the standalone PATH form (opens the sink read-only itself).
+sink_rows = M._sink_event_summary(RESEARCH_DB)
+by_type = {et: (n, last_seen) for et, n, last_seen in sink_rows}
+check("census reports the correct topic_pretest count (2)",
+      by_type.get("topic_pretest", (None,))[0] == 2, by_type)
+check("census reports the correct topic_arm_assigned count (1)",
+      by_type.get("topic_arm_assigned", (None,))[0] == 1, by_type)
+check("every census row carries a last_seen timestamp",
+      bool(sink_rows) and all(last_seen for _, _, last_seen in sink_rows), sink_rows)
+
+# ...and the SAME aggregate numbers surface machine-readably in run()'s summary dict.
+summary4 = M.run(apply=False)
+sink_dict = {r["event_type"]: r for r in summary4["sink_event_summary"]}
+check("run()'s summary dict carries the aggregate sink census",
+      sink_dict.get("topic_pretest", {}).get("n") == 2
+      and sink_dict.get("topic_arm_assigned", {}).get("n") == 1, sink_dict)
+check("no census summary row exposes a participant_id key (aggregate only)",
+      all("participant_id" not in r for r in summary4["sink_event_summary"]),
+      summary4["sink_event_summary"])
+
+# (b) the PRINTED census section names NO participant_id / SID value.
+_buf = _io.StringIO()
+with _ctx.redirect_stdout(_buf):
+    M._print_sink_summary(sink_rows)
+sink_out = _buf.getvalue()
+check("the printed census is clearly labelled", "RESEARCH SINK: events by type" in sink_out, sink_out)
+_synthetic_sids = ["12345678", "12345678D", "22334455", "22334455E", "87654321"]
+_leaked = [s for s in _synthetic_sids if s in sink_out]
+check("the census output leaks NO participant_id / SID value (aggregate only)", _leaked == [], _leaked)
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)
