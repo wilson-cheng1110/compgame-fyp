@@ -417,17 +417,37 @@ def enrolled_only(rows, key="participant_id"):
 
     The real fix is to point the suite at its own files. This is the guard for data
     already mixed, and the reason `--enrolled` exists on both scripts.
+
+    EXPLICIT EXCLUSION LIST (auth_store.excluded_sids). Layered ON TOP of the roster and
+    applied REGARDLESS of roster state: any row whose canonical participant_id is on the
+    deny-list is dropped whether or not a roster is active. This is what cleans the known
+    test/e2e/prod-UAT streams out of the ROSTER-OFF live deployment, where the roster
+    filter below never fires. Matched on the canonical (_canon_sid) key so a stream under
+    either the numeric or the check-letter form of an excluded SID is dropped. Empty list
+    (the default) drops nothing, so behaviour is unchanged until it is populated.
     """
     try:
         import auth_store
         auth_store._refresh_enrolment()
         roster = set(auth_store._enrolment)
+        excluded = auth_store.excluded_sids()
+        canon = auth_store._canon_sid
     except Exception:
         return rows, None
+
+    n_in = len(rows)
+    # Roster-independent test-traffic exclusion FIRST, so it applies even with no roster.
+    if excluded:
+        rows = [r for r in rows if canon(r[key] or "") not in excluded]
+
     if not roster:
-        return rows, None
+        # No roster: report a drop count only if the exclusion list actually removed a
+        # row, else None -- preserving the historical "no filtering happened" signal.
+        dropped = n_in - len(rows)
+        return rows, (dropped or None)
+
     keep = [r for r in rows if (r[key] or "").strip().upper() in roster]
-    return keep, len(rows) - len(keep)
+    return keep, n_in - len(keep)
 
 
 def coverage(db_path=None) -> dict:

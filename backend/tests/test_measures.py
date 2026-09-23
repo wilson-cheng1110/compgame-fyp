@@ -613,6 +613,63 @@ for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A", MIGN,
              "24REFL01A", "24ASK01A", "24ASK02A", "24EFF01A", "24EFF02A", "24TEL001A", "24X0001A"):
     check(f"{_sid} does not appear in any slice", _sid not in _blob, _blob[:200])
 
+print("\n-- EXCLUDED SIDS: test-traffic deny-list drops rows from every measure, roster-OFF --")
+# The roster is OFF here (ENROLMENT_PATH points nowhere), so this proves the exclusion is
+# ROSTER-INDEPENDENT -- the property that makes it work on the live roster-off box. A fresh,
+# isolated sink so the carefully-counted assertions above are untouched. Four demographics
+# streams: an excluded SID under BOTH the numeric and its check-letter form (one canonical
+# person, listed by the numeric form), a second excluded SID (listed by its CHECK-LETTER
+# form but recorded under the numeric form), and one genuinely-present control.
+import auth_store as _AS
+_excldb = os.path.join(tmp, "excl.db")
+_xc = sqlite3.connect(_excldb); _xc.execute(DDL)
+for _sid, _age in (("70000001", "20"),    # excluded via the numeric list entry
+                   ("70000001D", "21"),   # its check-letter twin -> same canonical key
+                   ("80000002", "22"),    # excluded via a CHECK-LETTER list entry (80000002D)
+                   ("24REAL001A", "23")):  # NOT excluded (letter not the 9th char -> kept)
+    _xc.execute("INSERT INTO events (participant_id, event_type, topic_id, server_ts, meta)"
+                " VALUES (?,?,?,?,?)",
+                (_sid, "questionnaire_demographics", None, "2026-09-12T09:00:00+00:00",
+                 _json.dumps({"answers": {"AGE": _age}})))
+_xc.commit(); _xc.close()
+
+_saved_excl_env = os.environ.pop("EXCLUDED_SIDS_PATH", None)
+_saved_excl_cache = (_AS._excluded, _AS._excluded_key)
+try:
+    # DEFAULT / no file: point at a path that does not exist -> empty set -> nothing dropped.
+    os.environ["EXCLUDED_SIDS_PATH"] = os.path.join(tmp, "no_such_excluded.txt")
+    _AS._excluded, _AS._excluded_key = set(), None
+    check("no exclusion file -> the excluded set is empty (default no-op)",
+          _AS.excluded_sids() == set(), _AS.excluded_sids())
+    _dem_default = measures.demographics_summary(_excldb)
+    check("default: all four streams are counted, nothing dropped",
+          _dem_default["n"] == 4 and _dem_default["test_traffic_excluded"] is None, _dem_default)
+
+    # Now populate the list: numeric 70000001 (drops its 70000001D twin too) and the
+    # check-letter 80000002D (drops the numeric-form 80000002 row).
+    _excl_path = os.path.join(tmp, "excluded.txt")
+    with open(_excl_path, "w", encoding="utf-8") as fh:
+        fh.write("# synthetic test-traffic exclusion\n70000001\n80000002D  # check-letter form\n")
+    os.environ["EXCLUDED_SIDS_PATH"] = _excl_path
+    _AS._excluded, _AS._excluded_key = set(), None   # invalidate the cache for the new path
+    check("both forms canonicalise onto the excluded set",
+          _AS.excluded_sids() == {"70000001", "80000002"}, _AS.excluded_sids())
+    _dem_excl = measures.demographics_summary(_excldb)
+    check("exclusion drops the three excluded rows, leaving only the control person",
+          _dem_excl["n"] == 1 and _dem_excl["test_traffic_excluded"] == 3, _dem_excl)
+    # The kept AGE is the control's (23); the excluded ages (20/21/22) are gone.
+    _age_item = next(i for i in _dem_excl["items"] if i["id"] == "AGE")
+    check("the surviving row is the non-excluded control (AGE 23), not a test stream",
+          _age_item["min"] == 23 and _age_item["max"] == 23 and _age_item["answered"] == 1, _age_item)
+    check("a numeric LIST entry drops a check-letter ROW (canonical exclusion, both ways)",
+          "70000001" not in _json.dumps(_dem_excl) and "70000001D" not in _json.dumps(_dem_excl))
+finally:
+    if _saved_excl_env is None:
+        os.environ.pop("EXCLUDED_SIDS_PATH", None)
+    else:
+        os.environ["EXCLUDED_SIDS_PATH"] = _saved_excl_env
+    _AS._excluded, _AS._excluded_key = _saved_excl_cache
+
 conn.close()
 shutil.rmtree(tmp, ignore_errors=True)
 print(f"\n{ok} passed, {fail} failed")

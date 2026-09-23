@@ -1,0 +1,21 @@
+# Test-traffic exclusion list. One SID per line; everything after # is a comment.
+# Copy to excluded_sids.txt (gitignored) and fill in the real ones at deploy time.
+#
+# These SIDs are DROPPED from every researcher measure AND from the pseudonymised
+# export -- non-real participant streams (prod-UAT rehearsals, e2e runs, hand-seeded
+# test rows) that would otherwise pollute the analysis and the dashboards.
+#
+# Unlike enrolled_sids.txt (an ALLOW-list that only filters when it is populated and
+# a roster is active), this is a DENY-list that applies WHENEVER it names anyone,
+# regardless of roster state -- which is what lets it clean test traffic out of the
+# roster-off live deployment. Absent/empty file => nothing is excluded (the default).
+#
+# Matching is by canonical SID (the same _canon_sid rule as everywhere else), so a
+# stream recorded under EITHER the numeric or the check-letter form of one SID is
+# excluded by naming either form here.
+#
+# Populate from a box query at the Saturday deploy (the ~6 excess prod-UAT
+# participant_ids + the 2 test questionnaire_feedback streams). Examples:
+#
+# 12345678    # prod-UAT rehearsal account (numeric form)
+# 87654321D   # e2e smoke-test stream (check-letter form -- folds to 87654321)

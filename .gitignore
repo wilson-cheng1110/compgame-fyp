@@ -52,6 +52,9 @@ backend/enrolled_sids.txt
 backend/admin_sids.txt
 # Researcher (PI) allowlist -- names real people; the .example is committed, this is not.
 backend/researcher_sids.txt
+# Test-traffic exclusion list -- names real SIDs (non-participant streams to drop from
+# the measures + export); the .example is committed, this is not.
+backend/excluded_sids.txt
 # HMAC key for participant pseudonyms. Must be backed up OFF this machine —
 # lose it and no future export can be joined to any past one — but never to git,
 # or the pseudonyms in the export are trivially reversible back to SIDs.

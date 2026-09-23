@@ -326,6 +326,64 @@ def is_staff(sid: str) -> bool:
     return is_admin(sid) or is_researcher(sid)
 
 
+# ── excluded-SID list (explicit test-traffic exclusion) ───────────────────────
+#
+# An explicit, ROSTER-INDEPENDENT deny-list of non-real participant streams (prod-UAT
+# rehearsals, e2e runs, hand-seeded test rows) that must be dropped from every research
+# measure AND from the pseudonymised export. Same house pattern as the enrolment / admin
+# / researcher lists: one SID per line, `#` comments, re-read on mtime, canonicalised
+# through _canon_sid so a stream recorded under EITHER the numeric or the check-letter
+# form of one SID is excluded by naming either form.
+#
+# WHY A SEPARATE LIST FROM THE ROSTER. enrolled_sids is an ALLOW-list that only filters
+# when it is populated (roster_active) -- and it is OFF on the live deployment, so it
+# cleans nothing there. This is a DENY-list that applies WHENEVER it names anyone,
+# regardless of roster state, which is exactly what lets it strip test traffic out of a
+# roster-off box. Absent/empty file => empty set => nothing is dropped (the default), so
+# behaviour is unchanged until the list is populated.
+#
+# The path is resolved from the environment on EVERY refresh (not frozen at import) so an
+# operator -- or a test -- can point it elsewhere at runtime; the cache is keyed on
+# (path, mtime) so a path change invalidates it just like a file change does.
+
+_DEFAULT_EXCLUDED_PATH = os.path.join(_HERE, "excluded_sids.txt")
+_excluded: set[str] = set()
+_excluded_key: tuple | None = None   # (path, mtime) the cached set was loaded from
+
+
+def excluded_sids() -> set:
+    """Canonical SIDs to DROP from every research measure and the pseudonymised export.
+
+    Returns a set of canonical (`_canon_sid`) keys -- compared internally only, never
+    returned to a client. Empty when the file is absent (the default), so nothing changes
+    until the list is populated. Re-read on mtime like the other allowlists; the path is
+    `EXCLUDED_SIDS_PATH` (default `backend/excluded_sids.txt`, gitignored).
+    """
+    global _excluded, _excluded_key
+    path = os.environ.get("EXCLUDED_SIDS_PATH", _DEFAULT_EXCLUDED_PATH)
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        # Absent file == no exclusions. Cache the absence keyed on (path, None) so a
+        # later-created file (mtime appears) is picked up, and a path change re-checks.
+        key = (path, None)
+        if key != _excluded_key:
+            with _lock:
+                _excluded, _excluded_key = set(), key
+        return _excluded
+    key = (path, mtime)
+    if key != _excluded_key:
+        parsed: set[str] = set()
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.split("#", 1)[0].strip()
+                if line:
+                    parsed.add(_canon_sid(line.split(",")[0]))
+        with _lock:
+            _excluded, _excluded_key = parsed, key
+    return _excluded
+
+
 # -- passwords ----------------------------------------------------------------
 
 def hash_password(password: str, salt: bytes | None = None) -> tuple[bytes, bytes]:

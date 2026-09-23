@@ -203,5 +203,66 @@ _, cr4 = research_store.record_event_status(
     {"participant_id": "24C1TEST", "event_type": "understanding_complete", "topic_id": "memory"})
 check("a repeatable event always reports created=True", cr3 is True and cr4 is True, (cr3, cr4))
 
+print("\n-- EXCLUDED SIDS: test-traffic deny-list drops from the pseudonymised export --")
+# Seed real events for synthetic test streams, recorded under BOTH the numeric and the
+# check-letter form of one SID (one canonical person) plus a second SID recorded under its
+# numeric form -- exclusion is by CANONICAL key, so naming either form on the list drops
+# every stream that canonicalises to it. EXPORT_TOKEN is already set above, so the token
+# export path is exercised too (it shares pseudonymised_rows with /api/researcher/export).
+research_store.record_event({"participant_id": "71000001", "event_type": "topic_pretest",
+                             "topic_id": "memory", "score": 1})
+research_store.record_event({"participant_id": "71000001D", "event_type": "topic_posttest",
+                             "topic_id": "memory", "score": 2})   # check-letter twin
+research_store.record_event({"participant_id": "81000002", "event_type": "topic_pretest",
+                             "topic_id": "memory", "score": 3})   # excluded via a letter list entry
+_pseudo_71 = auth_store.pseudonym("71000001")     # == pseudonym("71000001D") (canonicalised)
+_pseudo_81 = auth_store.pseudonym("81000002")
+_pseudo_real = auth_store.pseudonym("24000001")   # the genuine session participant
+
+_saved_excl_env = os.environ.pop("EXCLUDED_SIDS_PATH", None)
+_saved_excl_cache = (auth_store._excluded, auth_store._excluded_key)
+try:
+    # DEFAULT / no file: point at a non-existent path -> empty set -> nothing dropped.
+    os.environ["EXCLUDED_SIDS_PATH"] = os.path.join(d, "no_such_excluded.txt")
+    auth_store._excluded, auth_store._excluded_key = set(), None
+    check("no exclusion file -> excluded set empty (default no-op)",
+          auth_store.excluded_sids() == set(), auth_store.excluded_sids())
+    _blob_default = json.dumps(research_api.pseudonymised_rows())
+    check("default: both test streams are present in the export (as pseudonyms)",
+          _pseudo_71 in _blob_default and _pseudo_81 in _blob_default, "streams missing pre-exclusion")
+
+    # Populate the list: numeric 71000001 (drops its 71000001D twin too) and the
+    # check-letter 81000002D (drops the numeric-form 81000002 row).
+    _excl_path = os.path.join(d, "excluded.txt")
+    with open(_excl_path, "w", encoding="utf-8") as fh:
+        fh.write("# synthetic test-traffic exclusion\n71000001\n81000002D  # check-letter form\n")
+    os.environ["EXCLUDED_SIDS_PATH"] = _excl_path
+    auth_store._excluded, auth_store._excluded_key = set(), None   # invalidate for the new path
+    check("both forms canonicalise onto the excluded set",
+          auth_store.excluded_sids() == {"71000001", "81000002"}, auth_store.excluded_sids())
+
+    _blob_excl = json.dumps(research_api.pseudonymised_rows())
+    check("the numeric-listed SID's rows are gone (its pseudonym absent) -- and so is its "
+          "check-letter twin, since both share one canonical pseudonym",
+          _pseudo_71 not in _blob_excl, "71000001 still exported")
+    check("a check-letter LIST entry drops the numeric-form ROW (canonical exclusion, both ways)",
+          _pseudo_81 not in _blob_excl, "81000002 still exported")
+    check("a genuine participant is UNTOUCHED by the exclusion",
+          _pseudo_real in _blob_excl, "the real session participant was dropped")
+    # The token export endpoint shares the SAME boundary, so it must agree.
+    _export = c.get("/api/research/export", headers={"X-Export-Token": "s3cret-token"}).text
+    check("the token export drops the excluded streams too (shared pseudonymised_rows)",
+          _pseudo_71 not in _export and _pseudo_81 not in _export, "export still names them")
+    check("...while still exporting the genuine participant", _pseudo_real in _export, "real dropped")
+    # No raw SID leaks either way (belt and braces on the deny-list path).
+    check("no raw excluded SID appears in the excluded export",
+          "71000001" not in _export and "81000002" not in _export, "raw SID leaked")
+finally:
+    if _saved_excl_env is None:
+        os.environ.pop("EXCLUDED_SIDS_PATH", None)
+    else:
+        os.environ["EXCLUDED_SIDS_PATH"] = _saved_excl_env
+    auth_store._excluded, auth_store._excluded_key = _saved_excl_cache
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

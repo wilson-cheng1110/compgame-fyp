@@ -71,13 +71,25 @@ EXPORT_COLUMNS = [
 #     promise by default, whoever triggered it.
 
 def pseudonymised_rows() -> list[dict]:
-    """Every event, withdrawn participants dropped, participant_id pseudonymised."""
+    """Every event, withdrawn AND explicitly-excluded participants dropped,
+    participant_id pseudonymised.
+
+    Two exclusions, both here so every export honours them by default:
+      * WITHDRAWN -- the consent-form promise (see the block above).
+      * TEST-TRAFFIC -- the roster-independent deny-list (auth_store.excluded_sids),
+        matched on the canonical (_canon_sid) key so a stream under either the numeric or
+        the check-letter form of an excluded SID is dropped. Keeps the export in step with
+        the researcher dashboards, which drop the same ids via measures.enrolled_only.
+    """
     withdrawn = auth_store.withdrawn_sids()
+    excluded = auth_store.excluded_sids()
     rows = []
     for r in research_store.fetch_all():
         row = dict(r)
         sid = row.get("participant_id")
         if sid in withdrawn:
+            continue
+        if excluded and auth_store._canon_sid(sid or "") in excluded:
             continue
         row["participant_id"] = auth_store.pseudonym(sid) if sid else None
         rows.append(row)
