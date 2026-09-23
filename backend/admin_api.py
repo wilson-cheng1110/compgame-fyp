@@ -57,6 +57,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import auth_store
+import grade_runner
 import ops
 import schedule
 
@@ -94,6 +95,12 @@ class DisableChange(BaseModel):
 class UsernameChange(BaseModel):
     sid: str
     username: str
+
+
+class GradeRun(BaseModel):
+    # Optional: grade one topic, else the whole batch. Validated against the schedule
+    # before it reaches grade_batch -- an unchecked string never flows into a run.
+    topic: str | None = None
 
 
 MESSAGES = {
@@ -504,3 +511,66 @@ async def generate_report(body: GenerateReport, response: Response,
                 "message": (proc.stderr or proc.stdout or "").strip()[-300:]}
     auth_store.audit(sid, "generate_deck", None, f"{topic}/{section}")
     return {"ok": True, "topic": topic, "section": section}
+
+
+# ── trigger the blind short-answer grading pass ───────────────────────────────
+#
+# The teacher can RUN the offline blind grade_batch pass from here, instead of ssh +
+# a shell. The affordance the sweep found missing: grading is genuinely offline by
+# design, but the only way to launch it was a terminal on the box.
+#
+# WHY THIS DOES NOT BREACH THE BLIND-GRADING BOUNDARY. The rule (CLAUDE.md, docs Part
+# 8.2) is that grading must not run on the RESEARCHER surface, because that surface can
+# see each student's FLIP/CONTROL arm and a grader that knows the arm inflates the
+# post-test -- manufacturing the very gain the study exists to detect. This route is on
+# the ADMIN (teacher) surface, which is BLIND to arms, and it launches the SAME
+# grade_batch pass whose blindness is structural: grade.blind() strips the arm and the
+# participant id before any prompt is built, so neither this route nor grade_runner can
+# hand an arm to the grader. Critically, this route can only START the pass -- it reads
+# NOTHING back. It returns a bare {ok, state} envelope; no grade, answer, SID or arm can
+# leave through it. The report is written to reports/grades exactly as the CLI writes
+# it, and stays there for the offline tooling that already owns that boundary.
+
+
+@router.post("/grade-run")
+async def grade_run(body: GradeRun, response: Response,
+                    session: str | None = Cookie(default=None)):
+    """Launch the OFFLINE, arm-BLIND short-answer grading pass in the background.
+
+    Guardrails:
+      * ADMIN session required -- a valid session AND admin_sids.txt, exactly like every
+        mutation here (401 without a session, 403 without the allowlist). The RESEARCHER
+        list is NOT consulted: grading stays off the researcher surface by design.
+      * Rate-limited (ops.allow) AND single-flight (grade_runner): a rapid second trigger
+        starts nothing -- it is throttled, or told the run is already_running.
+      * Off the event loop: grade_runner spawns a daemon thread and this returns at once,
+        so a heavy pass never blocks the cohort-facing server.
+      * Audited to admin_audit on every ACCEPTED (started) trigger.
+      * Returns ONLY {ok, state} -- never a grade, answer, SID or arm.
+    """
+    sid, err = _admin(session, response)
+    if err:
+        return err
+
+    # Validate an optional topic against the real schedule BEFORE it reaches grade_batch
+    # -- never flow an unchecked string into a run. Empty/absent means the whole batch.
+    topic = (body.topic or "").strip() or None
+    if topic is not None and topic not in schedule.session_grid_topics():
+        response.status_code = 400
+        return {"error": "unknown_topic"}
+
+    # A modest cap. The pass is heavy and nobody waits on it, so ~one launch per minute
+    # per teacher is ample; single-flight below is the real guard, this just stops a
+    # stuck client hammering the button.
+    if not ops.allow(f"grade-run:{sid}", per_minute=1, burst=1):
+        response.status_code = 429
+        return {"error": "too_many_requests",
+                "message": "A grading run was just triggered — give it a moment."}
+
+    # grade_runner is single-flight: a second call while one is in flight returns
+    # "already_running" and launches nothing. We audit only a trigger that actually
+    # STARTED a pass -- an already_running reply changed nothing to log.
+    state = grade_runner.start(topic=topic)
+    if state == "started":
+        auth_store.audit(sid, "grade_run", None, topic or "all")
+    return {"ok": True, "state": state}

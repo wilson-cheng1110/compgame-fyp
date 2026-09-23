@@ -7,14 +7,20 @@ with open(os.path.join(d, "enrolled.txt"), "w", encoding="utf-8") as fh:
     fh.write("24TEACH01A,A\n24STUDENT1B,B\n24STUDENT2C,C\n")
 with open(os.path.join(d, "admins.txt"), "w", encoding="utf-8") as fh:
     fh.write("# the course team\n24TEACH01A   # Dr Example\n")
+# A researcher who is NOT an admin, to prove the grade-run route consults ONLY the admin
+# allowlist (a real researcher is still refused). Separate file from the admin one.
+with open(os.path.join(d, "researchers.txt"), "w", encoding="utf-8") as fh:
+    fh.write("24RSRCH88Z\n")
 os.environ.update({
     "AUTH_DB_PATH": os.path.join(d, "a.db"), "RESEARCH_DB_PATH": os.path.join(d, "r.db"),
     "ENROLMENT_PATH": os.path.join(d, "enrolled.txt"),
     "ADMIN_PATH": os.path.join(d, "admins.txt"),
+    "RESEARCHER_PATH": os.path.join(d, "researchers.txt"),
     "PARTICIPANT_SECRET_PATH": os.path.join(d, ".secret"),
     "TOPIC_SCHEDULE_PATH": os.path.join(BE, "topic_schedule.json"),
     "COOKIE_SECURE": "0", "TELEMETRY_ENABLED": "0",
     "REPORTS_DIR": os.path.join(d, "reports"),   # a throwaway reports tree for the blinding test
+    "GRADES_DIR": os.path.join(d, "grades"),     # throwaway grades tree for the grade-run test
 })
 for f in ("a.db", "r.db", ".secret"):
     p = os.path.join(d, f)
@@ -208,6 +214,119 @@ check("a student cannot rename anyone (403)",
       nonadmin.post("/api/admin/username", json={"sid": "24STUDENT2C", "username": "x"}).status_code == 403)
 _acts = {e["action"] for e in teacher.get("/api/admin/audit").json()["entries"]}
 check("disable + username edits were audited", {"set_disabled", "set_username"} <= _acts, _acts)
+
+print("\n-- POST /api/admin/grade-run: guardrailed trigger for the OFFLINE blind grade_batch pass --")
+import threading as _threading
+import grade, grade_batch, grade_runner
+import ops as _ops
+
+# A synthetic short answer in the sink, tagged with an ARM and a recognisable SID, so we
+# can prove that NEITHER reaches the grader NOR the HTTP response. The participant is a
+# plain student SID -- a staff SID would be dropped by research_store.record_event.
+SYN_SID = "24GRADEE9Z"
+SYN_ARM = "FLIP"
+SYN_ANSWER = "A bigger closer target is faster to hit because the movement time falls."
+research_store.record_event({
+    "participant_id": SYN_SID, "event_type": "topic_probe", "topic_id": "fitts-law",
+    "meta": {"answer": SYN_ANSWER, "arm": SYN_ARM, "form": "pre"},
+})
+
+# ---- guardrail 1: ONLY an admin may trigger it ----
+check("grade-run: an anonymous caller has no session (401)",
+      anon.post("/api/admin/grade-run", json={}).status_code == 401)
+check("grade-run: a signed-in STUDENT is refused (403)",
+      nonadmin.post("/api/admin/grade-run", json={}).status_code == 403)
+# A researcher who is NOT an admin: the route consults ONLY the admin allowlist, so a
+# genuine researcher is refused exactly like a student -- grading stays off their surface.
+researcher = TestClient(app)
+researcher.post("/api/auth/signup", json={"sid": "24RSRCH88Z", "password": PW, "section": "A"})
+check("grade-run: that account really is a researcher and NOT an admin",
+      auth_store.is_researcher("24RSRCH88Z") is True and auth_store.is_admin("24RSRCH88Z") is False)
+check("grade-run: a researcher-but-not-admin is refused (403)",
+      researcher.post("/api/admin/grade-run", json={}).status_code == 403)
+check("grade-run: refusal shape matches the other admin routes (not_admin)",
+      researcher.post("/api/admin/grade-run", json={}).json().get("error") == "not_admin")
+
+# ---- guardrails 2/4/5: an ACCEPTED trigger runs the REAL blind path (LLM stubbed) ----
+# Stub the grading call so no real Ollama runs. It records exactly what it was handed, so
+# we can assert the grader was invoked ARM-BLIND (answer-only, never an arm).
+_orig_grade_answer = grade.grade_answer
+_seen = []
+def _spy(*a, **k):
+    _seen.append((a, k))
+    return {"level": "full", "evidence": "movement time falls", "rubric_hit": [],
+            "evidence_verbatim": True, "parse_ok": True, "ungradeable_reason": None, "llm": True}
+try:
+    grade.grade_answer = _spy
+    _ops._buckets.clear()                                  # ensure a rate-limit token is free
+    r = teacher.post("/api/admin/grade-run", json={})
+    check("grade-run: the teacher's trigger is accepted (200 started)",
+          r.status_code == 200 and r.json().get("state") == "started", r.text)
+    grade_runner.join(timeout=15)                          # wait for the background pass
+    check("grade-run: the blind pass reached the grader exactly once", len(_seen) == 1, _seen)
+    _args, _kw = (_seen[0] if _seen else ((), {}))
+    # guardrail 5: the grader was called (topic_id, answer) ONLY -- no arm anywhere.
+    check("grade-run: grader got exactly (topic_id, answer), no kwargs, so no arm",
+          len(_args) == 2 and _kw == {}, (_args, _kw))
+    check("grade-run: no FLIP/CONTROL arm string reached the grader",
+          SYN_ARM not in str(_args) and "CONTROL" not in str(_args), _args)
+    check("grade-run: the answer DID flow to the grader (blind, not empty)",
+          any(SYN_ANSWER in str(x) for x in _args))
+    # guardrail 4: the RESPONSE body carries no SID, answer, grade or arm.
+    _body = r.text
+    check("grade-run: response body has no SID", SYN_SID not in _body, _body)
+    check("grade-run: response body has no arm/condition",
+          "FLIP" not in _body and "CONTROL" not in _body and "arm" not in _body, _body)
+    check("grade-run: response body has no answer text or grade level",
+          SYN_ANSWER not in _body and "full" not in _body and "level" not in _body, _body)
+finally:
+    grade.grade_answer = _orig_grade_answer                # RESTORE no matter what
+check("grade-run: the monkeypatch was restored", grade.grade_answer is _orig_grade_answer)
+
+# guardrail 2: the accepted trigger was audited.
+_ga = [e for e in teacher.get("/api/admin/audit").json()["entries"] if e["action"] == "grade_run"]
+check("grade-run: an accepted trigger writes exactly one admin_audit row", len(_ga) == 1, _ga)
+check("grade-run: the audit names the teacher who triggered it",
+      bool(_ga) and _ga[0]["admin_sid"] == "24TEACH01A", _ga)
+
+# ---- guardrail 3: single-flight + rate-limit -- a rapid second trigger starts NOTHING ----
+_gate = _threading.Event()
+_calls = []
+def _blocking(*a, **k):
+    _calls.append((a, k))
+    _gate.wait(15)                                         # hold the pass open
+    return {"level": "none", "evidence": "", "rubric_hit": [],
+            "evidence_verbatim": None, "parse_ok": True, "ungradeable_reason": None, "llm": True}
+_orig2 = grade.grade_answer
+try:
+    grade.grade_answer = _blocking
+    _ops._buckets.clear()                                  # give the FIRST trigger its token
+    r1 = teacher.post("/api/admin/grade-run", json={})
+    check("grade-run: the first trigger starts a run (200 started)",
+          r1.status_code == 200 and r1.json().get("state") == "started", r1.text)
+    # HTTP: a rapid SECOND trigger is throttled (burst spent) -> 429, and start()s nothing.
+    r2 = teacher.post("/api/admin/grade-run", json={})
+    check("grade-run: a rapid second HTTP trigger is refused (429 throttled)",
+          r2.status_code == 429, r2.text)
+    # Runner: a DIRECT second start() while one is in flight is single-flight-refused,
+    # independent of the rate limit, and launches no second thread.
+    check("grade-run: single-flight -- start() returns already_running mid-run",
+          grade_runner.start() == "already_running")
+    check("grade-run: a run really is in flight", grade_runner.is_running() is True)
+finally:
+    _gate.set()                                            # release the held pass
+    grade_runner.join(timeout=15)
+    grade.grade_answer = _orig2                            # RESTORE
+check("grade-run: exactly ONE run executed despite three triggers", len(_calls) == 1, _calls)
+check("grade-run: the runner is idle again once the pass finished",
+      grade_runner.is_running() is False)
+
+# ---- an unknown topic is refused BEFORE any run is launched ----
+_ops._buckets.clear()
+_before = len(_calls)
+check("grade-run: an unknown topic is refused (400)",
+      teacher.post("/api/admin/grade-run", json={"topic": "not-a-real-topic"}).status_code == 400)
+check("grade-run: the refused topic launched no run", len(_calls) == _before)
 
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)

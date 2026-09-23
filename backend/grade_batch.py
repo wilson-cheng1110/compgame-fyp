@@ -177,6 +177,46 @@ def summarise(joined: list[dict]) -> dict:
     return by_topic
 
 
+def run(topic: str | None = None, seed: str = "compgame",
+        dry: bool = False, resume: bool = False) -> dict:
+    """The blind grading pass as an importable call -- the SAME collect -> grade.blind
+    -> run_batch -> summarise -> write path `main()` runs from the CLI, so an admin
+    trigger and a 3am shell launch execute identical grading.
+
+    It adds NO grading logic of its own: the judgement lives in grade.py, unchanged,
+    and blindness is structural -- run_batch grades through grade.blind(), which strips
+    the FLIP/CONTROL arm and the participant id BEFORE any prompt is built, so this
+    call cannot pass an arm to the grader even if it wanted to.
+
+    Returns a SMALL, participant-free summary: the output path, the topic ids touched,
+    and how many answers were graded. It deliberately carries no SID, answer, grade or
+    arm, so a caller (e.g. grade_runner) may keep or log it safely. The per-student
+    report is written to OUT_DIR exactly as the CLI writes it.
+    """
+    os.makedirs(OUT_DIR, exist_ok=True)
+    records = collect(topic)
+    if resume:
+        done = already_graded()
+        records = [r for r in records if r["id"] not in done]
+    if not records:
+        return {"ok": True, "graded": 0, "path": None, "topics": []}
+
+    joined = run_batch(records, seed, dry)
+    by_topic = summarise(joined)
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    name = os.path.join(
+        OUT_DIR, f"{topic or 'all'}-{stamp}{'-dryrun' if dry else ''}.json")
+    with open(name, "w", encoding="utf-8") as fh:
+        json.dump({"generated": stamp, "seed": seed, "dry_run": dry,
+                   "model": os.environ.get("OLLAMA_LLM", "gemma4:e4b"),
+                   "rubric_path": os.path.abspath(grade.RUBRIC_PATH),
+                   "summary": by_topic, "results": joined},
+                  fh, indent=2, ensure_ascii=False)
+    return {"ok": True, "graded": len(joined), "path": name,
+            "topics": sorted(by_topic.keys())}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--topic")
