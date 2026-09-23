@@ -260,6 +260,75 @@ check("paper 02 now carries an affect-recall stat once a questionnaire_affect_re
       _p02.json()["stats"])
 check("paper 02's affect-recall stats leak no raw SID", "24STUDENT1B" not in _p02.text, _p02.text[:200])
 
+print("\n-- PASS-THROUGH P02: the per-topic affect-recall table (was computed then discarded) --")
+_p02j = _p02.json()
+check("paper 02 now RETURNS its per-topic affect-recall table (by_topic, no longer discarded)",
+      _p02j.get("table") is not None, list(_p02j))
+check("the affect table columns are per-topic AR means each with its n",
+      _p02j["table"]["columns"] == ["Topic", "AR1 mean", "AR1 n", "AR2 mean", "AR2 n",
+                                    "AR3 mean", "AR3 n"], _p02j["table"]["columns"])
+_arfitts = [r for r in _p02j["table"]["rows"] if r[0] == "fitts-law"]
+check("the fitts-law affect row carries the AR1 mean (4) beside its denominator n (1)",
+      len(_arfitts) == 1 and _arfitts[0][1] == 4 and _arfitts[0][2] == 1, _arfitts)
+# HARD INVARIANT (this table): aggregate-only, no raw SID — numeric AND check-letter forms.
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"paper 02's affect table leaks no raw SID ({_leak})", _leak not in _p02.text, _p02.text[:200])
+
+print("\n-- PASS-THROUGH P06: per-topic arm-balance table + the dropped CONSORT-flow stats --")
+_p06 = pi.get("/api/researcher/paper/06-classroom-rct-methods")
+_p06j = _p06.json()
+check("paper 06 now RETURNS the per-topic arm-balance table (mon['arms'], was discarded)",
+      _p06j.get("table") is not None, list(_p06j))
+check("the arm-balance columns are Topic/FLIP/CONTROL/determinable/complied + a compliance rate",
+      _p06j["table"]["columns"] == ["Topic", "FLIP", "CONTROL", "determinable", "complied",
+                                    "compliance %"], _p06j["table"]["columns"])
+check("the arm-balance table carries the memory row we made determinable",
+      any(r[0] == "memory" for r in _p06j["table"]["rows"]), _p06j["table"]["rows"][:3])
+_p06labels = [s["label"] for s in _p06j["stats"]]
+check("paper 06 now surfaces the dropped CONSORT stats (no post-check, escape, disabled, per-section)",
+      {"No post-check", "Took escape hatch", "Disabled", "Enrolment by section"} <= set(_p06labels),
+      _p06labels)
+_complied_stat = next(s for s in _p06j["stats"] if s["label"] == "Complied")
+check("paper 06 expresses compliance as a RATE beside the count",
+      isinstance(_complied_stat.get("sub"), str) and "of determinable" in _complied_stat["sub"],
+      _complied_stat)
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"paper 06's arm-balance table leaks no raw SID ({_leak})", _leak not in _p06.text, _p06.text[:200])
+
+print("\n-- PASS-THROUGH P08: by-topic grader level distribution (batch.summary, was discarded) --")
+import json as _json
+import researcher_api as _rapi
+# No grade pass exists by default -> pending, NO table (we must not fabricate one).
+_p08pending = pi.get("/api/researcher/paper/08-small-local-model").json()
+check("paper 08 is 'pending' with no table before any grade pass (nothing fabricated)",
+      _p08pending["status"] == "pending" and _p08pending.get("table") is None, _p08pending)
+# Point the OFFLINE grades dir at a synthetic non-dry-run batch report (an offline artifact,
+# never the sink) and confirm the persisted by-topic level distribution surfaces as a table.
+_gd = os.path.join(d, "grades")
+os.makedirs(_gd, exist_ok=True)
+with open(os.path.join(_gd, "all-20260101T000000Z.json"), "w", encoding="utf-8") as fh:
+    _json.dump({"generated": "20260101T000000Z", "dry_run": False, "model": "gemma4:e4b",
+                "summary": {"memory": {"full": 3, "partial": 1, "none": 1, "ungradeable": 2,
+                                       "n": 7, "graded_n": 5, "full_pct": 60.0,
+                                       "dry_run": False}}}, fh)
+_rapi.GRADES_DIR = _gd
+_p08 = pi.get("/api/researcher/paper/08-small-local-model")
+_p08j = _p08.json()
+check("paper 08 flips to 'live' once an offline grade pass exists", _p08j["status"] == "live", _p08j["status"])
+check("paper 08 now RETURNS the by-topic grader level-distribution table (batch.summary)",
+      _p08j.get("table") is not None, list(_p08j))
+check("the grader table columns are Topic/graded n/full/partial/none/ungradeable/full %",
+      _p08j["table"]["columns"] == ["Topic", "graded n", "full", "partial", "none",
+                                    "ungradeable", "full %"], _p08j["table"]["columns"])
+_p08mem = [r for r in _p08j["table"]["rows"] if r[0] == "memory"]
+check("the grader table carries the memory row (graded_n excludes ungradeable; full% over graded_n)",
+      len(_p08mem) == 1 and _p08mem[0][1] == 5 and _p08mem[0][6] == 60.0, _p08mem)
+check("paper 08 now surfaces the grade-pass generated timestamp",
+      any(s["label"] == "Grade pass generated" and s["value"] == "20260101T000000Z"
+          for s in _p08j["stats"]), _p08j["stats"])
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"paper 08's grader table leaks no raw SID ({_leak})", _leak not in _p08.text, _p08.text[:200])
+
 print("\n-- export is pseudonymised: the real SID never leaves --")
 j = pi.get("/api/researcher/export")
 check("export json is 200", j.status_code == 200, j.status_code)

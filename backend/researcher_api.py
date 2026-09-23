@@ -346,6 +346,7 @@ def _paper_slice(pid: str) -> dict:
         # enjoyment / AR2 perceived learning / AR3 mental effort, per topic, split by
         # the arm assigned for that topic -- the retrospective twin of PAAS above.
         ar = measures.affect_recall_summary()
+        table = None
         if ar["flip"]["participants"] or ar["control"]["participants"]:
             def _ar(arm_block, item):
                 v = arm_block["items"][item]["mean"]
@@ -358,13 +359,34 @@ def _paper_slice(pid: str) -> dict:
                 {"label": "Affect recall — effort (AR3) FLIP/CONTROL",
                  "value": f"{_ar(ar['flip'], 'AR3')} / {_ar(ar['control'], 'AR3')}"},
             ]
+            # The per-topic AR1/AR2/AR3 breakdown affect_recall_summary already computes
+            # (`by_topic`) but this slice previously read only the cohort ['flip']/['control']
+            # blocks from and discarded. Each mean carries its own n (its denominator). The
+            # by-ARM split is the stat cards above; this is the per-TOPIC view. (A per-topic-
+            # per-arm cell would be a NEW measure — out of scope for a pass-through, and since
+            # arm is randomised per topic only the two views the measure already emits are
+            # meaningful.) Rendered by the generic {columns, rows} table renderer (04/05 too).
+            def _cell(item_block):
+                return item_block["mean"] if item_block["mean"] is not None else "—"
+            table = {
+                "columns": ["Topic", "AR1 mean", "AR1 n", "AR2 mean", "AR2 n",
+                            "AR3 mean", "AR3 n"],
+                "rows": [[t["topic_id"],
+                          _cell(t["items"]["AR1"]), t["items"]["AR1"]["n"],
+                          _cell(t["items"]["AR2"]), t["items"]["AR2"]["n"],
+                          _cell(t["items"]["AR3"]), t["items"]["AR3"]["n"]]
+                         for t in ar["by_topic"]],
+            }
         return env("IMI/CoI/ARCS completion + raw item means (cohort-level), PAAS mental "
                    "effort split by the arm assigned per topic, and — once the end-of-study "
-                   "battery has run — the retrospective affect-recall block (AR1-3) by arm.",
+                   "battery has run — the retrospective affect-recall block (AR1-3) by arm, "
+                   "with the per-topic breakdown in the table.",
                    "live", stats,
                    "Cohort instruments span all topics (no per-arm split); reverse-scoring + "
                    "subscales are applied at analysis, not here. Affect recall is retrospective "
-                   "(end of study) — PAAS above is its prospective, per-unit twin.")
+                   "(end of study) — PAAS above is its prospective, per-unit twin. The table is "
+                   "the per-topic affect-recall means (each with its n); the arm split is above.",
+                   table)
 
     if pid in ("03-reflection-help-seeking", "07-ai-tutor-design"):
         rs = measures.reflection_summary()
@@ -421,18 +443,49 @@ def _paper_slice(pid: str) -> dict:
     if pid == "06-classroom-rct-methods":
         mon = _build_monitor()
         cov, acc = mon["coverage"], mon["accounts"]
+
+        def _rate(n, d):
+            return round(100 * n / d, 1) if d else None
+
+        _comp_rate = _rate(cov["complied"], cov["determinable"])
+        # Per-section enrolment line, from the by_section census _build_monitor already
+        # computes — this slice previously read only its totals.
+        by_sec = acc.get("by_section") or {}
+        enrol_line = " · ".join(f"{s} {v['total']}" for s, v in sorted(by_sec.items())) or "—"
+
         stats = [
             {"label": "Accounts", "value": acc["total"], "sub": f"{acc['claimed']} signed up"},
             {"label": "Events in sink", "value": mon["sink"]["total_events"]},
             {"label": "Determinable pairs", "value": cov["determinable"], "sub": f"of {cov['pairs']}"},
-            {"label": "Complied", "value": cov["complied"]},
+            {"label": "Complied", "value": cov["complied"],
+             "sub": (f"{_comp_rate}% of determinable" if _comp_rate is not None else None)},
             {"label": "No activity (silent-fail signal)", "value": cov["no_activity"]},
+            # CONSORT participant-flow counts _build_monitor already computes but this slice
+            # previously dropped: no post-check, the logged escape hatch, disabled accounts.
+            {"label": "No post-check", "value": cov["no_posttest"]},
+            {"label": "Took escape hatch", "value": cov["took_escape"]},
             {"label": "Withdrawn", "value": acc["withdrawn"]},
+            {"label": "Disabled", "value": acc["disabled"]},
+            {"label": "Enrolment by section", "value": enrol_line},
         ]
+
+        # The per-topic arm-balance table _build_monitor already computes (mon["arms"]) but
+        # this slice previously read only its coverage totals from. Compliance shown as a
+        # RATE (complied/determinable) beside the count. Aggregate-only: counts per topic,
+        # never a participant row. Rendered by the generic {columns, rows} renderer.
+        table = {
+            "columns": ["Topic", "FLIP", "CONTROL", "determinable", "complied", "compliance %"],
+            "rows": [[a["topic_id"], a["flip"], a["control"], a["determinable"], a["complied"],
+                      _rate(a["complied"], a["determinable"])]
+                     for a in mon["arms"]],
+        }
         return env("The running-a-real-RCT machinery itself: server-side per-topic "
                    "randomisation, the manipulation check, coverage incl. the no_activity "
-                   "silent-failure signal, consent/withdrawal — the monitor's own figures.",
-                   "live", stats, "This paper's 'data' is the method working — it reads the monitor.")
+                   "silent-failure signal, the CONSORT participant-flow counts, "
+                   "consent/withdrawal, and the per-topic arm balance — the monitor's own figures.",
+                   "live", stats,
+                   "This paper's 'data' is the method working — it reads the monitor. "
+                   "Compliance is complied/determinable per topic.", table)
 
     if pid == "08-small-local-model":
         rep = _grades_report()
@@ -443,19 +496,37 @@ def _paper_slice(pid: str) -> dict:
                        "Run grade_batch.py (a real pass) + --kappa against ~60 hand-coded "
                        "answers; the panel then reads reports/grades/kappa.json.")
         k = rep.get("kappa") or {}
+        batch = rep.get("batch") or {}
+        summary = batch.get("summary") or {}
         stats = [
             {"label": "Cohen's κ", "value": k.get("kappa") if k.get("kappa") is not None else "—",
              "sub": ("usable ≥0.6" if k.get("usable") else "below 0.6 — descriptive only") if k else None},
             {"label": "κ n", "value": k.get("n") if k else "—",
              "sub": f"of {k.get('hand_coded')} hand-coded" if k.get("hand_coded") else None},
-            {"label": "Model", "value": (rep.get("batch") or {}).get("model") or k.get("model") or "—"},
+            {"label": "Model", "value": batch.get("model") or k.get("model") or "—"},
             {"label": "Raw agreement", "value": k.get("agreement") if k.get("agreement") is not None else "—"},
+            {"label": "Grade pass generated", "value": batch.get("generated") or "—"},
         ]
-        return env("Grader reliability against a human coder (Cohen's κ), read from the offline "
-                   "grades report — the sink is never routed through a grader, preserving the "
-                   "blind boundary.", "live", stats,
+        # The by-topic grader level distribution grade_batch.py persists (batch.summary) but
+        # this slice previously read only batch.model from and discarded. graded_n EXCLUDES
+        # ungradeable — a null is a missing datum, not a wrong answer (grade_batch.summarise);
+        # full% is over graded_n. Aggregate-only. The grading RUN stays offline; this only
+        # surfaces the persisted result. Rendered by the generic {columns, rows} renderer.
+        table = None
+        if summary:
+            table = {
+                "columns": ["Topic", "graded n", "full", "partial", "none",
+                            "ungradeable", "full %"],
+                "rows": [[t, s.get("graded_n"), s.get("full"), s.get("partial"),
+                          s.get("none"), s.get("ungradeable"), s.get("full_pct")]
+                         for t, s in sorted(summary.items())],
+            }
+        return env("Grader reliability against a human coder (Cohen's κ) plus the by-topic "
+                   "grader level distribution, read from the offline grades report — the sink "
+                   "is never routed through a grader, preserving the blind boundary.",
+                   "live", stats,
                    None if (k and k.get("usable")) else "κ below 0.6 (or unrun): report the "
-                   "short-answer grades as descriptive colour, not a measure.")
+                   "short-answer grades as descriptive colour, not a measure.", table)
 
     if pid == "09-game-psychophysics":
         g = measures.game_result_summary()
