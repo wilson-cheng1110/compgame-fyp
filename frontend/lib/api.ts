@@ -360,6 +360,16 @@ export const admin = {
     api.post<{ ok: true; topic: string; section: string }>(
       "/api/admin/reports/generate", { topic, section }),
 
+  /** The OFFLINE, arm-BLIND short-answer grading pass. `gradeRunStatus` READS
+   *  grade_runner's coarse state (state + timestamps only — NEVER a grade, answer, SID
+   *  or arm); `gradeRun` TRIGGERS one and returns state "started" | "already_running"
+   *  (or a non-ok result on a 429 throttle / 400 unknown topic). Same admin gate as
+   *  everything else on this surface; the researcher list is never consulted. */
+  gradeRunStatus: () => api.get<GradeRunStatus>("/api/admin/grade-run"),
+  gradeRun: (topic?: string) =>
+    api.post<{ ok: true; state: GradeRunTrigger }>(
+      "/api/admin/grade-run", topic ? { topic } : {}),
+
   schedule: () => api.get<ScheduleGrid>("/api/admin/schedule"),
   /** `commit: false` previews and writes nothing -- see SessionDateResult. */
   setSessionDate: (session: number, section: string, date: string, commit = false) =>
@@ -385,6 +395,21 @@ export interface ScheduleGrid {
   sessions: { session: number; dates: Record<string, string>; topics: string[] }[]
   problems: string[]
 }
+
+/** The offline blind grading pass's coarse status — `grade_runner.status()` verbatim.
+ *  It is coarse BY DESIGN: never a grade, an answer, a SID or an arm. `error`, present
+ *  only after a failed run, is the exception TYPE (e.g. "RuntimeError"), never a
+ *  message (which could carry a path or a value). */
+export type GradeRunState = "idle" | "running" | "done" | "error"
+export interface GradeRunStatus {
+  state: GradeRunState
+  started_at?: string
+  finished_at?: string
+  error?: string
+}
+/** What a TRIGGER (`admin.gradeRun`) returns on success: it either started a pass, or
+ *  found one already in flight (single-flight — nothing new was launched). */
+export type GradeRunTrigger = "started" | "already_running"
 
 /** The two-step edit. A lecture date is the timing of the independent variable, so
  *  the panel previews (`commit: false`), shows `affected`, and only then commits. */

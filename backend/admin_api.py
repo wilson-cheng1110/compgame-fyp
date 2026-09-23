@@ -574,3 +574,23 @@ async def grade_run(body: GradeRun, response: Response,
     if state == "started":
         auth_store.audit(sid, "grade_run", None, topic or "all")
     return {"ok": True, "state": state}
+
+
+@router.get("/grade-run")
+async def grade_run_status(response: Response,
+                           session: str | None = Cookie(default=None)):
+    """The coarse STATE of the offline blind grading pass, so the panel can SHOW it and
+    not only trigger it.
+
+    Same admin gate as the POST that starts a run -- a valid session AND admin_sids.txt
+    (401 without a session, 403 without the allowlist); the researcher list is not
+    consulted, exactly as above. It returns `grade_runner.status()` VERBATIM: a coarse
+    `{state, started_at?, finished_at?, error?}`, where `error` (on failure) is only the
+    exception TYPE. It NEVER carries a grade, an answer, a SID or an arm -- grade_runner
+    owns and guarantees that boundary, and this route only forwards its dict. Read-only:
+    it launches nothing, so it needs no rate limit and writes no audit row.
+    """
+    sid, err = _admin(session, response)
+    if err:
+        return err
+    return grade_runner.status()

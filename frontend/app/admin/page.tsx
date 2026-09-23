@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import ReportsPanel from "./reports-panel"
 import SchedulePanel from "./schedule-panel"
+import GradeRunPanel from "./grade-run-panel"
 import { admin, auth, researcher, type AdminParticipant, type AuditEntry, type SectionOption } from "@/lib/api"
 import { StaffHeader, StatCard, StatGrid, Banner, ConsoleSkeleton } from "@/components/staff"
 
@@ -28,14 +29,15 @@ import { StaffHeader, StatCard, StatGrid, Banner, ConsoleSkeleton } from "@/comp
 // top — this is the lecturer's real weekly job. Presentation only; still BLIND to the
 // study (no arms/sequence anywhere on this surface).
 
-// The three jobs this panel does, at three different cadences: everyday account fixes,
-// the weekly tutorial deck, the rare lecture-date move. They were one long scroll; they
-// are now three tabs. Accounts is the default — which is also where the teacher/unhappy
-// e2e suites expect to land.
+// The jobs this panel does, at different cadences: everyday account fixes, the weekly
+// tutorial deck, the rare lecture-date move, and the occasional blind grading run. They
+// were one long scroll; they are tabs now. Accounts is the default — which is also where
+// the teacher/unhappy e2e suites expect to land.
 const TABS = [
   ["accounts", "Accounts"],
   ["briefs", "Tutorial decks"],
   ["schedule", "Lecture dates"],
+  ["grading", "Blind grading"],
 ] as const
 type AdminTab = (typeof TABS)[number][0]
 
@@ -478,6 +480,11 @@ export default function AdminPage() {
             deliberate tab rather than the bottom of a long page. `refresh` pulls the
             audit log back so a date change shows up beside a section change. */}
         {tab === "schedule" && <SchedulePanel onDone={() => void load()} />}
+
+        {/* The offline blind grading pass: trigger it and watch its coarse state. Its
+            own tab, off the account list, because it is a background job on its own
+            cadence — and still BLIND (state + timestamps only, never a grade or arm). */}
+        {tab === "grading" && <GradeRunPanel />}
       </div>
     </main>
   )

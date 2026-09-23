@@ -328,5 +328,68 @@ check("grade-run: an unknown topic is refused (400)",
       teacher.post("/api/admin/grade-run", json={"topic": "not-a-real-topic"}).status_code == 400)
 check("grade-run: the refused topic launched no run", len(_calls) == _before)
 
+print("\n-- GET /api/admin/grade-run: SHOW the coarse status (same admin gate, still no leak) --")
+# The status endpoint the panel polls so it can DISPLAY the run, not only trigger it. It
+# only READS grade_runner.status() -- it launches nothing -- so its gating and its
+# no-leak guarantee are what matter. The synthetic SID + FLIP arm + answer recorded above
+# are still in the sink; none of them may surface in this coarse status.
+_COARSE_KEYS = {"state", "started_at", "finished_at", "error"}
+
+# ---- guardrail 1: the SAME admin gate as every mutating route here ----
+check("grade-run status: an anonymous caller has no session (401)",
+      anon.get("/api/admin/grade-run").status_code == 401)
+check("grade-run status: a signed-in STUDENT is refused (403)",
+      nonadmin.get("/api/admin/grade-run").status_code == 403)
+# A genuine researcher who is NOT an admin is refused exactly like a student: the status
+# route, like the trigger, consults ONLY the admin allowlist.
+check("grade-run status: a researcher-but-not-admin is refused (403)",
+      researcher.get("/api/admin/grade-run").status_code == 403)
+check("grade-run status: refusal shape matches the other admin routes (not_admin)",
+      researcher.get("/api/admin/grade-run").json().get("error") == "not_admin")
+
+# ---- guardrails 2/3: with a run STUBBED to hang, an admin sees a coarse 'running',
+#      and NO grade/answer/SID/arm rides along. The stub means no real grading executes. ----
+_sgate = _threading.Event()
+_scalls = []
+def _hold(*a, **k):
+    _scalls.append((a, k))
+    _sgate.wait(15)                                        # keep status() reporting 'running'
+    return {"level": "none", "evidence": "", "rubric_hit": [],
+            "evidence_verbatim": None, "parse_ok": True, "ungradeable_reason": None, "llm": True}
+_orig3 = grade.grade_answer
+try:
+    grade.grade_answer = _hold
+    _ops._buckets.clear()                                  # a fresh rate-limit token
+    _kick = teacher.post("/api/admin/grade-run", json={})
+    check("grade-run status: a run was started for the status check",
+          _kick.json().get("state") == "started", _kick.text)
+    _run = teacher.get("/api/admin/grade-run")
+    check("grade-run status: the teacher gets it (200)", _run.status_code == 200, _run.text)
+    _rj = _run.json()
+    check("grade-run status: state is the coarse 'running'", _rj.get("state") == "running", _rj)
+    check("grade-run status: only coarse keys appear (no grade/answer/SID/arm field)",
+          set(_rj) <= _COARSE_KEYS, _rj)
+    _rb = _run.text
+    check("grade-run status: response body has no SID", SYN_SID not in _rb, _rb)
+    check("grade-run status: response body has no arm/condition",
+          "FLIP" not in _rb and "CONTROL" not in _rb and "arm" not in _rb, _rb)
+    check("grade-run status: response body has no answer text or grade level",
+          SYN_ANSWER not in _rb and "level" not in _rb, _rb)
+finally:
+    _sgate.set()                                           # release the held pass
+    grade_runner.join(timeout=15)
+    grade.grade_answer = _orig3                            # RESTORE no matter what
+check("grade-run status: the status stub was restored", grade.grade_answer is _orig3)
+check("grade-run status: exactly one grading call ran for this check", len(_scalls) == 1, _scalls)
+
+# ---- once the pass finishes, the coarse status settles to 'done', still leaking nothing ----
+_done = teacher.get("/api/admin/grade-run")
+_dj = _done.json()
+check("grade-run status: coarse state settles to 'done' after the pass", _dj.get("state") == "done", _dj)
+check("grade-run status: only coarse keys appear when done", set(_dj) <= _COARSE_KEYS, _dj)
+check("grade-run status: the done body still names no SID/arm/answer",
+      SYN_SID not in _done.text and "FLIP" not in _done.text
+      and "CONTROL" not in _done.text and SYN_ANSWER not in _done.text, _done.text)
+
 print(f"\n{ok} passed, {fail} failed")
 sys.exit(1 if fail else 0)
