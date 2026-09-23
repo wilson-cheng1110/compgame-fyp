@@ -122,11 +122,22 @@ def main():
     splits = splitter.split_documents(docs)
     print(f"Created {len(splits)} chunks. Embedding with '{OLLAMA_EMBEDDING}' (this takes a few minutes)...")
 
-    Chroma.from_documents(
-        documents=splits,
-        embedding=OllamaEmbeddings(model=OLLAMA_EMBEDDING),
+    # Embed in sub-batches rather than one Chroma.from_documents() shot. That
+    # single call hands ALL chunks to nomic-embed-text in ONE Ollama /embed
+    # request, and the runner crashes on an oversized batch ("Post .../tokenize:
+    # actively refused"): batch 128 works, 512 fails. So build the persistent
+    # store first, then add_documents() in conservative <=128 batches. Same
+    # collection name (default "langchain") / persist dir / metadata as before,
+    # so rag_api.py reads it unchanged.
+    EMBED_BATCH = 100
+    vectorstore = Chroma(
+        embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING),
         persist_directory=DB_DIR,
     )
+    for start in range(0, len(splits), EMBED_BATCH):
+        batch = splits[start:start + EMBED_BATCH]
+        vectorstore.add_documents(batch)
+        print(f"  embedded {min(start + EMBED_BATCH, len(splits))}/{len(splits)} chunks")
     print(f"Done. Vector DB rebuilt at {DB_DIR} ({len(splits)} chunks).")
 
 
