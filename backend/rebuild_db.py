@@ -12,6 +12,14 @@ layout and restores word spacing (verified to recover the Fitts' Law IoD/IoP
 formula slide). Same splitter params and metadata schema as before so
 rag_api.py keeps working unchanged.
 
+Also ingests plain-text/Markdown reference notes from ./corpus_notes (in
+addition to the PDFs). These are authored HCI reference notes for topics the
+2023 lecture decks do not cover -- currently `norman`, `hicks-law`, and
+`webers-law`, the three topics `check_corpus_coverage.py` reports as UNCOVERED.
+They go through the identical splitter + metadata schema, so the tutor is
+grounded on them exactly as on a lecture slide. Drop a new .md/.txt in
+corpus_notes and re-run to extend coverage; nothing else changes.
+
 Usage:
     python rebuild_db.py            # build into ./hci_chroma_db_local
 """
@@ -30,6 +38,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
 
 PDF_DIR = "."
+NOTES_DIR = "./corpus_notes"
 DB_DIR = "./hci_chroma_db_local"
 OLLAMA_EMBEDDING = "nomic-embed-text"
 
@@ -66,10 +75,44 @@ def load_pages_layout(pdf_dir: str) -> list[Document]:
     return docs
 
 
+def load_notes(notes_dir: str) -> list[Document]:
+    """Load authored reference notes (.md/.txt) as documents.
+
+    Same metadata schema as the PDF loader (source=filename, page=0-indexed).
+    A note is not paginated, so it is a single page-0 document; the splitter
+    then chunks it exactly like a lecture page. Missing dir -> no notes, so a
+    checkout without any notes still rebuilds a PDF-only store unchanged.
+    """
+    docs: list[Document] = []
+    if not os.path.isdir(notes_dir):
+        print(f"No notes dir at {notes_dir} (skipping).")
+        return docs
+    paths = sorted(glob.glob(os.path.join(notes_dir, "*.md"))
+                   + glob.glob(os.path.join(notes_dir, "*.txt")))
+    print(f"Found {len(paths)} reference note(s) in {notes_dir}.")
+    for path in paths:
+        name = os.path.basename(path)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read().strip()
+        except Exception as e:
+            print(f"  SKIP {name}: {e}")
+            continue
+        if not text:
+            continue
+        docs.append(Document(page_content=text, metadata={"source": name, "page": 0}))
+        print(f"  {name}: {len(text)} chars")
+    return docs
+
+
 def main():
     print("Loading PDFs with layout extraction...")
     docs = load_pages_layout(PDF_DIR)
     print(f"Loaded {len(docs)} non-empty pages.")
+
+    notes = load_notes(NOTES_DIR)
+    docs += notes
+    print(f"Loaded {len(notes)} reference note(s); {len(docs)} source documents total.")
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
