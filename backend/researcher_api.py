@@ -346,7 +346,7 @@ def _paper_slice(pid: str) -> dict:
         # enjoyment / AR2 perceived learning / AR3 mental effort, per topic, split by
         # the arm assigned for that topic -- the retrospective twin of PAAS above.
         ar = measures.affect_recall_summary()
-        table = None
+        ar_table = None
         if ar["flip"]["participants"] or ar["control"]["participants"]:
             def _ar(arm_block, item):
                 v = arm_block["items"][item]["mean"]
@@ -368,7 +368,7 @@ def _paper_slice(pid: str) -> dict:
             # meaningful.) Rendered by the generic {columns, rows} table renderer (04/05 too).
             def _cell(item_block):
                 return item_block["mean"] if item_block["mean"] is not None else "—"
-            table = {
+            ar_table = {
                 "columns": ["Topic", "AR1 mean", "AR1 n", "AR2 mean", "AR2 n",
                             "AR3 mean", "AR3 n"],
                 "rows": [[t["topic_id"],
@@ -377,15 +377,43 @@ def _paper_slice(pid: str) -> dict:
                           _cell(t["items"]["AR3"]), t["items"]["AR3"]["n"]]
                          for t in ar["by_topic"]],
             }
+
+        # The REAL H2/H3 instrument (measures.questionnaire_subscales): reverse-applied subscale
+        # means — IMI (4 subscales), CoI (2), ARCS (2) — the scored form the analysis needs, vs
+        # the single raw item mean the stat cards above show. Cohort-level (these instruments have
+        # no per-arm split — a real design limit, kept in the note). One row per (instrument,
+        # subscale) with its mean + n. The FE renders ONE table, so this scored table is preferred
+        # when there are questionnaire responses; the per-topic affect-recall table is the
+        # fallback (it only has data after the end-of-study battery runs).
+        subs = measures.questionnaire_subscales()
+        has_subs = any(subs[name]["n_respondents"] for name in ("imi", "coi", "arcs"))
+        sub_table = None
+        if has_subs:
+            sub_table = {
+                "columns": ["Instrument", "Subscale", "mean (reverse-applied)", "n"],
+                "rows": [[name.upper(), s["subscale"],
+                          s["mean"] if s["mean"] is not None else "—", s["n"]]
+                         for name in ("imi", "coi", "arcs")
+                         for s in subs[name]["subscales"]],
+            }
+            # Headline: the two IMI subscales most central to H2 (intrinsic interest / value).
+            _imi = {s["subscale"]: s for s in subs["imi"]["subscales"]}
+            for _sub, _lab in (("IE", "IMI interest/enjoyment"), ("VU", "IMI value/usefulness")):
+                if _sub in _imi and _imi[_sub]["mean"] is not None:
+                    stats.append({"label": _lab, "value": _imi[_sub]["mean"],
+                                  "sub": f"n={_imi[_sub]['n']} (reverse-applied)"})
+
+        table = sub_table or ar_table
         return env("IMI/CoI/ARCS completion + raw item means (cohort-level), PAAS mental "
-                   "effort split by the arm assigned per topic, and — once the end-of-study "
-                   "battery has run — the retrospective affect-recall block (AR1-3) by arm, "
-                   "with the per-topic breakdown in the table.",
+                   "effort split by the arm assigned per topic, the reverse-applied subscale "
+                   "means (IMI/CoI/ARCS — the scored H2/H3 instrument, in the table) and — once "
+                   "the end-of-study battery has run — the retrospective affect-recall block "
+                   "(AR1-3) by arm.",
                    "live", stats,
-                   "Cohort instruments span all topics (no per-arm split); reverse-scoring + "
-                   "subscales are applied at analysis, not here. Affect recall is retrospective "
-                   "(end of study) — PAAS above is its prospective, per-unit twin. The table is "
-                   "the per-topic affect-recall means (each with its n); the arm split is above.",
+                   "Cohort instruments span all topics (no per-arm split). The table is the "
+                   "reverse-applied subscale means (each with its n); when no questionnaire "
+                   "responses exist it falls back to the per-topic affect-recall means. Affect "
+                   "recall is retrospective (end of study) — PAAS above is its prospective twin.",
                    table)
 
     if pid in ("03-reflection-help-seeking", "07-ai-tutor-design"):
@@ -432,13 +460,37 @@ def _paper_slice(pid: str) -> dict:
                 b["determinable"] += 1
                 if r["complied"]:
                     b["complied"] += 1
-        table = {"columns": ["Section", "pairs", "determinable", "complied"],
-                 "rows": [[sec, v["pairs"], v["determinable"], v["complied"]] for sec, v in sorted(agg.items())]}
+        # KEEP the section coverage/compliance as stat cards — the FE renders ONE table, now the
+        # population×arm gain DV — so every section's pairs + determinable stays visible here.
         stats = [{"label": f"{sec}", "value": v["pairs"], "sub": f"{v['determinable']} determinable"}
                  for sec, v in sorted(agg.items())]
-        return env("The H1 machinery sliced by section — UG (A/B/C) vs the MSc cohort — the "
-                   "cross-population read. MSc inclusion in the analysis is HSESC-gated.",
-                   "live", stats, "A slice of the existing measures, not a new arm.", table)
+
+        # The INTERACTION DV proper (measures.gain_by_population_arm): normalised gain ⟨g⟩ per
+        # (population, arm), UG (A/B/C pooled) vs MSc (MSC). The FLIP−CONTROL gain GAP for each
+        # population and the difference of the two gaps (the interaction — the cross-population
+        # effect itself) are the headline; the per-cell breakdown, each with its own n / gain_n /
+        # SD, is the table. Aggregate-only; rendered by the generic {columns, rows} renderer.
+        gpa = measures.gain_by_population_arm()
+
+        def _fmt(x):
+            return x if x is not None else "—"
+
+        stats.append({
+            "label": "FLIP−CONTROL gain gap — UG vs MSc",
+            "value": f"{_fmt(gpa['ug_gain_gap'])} / {_fmt(gpa['msc_gain_gap'])}",
+            "sub": (f"interaction {gpa['interaction']}" if gpa["interaction"] is not None
+                    else "interaction —"),
+        })
+        table = {
+            "columns": ["Population", "Arm", "n (pre+post)", "mean pre", "mean post", "⟨g⟩", "SD"],
+            "rows": [[c["population"], c["arm"], c["n"], c["pre_mean"], c["post_mean"],
+                      c["gain"], c["gain_sd"]] for c in gpa["cells"]],
+        }
+        return env("The cross-population INTERACTION DV: normalised gain ⟨g⟩ per (population, "
+                   "arm) — does the flip effect (the FLIP−CONTROL gain gap) differ between UG "
+                   "(sections A/B/C pooled) and the MSc cohort? Section coverage/compliance is "
+                   "kept in the stat cards. MSc inclusion in the analysis is HSESC-gated.",
+                   "live", stats, gpa["note"], table)
 
     if pid == "06-classroom-rct-methods":
         mon = _build_monitor()
@@ -533,14 +585,44 @@ def _paper_slice(pid: str) -> dict:
         status = "live" if g["total_trials"] > 0 else "flag_off"
         stats = [{"label": "Game-result trials", "value": g["total_trials"]},
                  {"label": "Topics with trials", "value": len(g["topics"])}]
+
+        # The reframed DV proper (measures.game_psychophysics_summary): each paradigm's own
+        # metric split by the ASSIGNED arm. Coverage (the stat cards) says HOW MANY trials; this
+        # says WHAT THEY SHOW — one row per (paradigm, arm) with N and the paradigm's headline
+        # statistic. The FE renders ONE table, so this by-arm DV table replaces the per-topic
+        # coverage table (topics-with-trials remains a stat card). Empty when telemetry was off,
+        # so it is only built when there ARE trials — flag_off then reads with no table.
         table = None
-        if g["topics"]:
-            table = {"columns": ["Topic", "trials", "participants", "metric keys"],
-                     "rows": [[t["topic_id"], t["trials"], t["participants"], ", ".join(t["metric_keys"])]
-                              for t in g["topics"]]}
-        return env("Per-trial game_result telemetry (Stroop RT, Hick RT×n, Fitts MT×ID, Weber "
-                   "JND) — coverage of what's logged. Live only when TELEMETRY_ENABLED was on "
-                   "in prod.", status, stats, g["note"], table)
+        if g["total_trials"] > 0:
+            gp = measures.game_psychophysics_summary()
+
+            def _fmt(x):
+                return x if x is not None else "—"
+
+            def _stat_for(paradigm, side):
+                if paradigm == "stroop":
+                    return (f"cons {_fmt(side['consistent_ms'])} / incons "
+                            f"{_fmt(side['inconsistent_ms'])} ms; Δ {_fmt(side['congruency_delta_ms'])}")
+                if paradigm == "hick":
+                    return ("; ".join(f"n={b['n_choices']}:{_fmt(b['mean_rt_ms'])}ms"
+                                      for b in side["by_n_choices"]) or "—")
+                if paradigm == "fitts":
+                    return ("; ".join(f"{b['condition']}:{_fmt(b['mean_mt_ms'])}ms"
+                                      for b in side["by_condition"]) or "—")
+                return f"JND {_fmt(side['mean_jnd_pct'])}%"
+
+            rows = []
+            for paradigm, arm in (("stroop", schedule.FLIP), ("stroop", schedule.CONTROL),
+                                  ("hick", schedule.FLIP), ("hick", schedule.CONTROL),
+                                  ("fitts", schedule.FLIP), ("fitts", schedule.CONTROL),
+                                  ("weber", schedule.FLIP), ("weber", schedule.CONTROL)):
+                side = gp[paradigm]["flip" if arm == schedule.FLIP else "control"]
+                rows.append([paradigm.capitalize(), arm, side["n"], _stat_for(paradigm, side)])
+            table = {"columns": ["Paradigm", "Arm", "N", "Statistic"], "rows": rows}
+        return env("Per-paradigm psychophysics DV split by assigned arm — Stroop congruency "
+                   "delta, Hick RT×n_choices, Fitts MT by condition (distance/size), Weber JND — "
+                   "the reframed DV. Trial coverage is in the stat cards. Live only when "
+                   "TELEMETRY_ENABLED was on in prod.", status, stats, g["note"], table)
 
     return env("Unknown paper.", "pending", [], "No live slice for this id.")
 

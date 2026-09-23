@@ -364,15 +364,135 @@ check("with no accounts here, every canonical person is excess_no_account",
       rec["matched_to_account"] == 0
       and rec["excess_no_account"] == rec["sink_canonical_people"], rec)
 
+print("\n-- gain_by_population_arm (P05): the cross-population INTERACTION DV --")
+# A fresh topic (language) with a controlled 2x2: population (UG sections A/B/C pooled vs MSc =
+# MSC) x arm. section_map is INJECTED so this needs no auth DB. Four cells, each two pairs, with
+# gains contrived to a clean interaction:
+#   UG/FLIP    0.5   UG/CONTROL 0.1   -> UG gain gap 0.4
+#   MSc/FLIP   0.4   MSc/CONTROL 0.3  -> MSc gain gap 0.1   -> interaction 0.3
+LT = "language"
+idxLT = measures.topic_index()[LT]
+_lflip = [s for s in (f"25L{i:05d}A" for i in range(20000)) if S.arm_for(s, idxLT) == S.FLIP]
+_lctrl = [s for s in (f"25L{i:05d}A" for i in range(20000)) if S.arm_for(s, idxLT) == S.CONTROL]
+UGF1, UGF2, MSF1, MSF2 = _lflip[0], _lflip[1], _lflip[2], _lflip[3]
+UGC1, UGC2, MSCC1, MSCC2 = _lctrl[0], _lctrl[1], _lctrl[2], _lctrl[3]
+_secmap = {UGF1: "A", UGF2: "A", MSF1: "MSC", MSF2: "MSC",
+           UGC1: "B", UGC2: "B", MSCC1: "MSC", MSCC2: "MSC"}
+
+
+def _pair(sid, pre, post):
+    ev(sid, "topic_pretest", LT, "2026-09-02T09:00:00+00:00", score=pre)
+    ev(sid, "topic_posttest", LT, "2026-09-02T09:10:00+00:00", score=post)
+
+
+_pair(UGF1, 20, 60); _pair(UGF2, 40, 70)      # UG FLIP    -> gain 0.5
+_pair(UGC1, 10, 19); _pair(UGC2, 50, 55)      # UG CONTROL -> gain 0.1
+_pair(MSF1, 20, 52); _pair(MSF2, 0, 40)       # MSc FLIP    -> gain 0.4
+_pair(MSCC1, 0, 30); _pair(MSCC2, 50, 65)     # MSc CONTROL -> gain 0.3
+conn.commit()
+
+gpa = measures.gain_by_population_arm(DB, section_map=_secmap)
+_cells = {(c["population"], c["arm"]): c for c in gpa["cells"]}
+check("UG/FLIP cell: n=2 pairs, pre/post means, gain 0.5",
+      _cells[("UG", S.FLIP)]["n"] == 2 and _cells[("UG", S.FLIP)]["pre_mean"] == 30.0
+      and _cells[("UG", S.FLIP)]["post_mean"] == 65.0 and _cells[("UG", S.FLIP)]["gain"] == 0.5,
+      _cells[("UG", S.FLIP)])
+check("gain carries its own denominator gain_n and a sample SD (0.0 here, both gains equal)",
+      _cells[("UG", S.FLIP)]["gain_n"] == 2 and _cells[("UG", S.FLIP)]["gain_sd"] == 0.0,
+      _cells[("UG", S.FLIP)])
+check("MSc is a SEPARATE population (MSC section), not pooled into UG",
+      _cells[("MSc", S.CONTROL)]["gain"] == 0.3 and _cells[("MSc", S.FLIP)]["gain"] == 0.4,
+      {k: v["gain"] for k, v in _cells.items()})
+check("the FLIP-CONTROL gain gap is computed per population",
+      gpa["ug_gain_gap"] == 0.4 and gpa["msc_gain_gap"] == 0.1, gpa)
+check("the INTERACTION is the difference of the two gaps (the cross-population DV)",
+      gpa["interaction"] == 0.3, gpa)
+
+print("\n-- game_psychophysics_summary (P09): per-paradigm DV split by assigned arm --")
+# One FLIP participant per paradigm's own topic, with that paradigm's real game_result shape.
+
+
+def _flip_on(topic):
+    ix = measures.topic_index()[topic]
+    return next(s for s in (f"25G{i:05d}A" for i in range(20000)) if S.arm_for(s, ix) == S.FLIP)
+
+
+gS, gH, gF, gW = (_flip_on("stroop"), _flip_on("hicks-law"),
+                  _flip_on("fitts-law"), _flip_on("webers-law"))
+evm(gS, "assessment_complete", "stroop",
+    {"game_result": {"game": "stroop", "consistent_avg_ms": 500, "inconsistent_avg_ms": 800, "trials": []}})
+evm(gH, "assessment_complete", "hicks-law",
+    {"game_result": {"game": "hicks", "trials": [
+        {"comparison_id": "c1", "n_choices_a": 4, "n_choices_b": 12, "rt_ms": 600},
+        {"comparison_id": "c2", "n_choices_a": 3, "n_choices_b": 9, "rt_ms": 400}]}})
+evm(gF, "assessment_complete", "fitts-law",
+    {"game_result": {"game": "fitts", "distance": {"A": 300, "B": 500}, "size": {"A": 400, "B": 600}}})
+evm(gW, "assessment_complete", "webers-law",
+    {"game_result": {"game": "weber",
+                     "trials": [{"attribute": "size", "jnd_pct": 12.0},
+                                {"attribute": "brightness", "jnd_pct": 8.0}], "jnd": {"size": 12.0}}})
+conn.commit()
+
+gp = measures.game_psychophysics_summary(DB)
+check("Stroop: consistent/inconsistent mean RT + the congruency delta (800-500=300)",
+      gp["stroop"]["flip"]["consistent_ms"] == 500.0
+      and gp["stroop"]["flip"]["inconsistent_ms"] == 800.0
+      and gp["stroop"]["flip"]["congruency_delta_ms"] == 300.0, gp["stroop"]["flip"])
+check("Hick: mean RT bucketed by n_choices (n=4 -> 600ms from the comparison shape)",
+      any(b["n_choices"] == 4 and b["mean_rt_ms"] == 600.0
+          for b in gp["hick"]["flip"]["by_n_choices"]), gp["hick"]["flip"])
+check("Fitts: mean MT by condition (distance 400, size 500)",
+      {b["condition"]: b["mean_mt_ms"] for b in gp["fitts"]["flip"]["by_condition"]}
+      == {"distance": 400.0, "size": 500.0}, gp["fitts"]["flip"])
+check("Weber: mean JND over the trials' jnd_pct ((12+8)/2 = 10.0)",
+      gp["weber"]["flip"]["mean_jnd_pct"] == 10.0 and gp["weber"]["flip"]["trials"] == 2,
+      gp["weber"]["flip"])
+check("each paradigm/arm carries N (distinct participants)",
+      gp["stroop"]["flip"]["n"] == 1 and gp["stroop"]["control"]["n"] == 0, gp["stroop"])
+
+print("\n-- questionnaire_subscales (P02): reverse-applied subscale means (the real H2/H3) --")
+# IMI EI = [M3, M7, M11], M11 is REVERSE (and EI is untouched by the earlier flip_sid IMI row,
+# which only carried M1/M2). P1: M3=5,M7=5,M11=1(->6-1=5) => person mean 5.0; P2: M3=3,M7=3,
+# M11=3(->3) => person mean 3.0. Cohort EI mean (5.0+3.0)/2 = 4.0, sample SD sqrt(2)~1.414.
+# If the reverse were NOT applied, P1 would be (5+5+1)/3=3.67 and the cohort mean 3.33 -> the
+# 4.0 is proof the reverse WAS applied. CoI TP = [I1..I4], no reverse: one all-4 respondent -> 4.0.
+evm("25IMI0001A", "questionnaire_imi", None, {"answers": {"M3": 5, "M7": 5, "M11": 1}})
+evm("25IMI0002A", "questionnaire_imi", None, {"answers": {"M3": 3, "M7": 3, "M11": 3}})
+evm("25COI0001A", "questionnaire_coi", None, {"answers": {"I1": 4, "I2": 4, "I3": 4, "I4": 4}})
+evm("25ARC0001A", "questionnaire_arcs", None, {"answers": {"S1": 5, "S2": 5, "S3": 5, "S4": 5, "S5": 5}})
+conn.commit()
+
+subs = measures.questionnaire_subscales(DB)
+check("IMI has 4 subscales, CoI 2, ARCS 2 (from the bank's subscales metadata)",
+      len(subs["imi"]["subscales"]) == 4 and len(subs["coi"]["subscales"]) == 2
+      and len(subs["arcs"]["subscales"]) == 2, {k: len(subs[k]["subscales"]) for k in ("imi", "coi", "arcs")})
+_ei = next(s for s in subs["imi"]["subscales"] if s["subscale"] == "EI")
+check("IMI EI subscale mean is REVERSE-applied (4.0, not the un-reversed 3.33)",
+      _ei["mean"] == 4.0 and _ei["n"] == 2, _ei)
+check("the subscale carries a sample SD (sqrt(2) ~ 1.414 over the two person-means)",
+      _ei["sd"] == 1.414, _ei)
+check("the reverse item is read from the bank (M9/M11), not hardcoded",
+      subs["imi"]["reverse_items"] == ["M11", "M9"], subs["imi"]["reverse_items"])
+_tp = next(s for s in subs["coi"]["subscales"] if s["subscale"] == "TP")
+check("CoI TP (no reverse) mean is the plain item mean (4.0)", _tp["mean"] == 4.0, _tp)
+
 print("\n-- NO SID LEAK: every slice returns counts, never a participant id --")
 _blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_by_arm(DB),
                      measures.reflection_summary(DB), measures.game_result_summary(DB),
                      measures.retention_summary(DB), measures.affect_recall_summary(DB),
                      measures.gain_detail(DB), measures.sink_census(DB),
-                     measures.sink_reconcile(DB)])
+                     measures.sink_reconcile(DB),
+                     # the three new DV-completer slices — same aggregate-only invariant
+                     measures.gain_by_population_arm(DB, section_map=_secmap),
+                     measures.game_psychophysics_summary(DB),
+                     measures.questionnaire_subscales(DB)])
 for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A", MIGN, PLAIN,
              "24AGE0001A", "24AGE0005A", CEIL_A, CEIL_B, GNOPOST, GNOACT,
-             "20260001", "20260001D"):
+             # numeric (20260001) AND check-letter (20260001D) forms — both must be absent from
+             # the three NEW slices too (they are now in _blob above), the hard invariant
+             "20260001", "20260001D",
+             # P05 / P09 / P02 synthetic SIDs
+             UGF1, MSCC2, gS, gH, gF, gW, "25IMI0001A", "25COI0001A", "25ARC0001A"):
     check(f"{_sid} does not appear in any slice", _sid not in _blob, _blob[:200])
 
 conn.close()

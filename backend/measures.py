@@ -888,6 +888,343 @@ def game_result_summary(db_path=None) -> dict:
     }
 
 
+def _sample_sd(xs, ndigits=3):
+    """Sample SD (n-1). None for < 2 points, where a spread is undefined -- so a single-
+    respondent cell reads '—' rather than a misleading 0. Shared by the three DV-completer
+    slices below."""
+    if len(xs) < 2:
+        return None
+    m = sum(xs) / len(xs)
+    var = sum((x - m) ** 2 for x in xs) / (len(xs) - 1)
+    return round(var ** 0.5, ndigits)
+
+
+def _population_of(section) -> str | None:
+    """UG (undergraduate sections A/B/C pooled) vs MSc (the MSC cross-population cohort).
+
+    None for an unknown/absent section, so it drops out of the population split rather than
+    forming a phantom third population. The mapping is the study design (docs/revamp.md; the
+    MSC section is COMP5517), read here from the SECTION each account is in -- not re-derived."""
+    s = (section or "").strip().upper()
+    if s in ("A", "B", "C"):
+        return "UG"
+    if s == "MSC":
+        return "MSc"
+    return None
+
+
+def gain_by_population_arm(db_path=None, section_map=None) -> dict:
+    """Paper 05's cross-population INTERACTION DV: normalised gain <g> per (population, arm),
+    where population is UG (undergraduate sections A/B/C pooled) vs MSc (the MSC cohort) and arm
+    is the ASSIGNED FLIP/CONTROL. This is the interaction hypothesis's actual dependent variable
+    -- does the flip effect (the FLIP-CONTROL gain gap) differ between undergraduates and
+    master's students? -- which the section coverage/compliance table alone cannot answer and
+    which was, until now, uncomputed.
+
+    Reuses per_topic()'s rows and their already-resolved arm (honouring the SID-canon frozen arm
+    via _resolved_arm, like every other slice), joined to each participant's SECTION via
+    section_map. section_map defaults to {sid -> section} from auth_store.list_participants();
+    it is injectable so the offline test can supply sections without an auth DB. Same gain
+    formula as paper 01 -- (post-pre)/(100-pre), excluding pre==100 which has no normalised gain
+    -- and each cell carries gain_n beside <g> plus the population's sample SD of gain.
+
+    AGGREGATE-ONLY: every row is counts + means for a (population, arm) cell, never a
+    participant. Filtered through enrolled_only like the other dashboard slices, so non-roster /
+    e2e traffic is dropped when a roster is active."""
+    if section_map is None:
+        section_map = {}
+        try:
+            import auth_store
+            section_map = {p["sid"]: p.get("section") for p in auth_store.list_participants()}
+        except Exception:
+            section_map = {}
+
+    rows, _ = enrolled_only(per_topic(db_path))
+
+    agg: dict = defaultdict(lambda: {"pre": [], "post": [], "gains": []})
+    for r in rows:
+        arm = r["arm"]
+        if arm not in (schedule.FLIP, schedule.CONTROL):
+            continue
+        pop = _population_of(section_map.get(r["participant_id"]))
+        if pop is None:
+            continue
+        pre, post = r["pre_score"], r["post_score"]
+        if pre is None or post is None:
+            continue
+        b = agg[(pop, arm)]
+        b["pre"].append(pre)
+        b["post"].append(post)
+        if pre < 100:
+            b["gains"].append((post - pre) / (100 - pre))
+
+    def _mean(xs, nd):
+        return round(sum(xs) / len(xs), nd) if xs else None
+
+    cells = []
+    for (pop, arm), b in sorted(
+            agg.items(),
+            key=lambda kv: (0 if kv[0][0] == "UG" else 1,
+                            0 if kv[0][1] == schedule.FLIP else 1)):
+        cells.append({
+            "population": pop,
+            "arm": arm,
+            "n": len(b["pre"]),
+            "pre_mean": _mean(b["pre"], 1),
+            "post_mean": _mean(b["post"], 1),
+            "gain": _mean(b["gains"], 3),
+            "gain_n": len(b["gains"]),
+            "gain_sd": _sample_sd(b["gains"], 3),
+        })
+
+    # The headline: the FLIP-CONTROL gain gap for each population, and the difference of the
+    # two gaps (the interaction -- the cross-population effect itself). None where a needed
+    # cell is missing, so a half-collected read never fabricates an interaction.
+    by = {(c["population"], c["arm"]): c["gain"] for c in cells}
+
+    def _gap(pop):
+        f, c = by.get((pop, schedule.FLIP)), by.get((pop, schedule.CONTROL))
+        return round(f - c, 3) if (f is not None and c is not None) else None
+
+    ug_gap, msc_gap = _gap("UG"), _gap("MSc")
+    interaction = (round(ug_gap - msc_gap, 3)
+                   if (ug_gap is not None and msc_gap is not None) else None)
+
+    return {
+        "cells": cells,
+        "ug_gain_gap": ug_gap,
+        "msc_gain_gap": msc_gap,
+        "interaction": interaction,
+        "note": "Normalised gain <g> = (post-pre)/(100-pre) per (population, arm); UG = sections "
+                "A/B/C pooled, MSc = the MSC cohort. The interaction is the difference of the two "
+                "FLIP-CONTROL gain gaps -- the cross-population DV. Aggregate-only; pre==100 pairs "
+                "are excluded from <g> (gain_n).",
+    }
+
+
+def game_psychophysics_summary(db_path=None) -> dict:
+    """Paper 09's per-paradigm DV, split by the ASSIGNED arm -- the reframed dependent variable
+    game_result_summary() only counted. That function reports COVERAGE (trial payloads + metric
+    keys per topic); this parses the four psychophysics games' game_result payloads into the
+    metric each law is actually about and splits FLIP vs CONTROL:
+
+      * Stroop  -- consistent vs inconsistent mean RT (ms) + the congruency delta (the Stroop
+                   interference effect). Reads game_result.consistent_avg_ms / inconsistent_avg_ms
+                   (stroop-understanding game-client.tsx), falling back to averaging trials[].rt_ms
+                   by block.
+      * Hick    -- mean choice RT (ms) by number of choices. Reads game_result.trials[].rt_ms; the
+                   choice count comes from a single n_choices/n field when present, else from the
+                   comparison game's n_choices_a / n_choices_b (the RT of comparing two menus is
+                   recorded against each option-count -- coverage colour, not a precise fit).
+      * Fitts   -- mean movement time (ms) by condition (distance / size). game_result.distance /
+                   size are {target -> catch_ms} maps (the two Fitts manipulations, amplitude and
+                   width); there is no numeric ID in the payload, so condition is the ID bucket.
+      * Weber   -- mean just-noticeable-difference (JND, % of base). Reads game_result.trials[].
+                   jnd_pct, falling back to the jnd {attribute -> pct} map.
+
+    Arm resolved via _resolved_arm + _frozen_arms exactly as affect_recall_summary does, so the
+    SID-canon frozen arm is honoured; a row whose topic is off-schedule or whose arm cannot be
+    resolved is skipped. Missing/absent fields are tolerated -- a paradigm with no parseable rows
+    reports zero N, and telemetry-off in prod means every paradigm is empty. AGGREGATE-ONLY: means
+    + counts per (paradigm, arm), never a participant (test asserts the no-SID property)."""
+    idx = topic_index()
+    frozen = _frozen_arms(db_path)
+    rows, dropped = enrolled_only(_meta_events(None, db_path, where_meta='%"game_result"%'))
+
+    stroop = {schedule.FLIP: {"cons": [], "incons": [], "who": set()},
+              schedule.CONTROL: {"cons": [], "incons": [], "who": set()}}
+    hick = {schedule.FLIP: {"by_n": defaultdict(list), "who": set()},
+            schedule.CONTROL: {"by_n": defaultdict(list), "who": set()}}
+    fitts = {schedule.FLIP: {"by_cond": defaultdict(list), "who": set()},
+             schedule.CONTROL: {"by_cond": defaultdict(list), "who": set()}}
+    weber = {schedule.FLIP: {"jnd": [], "who": set()},
+             schedule.CONTROL: {"jnd": [], "who": set()}}
+
+    def _num(v):
+        return v if (isinstance(v, (int, float)) and not isinstance(v, bool)) else None
+
+    def _int(v):
+        return v if (isinstance(v, int) and not isinstance(v, bool)) else None
+
+    for r in rows:
+        gr = r["meta"].get("game_result")
+        if not isinstance(gr, dict):
+            continue
+        tid = r["topic_id"]
+        if tid not in idx:
+            continue
+        arm = _resolved_arm(r["participant_id"], tid, idx.get(tid), frozen)
+        if arm not in (schedule.FLIP, schedule.CONTROL):
+            continue
+        game = str(gr.get("game") or "").lower()
+        pid_ = r["participant_id"]
+        trials = gr.get("trials") if isinstance(gr.get("trials"), list) else []
+
+        if game == "stroop":
+            c, i = _num(gr.get("consistent_avg_ms")), _num(gr.get("inconsistent_avg_ms"))
+            if c is None or i is None:
+                cons = [_num(t.get("rt_ms")) for t in trials
+                        if isinstance(t, dict) and t.get("block") == "consistent"]
+                inc = [_num(t.get("rt_ms")) for t in trials
+                       if isinstance(t, dict) and t.get("block") == "inconsistent"]
+                cons = [x for x in cons if x is not None]
+                inc = [x for x in inc if x is not None]
+                if c is None and cons:
+                    c = sum(cons) / len(cons)
+                if i is None and inc:
+                    i = sum(inc) / len(inc)
+            b = stroop[arm]
+            if c is not None:
+                b["cons"].append(c)
+            if i is not None:
+                b["incons"].append(i)
+            if c is not None or i is not None:
+                b["who"].add(pid_)
+
+        elif game == "hicks":
+            b = hick[arm]
+            counted = False
+            for t in trials:
+                if not isinstance(t, dict):
+                    continue
+                rt = _num(t.get("rt_ms"))
+                if rt is None:
+                    continue
+                single = _int(t.get("n_choices"))
+                if single is None:
+                    single = _int(t.get("n"))
+                ns = [single] if single is not None else [
+                    n for n in (_int(t.get("n_choices_a")), _int(t.get("n_choices_b")))
+                    if n is not None]
+                for n in ns:
+                    b["by_n"][n].append(rt)
+                    counted = True
+            if counted:
+                b["who"].add(pid_)
+
+        elif game == "fitts":
+            b = fitts[arm]
+            counted = False
+            for cond in ("distance", "size"):
+                m = gr.get(cond)
+                if not isinstance(m, dict):
+                    continue
+                for v in m.values():
+                    mt = _num(v)
+                    if mt is not None:
+                        b["by_cond"][cond].append(mt)
+                        counted = True
+            if counted:
+                b["who"].add(pid_)
+
+        elif game == "weber":
+            vals = [_num(t.get("jnd_pct")) for t in trials if isinstance(t, dict)]
+            vals = [x for x in vals if x is not None]
+            if not vals and isinstance(gr.get("jnd"), dict):
+                vals = [x for x in (_num(v) for v in gr["jnd"].values()) if x is not None]
+            if vals:
+                b = weber[arm]
+                b["jnd"].extend(vals)
+                b["who"].add(pid_)
+
+    def _mean(xs, nd=1):
+        return round(sum(xs) / len(xs), nd) if xs else None
+
+    def _stroop_arm(arm):
+        b = stroop[arm]
+        cons, inc = _mean(b["cons"]), _mean(b["incons"])
+        delta = round(inc - cons, 1) if (cons is not None and inc is not None) else None
+        return {"n": len(b["who"]), "consistent_ms": cons, "inconsistent_ms": inc,
+                "congruency_delta_ms": delta}
+
+    def _hick_arm(arm):
+        b = hick[arm]
+        return {"n": len(b["who"]),
+                "by_n_choices": [{"n_choices": n, "mean_rt_ms": _mean(b["by_n"][n]),
+                                  "trials": len(b["by_n"][n])} for n in sorted(b["by_n"])]}
+
+    def _fitts_arm(arm):
+        b = fitts[arm]
+        return {"n": len(b["who"]),
+                "by_condition": [{"condition": cond, "mean_mt_ms": _mean(b["by_cond"][cond]),
+                                  "trials": len(b["by_cond"][cond])} for cond in sorted(b["by_cond"])]}
+
+    def _weber_arm(arm):
+        b = weber[arm]
+        return {"n": len(b["who"]), "mean_jnd_pct": _mean(b["jnd"], 2), "trials": len(b["jnd"])}
+
+    return {
+        "stroop": {"flip": _stroop_arm(schedule.FLIP), "control": _stroop_arm(schedule.CONTROL)},
+        "hick": {"flip": _hick_arm(schedule.FLIP), "control": _hick_arm(schedule.CONTROL)},
+        "fitts": {"flip": _fitts_arm(schedule.FLIP), "control": _fitts_arm(schedule.CONTROL)},
+        "weber": {"flip": _weber_arm(schedule.FLIP), "control": _weber_arm(schedule.CONTROL)},
+        "test_traffic_excluded": dropped,
+        "note": "Per-paradigm DV split by assigned arm: Stroop consistent/inconsistent RT + "
+                "congruency delta, Hick RT by n_choices, Fitts MT by condition (distance/size), "
+                "Weber JND (% of base). Empty when TELEMETRY_ENABLED was off (zero game_result "
+                "rows). Aggregate-only.",
+    }
+
+
+def questionnaire_subscales(db_path=None) -> dict:
+    """Paper 02's REAL H2/H3 instrument scoring: reverse-applied SUBSCALE means for IMI (4
+    subscales), CoI (2) and ARCS (2), computed from the `reverse` + `subscales` metadata already
+    in questionnaires.json. questionnaire_by_arm() reports only ONE raw item mean per instrument
+    (deliberately -- monitor colour); this is the scored form the H2/H3 analysis actually needs,
+    and it does NOT change questionnaire_by_arm.
+
+    Per instrument per subscale: the cohort mean over each participant's mean of that subscale's
+    reverse-corrected items (standard subscale scoring), the respondent n, and the sample SD.
+    Reverse scoring flips a reverse-keyed item (IMI's M9/M11) to (scale_min + scale_max) - v using
+    the instrument's own scale length, so it counts in the same direction as the rest of its
+    subscale.
+
+    Aggregate-only, COHORT-level: IMI/CoI/ARCS are each administered ONCE across all topics
+    (topic_id null), so there is no per-arm split -- a real design limit, kept as a note (the same
+    limit questionnaire_by_arm states). No SID leaves (test asserts it)."""
+    out: dict = {}
+    for name in ("imi", "coi", "arcs"):
+        inst = _instrument(name) or {}
+        scale_len = len(inst.get("scale") or [])
+        reverse = set(inst.get("reverse") or [])
+        subscales = inst.get("subscales") or {}
+
+        rows, _ = enrolled_only(_meta_events([f"questionnaire_{name}"], db_path))
+        per = _first_per_participant(rows)   # participant -> answer map, first submission wins
+
+        def _score(item_id, v, _reverse=reverse, _scale_len=scale_len):
+            if not (isinstance(v, int) and not isinstance(v, bool)):
+                return None
+            return (_scale_len + 1 - v) if (item_id in _reverse and _scale_len) else v
+
+        sub_out = []
+        for sub_name, item_ids in subscales.items():
+            per_person = []
+            for ans in per.values():
+                vals = [s for iid in item_ids
+                        for s in (_score(iid, ans.get(iid)),) if s is not None]
+                if vals:
+                    per_person.append(sum(vals) / len(vals))
+            sub_out.append({
+                "subscale": sub_name,
+                "items": list(item_ids),
+                "n": len(per_person),
+                "mean": round(sum(per_person) / len(per_person), 2) if per_person else None,
+                "sd": _sample_sd(per_person, 3),
+            })
+        out[name] = {
+            "title": inst.get("title"),
+            "scale_max": scale_len or None,
+            "reverse_items": sorted(reverse),
+            "subscales": sub_out,
+            "n_respondents": len(per),
+        }
+    out["note"] = ("Reverse-applied subscale means (cohort-level). IMI/CoI/ARCS are each "
+                   "administered once across all topics, so there is no per-arm split. Reverse "
+                   "items are flipped to (min+max)-v using each instrument's scale length.")
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--participant")

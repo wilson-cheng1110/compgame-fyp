@@ -329,6 +329,64 @@ check("paper 08 now surfaces the grade-pass generated timestamp",
 for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
     check(f"paper 08's grader table leaks no raw SID ({_leak})", _leak not in _p08.text, _p08.text[:200])
 
+print("\n-- NEW DV COMPLETERS: P05 population×arm gain, P09 psychophysics-by-arm, P02 subscales --")
+# 24STUDENT1B (section B -> UG) already has a memory pre+post pair (added above), so paper 05's
+# population×arm gain table has a real UG row. No global is mutated here.
+_p05 = pi.get("/api/researcher/paper/05-cross-population-transfer")
+_p05j = _p05.json()
+check("paper 05 returns the population×arm gain table (the interaction DV)",
+      _p05j.get("table") is not None
+      and _p05j["table"]["columns"] == ["Population", "Arm", "n (pre+post)", "mean pre",
+                                        "mean post", "⟨g⟩", "SD"], _p05j.get("table"))
+check("paper 05 has a UG row from the enrolled student's pre+post pair",
+      any(r[0] == "UG" for r in _p05j["table"]["rows"]), _p05j["table"]["rows"])
+check("paper 05 surfaces the FLIP−CONTROL gain-gap headline stat (UG vs MSc)",
+      any("gain gap" in s["label"] for s in _p05j["stats"]), [s["label"] for s in _p05j["stats"]])
+check("paper 05 keeps the per-section coverage as stat cards (B present)",
+      any(s["label"] == "B" for s in _p05j["stats"]), [s["label"] for s in _p05j["stats"]])
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"paper 05's gain table leaks no raw SID ({_leak})", _leak not in _p05.text, _p05.text[:200])
+
+# P09: give an enrolled student a real stroop game_result (record_event is the raw writer; the
+# telemetry strip is the HTTP layer, so this persists even with TELEMETRY_ENABLED=0).
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "assessment_complete",
+                             "topic_id": "stroop",
+                             "meta": {"game_result": {"game": "stroop", "consistent_avg_ms": 480,
+                                                      "inconsistent_avg_ms": 900, "trials": []}}})
+_p09 = pi.get("/api/researcher/paper/09-game-psychophysics")
+_p09j = _p09.json()
+check("paper 09 flips to 'live' once a game_result trial exists", _p09j["status"] == "live", _p09j["status"])
+check("paper 09 returns the per-paradigm psychophysics table split by arm",
+      _p09j.get("table") is not None
+      and _p09j["table"]["columns"] == ["Paradigm", "Arm", "N", "Statistic"], _p09j.get("table"))
+check("the psychophysics table has a Stroop row for each arm (FLIP + CONTROL)",
+      sum(1 for r in _p09j["table"]["rows"] if r[0] == "Stroop") == 2, _p09j["table"]["rows"][:2])
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"paper 09's psychophysics table leaks no raw SID ({_leak})", _leak not in _p09.text, _p09.text[:200])
+
+# P02: give the enrolled student IMI/CoI/ARCS submissions so the reverse-scored subscale table
+# has data (it is preferred over the affect-recall table when questionnaire responses exist).
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "questionnaire_imi",
+                             "meta": {"answers": {"M1": 5, "M5": 5, "M9": 1}}})   # IE, M9 reverse
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "questionnaire_coi",
+                             "meta": {"answers": {"I1": 4, "I2": 4, "I3": 4, "I4": 4}}})
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "questionnaire_arcs",
+                             "meta": {"answers": {"S1": 3, "S2": 3, "S3": 3, "S4": 3, "S5": 3}}})
+_p02s = pi.get("/api/researcher/paper/02-motivation-experience")
+_p02sj = _p02s.json()
+check("paper 02 returns the reverse-applied subscale table once IMI/CoI/ARCS responses exist",
+      _p02sj.get("table") is not None
+      and _p02sj["table"]["columns"] == ["Instrument", "Subscale", "mean (reverse-applied)", "n"],
+      _p02sj.get("table"))
+check("the subscale table carries an IMI IE row (reverse-applied: M9=1 -> 5, mean 5.0)",
+      any(r[0] == "IMI" and r[1] == "IE" and r[2] == 5.0 for r in _p02sj["table"]["rows"]),
+      [r for r in _p02sj["table"]["rows"] if r[0] == "IMI"])
+check("paper 02 surfaces a reverse-applied IMI subscale headline stat",
+      any("reverse-applied" in (s.get("sub") or "") for s in _p02sj["stats"]),
+      [s.get("sub") for s in _p02sj["stats"]])
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"paper 02's subscale table leaks no raw SID ({_leak})", _leak not in _p02s.text, _p02s.text[:200])
+
 print("\n-- export is pseudonymised: the real SID never leaves --")
 j = pi.get("/api/researcher/export")
 check("export json is 200", j.status_code == 200, j.status_code)
