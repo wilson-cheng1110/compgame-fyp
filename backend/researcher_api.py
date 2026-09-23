@@ -290,10 +290,10 @@ def _paper_slice(pid: str) -> dict:
         # frontend renders this generic {columns, rows} table already (04/05 do).
         gd = measures.gain_detail()
         table = {
-            "columns": ["Topic", "Arm", "n (pre+post)", "mean pre", "mean post", "⟨g⟩",
+            "columns": ["Topic", "Arm", "n (pre+post)", "mean pre", "mean post", "⟨g⟩", "SD ⟨g⟩",
                         "post≥90", "post=100", "assigned", "no activity", "no post-check"],
             "rows": [[r["topic_id"], r["arm"], r["n_pairs"], r["pre_mean"], r["post_mean"],
-                      r["gain"], r["ceiling_ge90"], r["ceiling_eq100"], r["assigned"],
+                      r["gain"], r["gain_sd"], r["ceiling_ge90"], r["ceiling_eq100"], r["assigned"],
                       r["no_activity"], r["no_posttest"]]
                      for r in gd],
         }
@@ -418,37 +418,123 @@ def _paper_slice(pid: str) -> dict:
 
     if pid in ("03-reflection-help-seeking", "07-ai-tutor-design"):
         rs = measures.reflection_summary()
+
+        def _pct(x):
+            return f"{round(100 * x)}%" if x is not None else "—"
+
         stats = [
             {"label": "Reflections completed", "value": rs["reflections"]},
             {"label": "Dialogs skipped", "value": rs["skipped"]},
             {"label": "Participants reflected", "value": rs["participants_reflected"]},
             {"label": "Mean human turns", "value": rs["mean_human_turns"] if rs["mean_human_turns"] is not None else "—"},
-            {"label": "Asked for the answer", "value": f"{round(100 * rs['direct_answer_rate'])}%" if rs["direct_answer_rate"] is not None else "—"},
+            {"label": "Mean counted turns", "value": rs["mean_counted_turns"] if rs["mean_counted_turns"] is not None else "—"},
+            {"label": "Reached insight", "value": _pct(rs["insight_rate"])},
+            {"label": "Asked for the answer", "value": _pct(rs["direct_answer_rate"])},
         ]
+        # The reflection-GATE outputs (reflection-dialog.tsx's `finish`): how the dialog ended
+        # (insight vs turn-floor), the turn-quality roll-up (share of turns the model flagged as
+        # counting / as understood), and mean per-turn latency. Surfaced on BOTH 03 and 07.
+        _er = rs["end_reasons"]
+        stats.append({"label": "Ended on insight / floor",
+                      "value": f"{_er.get('insight', 0)} / {_er.get('floor', 0)}"})
+        _tq = rs["turn_quality"]
+        if _tq["turns"]:
+            stats.append({"label": "Turn quality (counts / understood)",
+                          "value": f"{_pct(_tq['counts_rate'])} / {_pct(_tq['understood_rate'])}",
+                          "sub": f"over {_tq['turns']} tutor turns"})
+        if rs["mean_turn_latency_s"] is not None:
+            stats.append({"label": "Mean per-turn latency", "value": f"{rs['mean_turn_latency_s']}s"})
+
         if pid.startswith("03"):
-            return env("Reflection ENGAGEMENT from the tutor transcripts (turns, skip rate, "
-                       "direct-answer use) — the live proxy. Coded DEPTH is the offline "
-                       "code_batch.py human double-coding pass.", "proxy", stats,
+            return env("Reflection ENGAGEMENT + gate outputs from the tutor transcripts (turns, "
+                       "counted turns, insight rate, end-reason split, turn quality, direct-answer "
+                       "use) — the live proxy. Coded DEPTH is the offline code_batch.py human "
+                       "double-coding pass.", "proxy", stats,
                        "Metacognitive depth (none/shallow/generative) needs two human coders + "
                        "Cohen's κ ≥ 0.6 (code_batch.py) — pending, not shown as a number.")
-        return env("AI-tutor interaction from the mandatory post-test reflection: turns, skip "
-                   "rate, and how often students asked for the answer outright. Read alongside "
-                   "the CoI instrument (paper 02) and H1 gain.", "live", stats,
-                   "Free-chat /api/ask + /api/socratic usage and per-turn latency are NOT "
-                   "persisted — an optional later add.")
+
+        # Paper 07 also carries the FREE-CHAT aggregate: the floating tutor widget's ask_turn
+        # usage (measures.ask_turn_summary) — latency, message length, retrieved-source count,
+        # per topic. Metadata only, never the question text. Empty (no table) when telemetry was
+        # off. This is the channel that used to have NO reporting.
+        at = measures.ask_turn_summary()
+        table = None
+        if at["turns"]:
+            stats += [
+                {"label": "Free-chat turns", "value": at["turns"],
+                 "sub": f"{at['participants']} participants"},
+                {"label": "Mean chat latency",
+                 "value": f"{at['mean_duration_ms']} ms" if at["mean_duration_ms"] is not None else "—",
+                 "sub": (f"p50 {at['p50_duration_ms']} ms" if at["p50_duration_ms"] is not None else None)},
+                {"label": "Mean message length",
+                 "value": f"{at['mean_chars']} chars" if at["mean_chars"] is not None else "—"},
+                {"label": "Mean sources retrieved",
+                 "value": at["mean_sources"] if at["mean_sources"] is not None else "—"},
+            ]
+            table = {
+                "columns": ["Topic", "free-chat turns", "participants", "mean latency ms"],
+                "rows": [[t["topic_id"], t["turns"], t["participants"], t["mean_duration_ms"]]
+                         for t in at["by_topic"]],
+            }
+        return env("AI-tutor interaction from the mandatory post-test reflection (turns, counted "
+                   "turns, insight rate, end-reason split, turn quality, direct-answer use) PLUS "
+                   "the free-chat /api/ask usage (ask_turn) — latency, message length, retrieved-"
+                   "source count, per topic. Read alongside the CoI instrument (paper 02) and H1 "
+                   "gain.", "live", stats,
+                   "Free-chat /api/ask usage IS now persisted as ask_turn (metadata only — never "
+                   "the question text) and surfaced here; the reflection dialog is the mandatory "
+                   "post-test channel. Empty when TELEMETRY_ENABLED was off.", table)
 
     if pid == "04-test-taking-behaviour":
         s = measures.effort_summary()
+
+        def _pct04(x):
+            return f"{round(100 * x)}%" if x is not None else "—"
+
         stats = [
             {"label": "Check submissions", "value": s["submissions"]},
             {"label": "Straight-lined", "value": s["straight_lined"]},
             {"label": "Median s/item", "value": s["median_sec_per_item"] if s["median_sec_per_item"] is not None else "—"},
             {"label": "Fastest s/item", "value": s["fastest_sec_per_item"] if s["fastest_sec_per_item"] is not None else "—"},
         ]
-        table = {"columns": ["Verdict", "n"], "rows": [[k, v] for k, v in sorted(s["verdicts"].items())]}
+        # The verdict table now carries the process->performance link: the MEAN SCORE % of the
+        # submissions in each verdict class (measures.effort_summary.accuracy_by_verdict), each
+        # with its own graded-n. A struggling/rapid-guess class with a low mean score is the
+        # signal a bare verdict count cannot give.
+        _abv = s["accuracy_by_verdict"]
+
+        def _acc(v):
+            return _abv[v]["mean_score_pct"] if v in _abv else "—"
+
+        table = {"columns": ["Verdict", "n", "mean score %"],
+                 "rows": [[k, v, _acc(k)] for k, v in sorted(s["verdicts"].items())]}
+
+        # The per-item BEHAVIOURAL telemetry block (measures.check_behavior_summary): mean
+        # per-item time, direction/selection changes, and the paste / tab-blur rates —
+        # aggregate-only, n = item-telemetry records. Empty (items=0) when TELEMETRY_ENABLED
+        # was off, so these read '—' rather than fabricating a number.
+        cb = measures.check_behavior_summary()
+
+        def _cb(v, suffix=""):
+            return f"{v}{suffix}" if v is not None else "—"
+
+        if cb["items"]:
+            stats += [
+                {"label": "Item-telemetry records", "value": cb["items"]},
+                {"label": "Mean per-item time", "value": _cb(cb["mean_time_ms"], " ms")},
+                {"label": "Mean direction changes", "value": _cb(cb["mean_direction_changes"])},
+                {"label": "Mean selection changes", "value": _cb(cb["mean_selection_changes"])},
+                {"label": "Paste rate", "value": _pct04(cb["paste_rate"]),
+                 "sub": f"tab-blur rate {_pct04(cb['blur_rate'])}"},
+            ]
         return env("Time against accuracy on every pre/post check: the straight-lining / "
-                   "rapid-guess classifier (measures.effort) — the fit map's 'hidden asset'.",
-                   "live", stats, None, table)
+                   "rapid-guess classifier with the mean score % per verdict class "
+                   "(measures.effort), plus the per-item behavioural telemetry — mean per-item "
+                   "time, direction/selection changes, paste / tab-blur rates "
+                   "(measures.check_behavior_summary). The fit map's 'hidden asset'.",
+                   "live", stats,
+                   "Behavioural telemetry is empty when TELEMETRY_ENABLED was off; the verdict "
+                   "classifier runs on timing + accuracy alone and is always populated.", table)
 
     if pid == "05-cross-population-transfer":
         secmap = {p["sid"]: (p.get("section") or "—") for p in auth_store.list_participants()}

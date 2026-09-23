@@ -217,6 +217,111 @@ check("skips counted separately", rs["skipped"] == 1, rs)
 check("mean human turns from the transcript", rs["mean_human_turns"] == 2.0, rs)
 check("direct-answer use is a rate, not a transcript", rs["direct_answer_rate"] == 1.0, rs)
 
+print("\n-- reflection GATE outputs (paper 07/03): insight, endReason, counted turns, latency --")
+# A second, RICH reflection_complete carrying the full gate payload reflection-dialog.tsx emits:
+# insight, countedTurns, endReason, turnQuality, and a transcript with per-turn ts (for latency).
+evm("24REFL01A", "reflection_complete", T, {
+    "transcript": [
+        {"role": "assistant", "content": "q1", "ts": "2026-09-10T09:00:00+00:00"},
+        {"role": "human", "content": "a1", "ts": "2026-09-10T09:00:10+00:00"},   # +10s
+        {"role": "assistant", "content": "q2", "ts": "2026-09-10T09:00:20+00:00"},  # +10s
+        {"role": "human", "content": "a2", "ts": "2026-09-10T09:00:40+00:00"},   # +20s
+    ],
+    "countedTurns": 3, "insight": True, "endReason": "insight",
+    "turnQuality": [{"counts": True, "understood": False}, {"counts": True, "understood": True}],
+    "directAnswers": 0,
+})
+conn.commit()
+rs2 = measures.reflection_summary(DB)
+check("both completed reflections are now counted", rs2["reflections"] == 2, rs2)
+check("mean counted turns comes from the gate output (only the rich row has it)",
+      rs2["mean_counted_turns"] == 3.0, rs2)
+check("insight_rate is the share reaching insight (1 of 2)", rs2["insight_rate"] == 0.5, rs2)
+check("end_reasons distribution counts the insight end", rs2["end_reasons"].get("insight") == 1,
+      rs2["end_reasons"])
+check("turn_quality roll-up: counts_rate 1.0, understood_rate 0.5 over 2 turns",
+      rs2["turn_quality"]["turns"] == 2 and rs2["turn_quality"]["counts_rate"] == 1.0
+      and rs2["turn_quality"]["understood_rate"] == 0.5, rs2["turn_quality"])
+check("mean per-turn latency from consecutive transcript ts deltas ((10+10+20)/3 = 13.3s)",
+      rs2["mean_turn_latency_s"] == 13.3, rs2["mean_turn_latency_s"])
+
+print("\n-- ask_turn_summary (paper 07): free-chat aggregate, metadata only, per topic --")
+# ask_turn carries duration_ms in the COLUMN (latency) and chars/sources in meta -- exactly
+# as ai-chat-widget.tsx logs it. evfull sets the duration_ms column that evm cannot.
+def evfull(sid, etype, topic, ts, meta, duration_ms=None, score=None):
+    conn.execute(
+        "INSERT INTO events (participant_id, event_type, topic_id, score, duration_ms, server_ts, meta)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (sid, etype, topic, score, duration_ms, ts, _json.dumps(meta)))
+
+# A second topic (gestalt) for the per-topic split -- NOT fitts-law/memory, which later blocks
+# assert exact gain_detail cell counts on (an ask_turn row would bump their `assigned`/no_activity).
+evfull("24ASK01A", "ask_turn", T, "2026-09-11T11:00:00+00:00", {"chars": 50, "sources": 4}, 2000)
+evfull("24ASK02A", "ask_turn", "gestalt", "2026-09-11T11:01:00+00:00", {"chars": 30, "sources": 2}, 4000)
+evfull("24ASK01A", "ask_turn", T, "2026-09-11T11:02:00+00:00", {"chars": 10, "sources": 0}, 6000)
+conn.commit()
+at = measures.ask_turn_summary(DB)
+check("ask_turn: distinct participants counted", at["participants"] == 2, at)
+check("ask_turn: total turns counted", at["turns"] == 3, at)
+check("ask_turn: mean latency from the duration_ms column ((2000+4000+6000)/3)",
+      at["mean_duration_ms"] == 4000.0, at)
+check("ask_turn: mean message length from meta.chars ((50+30+10)/3)", at["mean_chars"] == 30.0, at)
+check("ask_turn: mean sources from meta.sources ((4+2+0)/3)", at["mean_sources"] == 2.0, at)
+check("ask_turn: per-topic table carries turns + participants for a topic",
+      any(t["topic_id"] == T and t["turns"] == 2 and t["participants"] == 1 for t in at["by_topic"]),
+      at["by_topic"])
+
+print("\n-- effort_summary accuracy-by-verdict (paper 04): mean score % per verdict class --")
+import checks as _checks
+_kB = _checks._key("memory", "B")            # {B1:'b', ...} -- the real answer key
+_correct = dict(_kB)
+_wrong = {iid: ("a" if v != "a" else "d") for iid, v in _kB.items()}   # every item wrong
+# Correct + SLOW (10s/item) -> "engaged", score% 100. Wrong + slow -> "struggling", score% 0.
+# Every other pre/post row in this DB has no answers -> "no timing", so these two are the ONLY
+# occupants of the engaged/struggling buckets.
+evfull("24EFF01A", "topic_posttest", "memory", "2026-09-11T12:00:00+00:00",
+       {"answers": _correct, "form": "B", "n_options": 4}, 60000)
+evfull("24EFF02A", "topic_posttest", "memory", "2026-09-11T12:00:00+00:00",
+       {"answers": _wrong, "form": "B", "n_options": 4}, 60000)
+conn.commit()
+es = measures.effort_summary(DB)
+abv = es["accuracy_by_verdict"]
+check("engaged (correct, unhurried) verdict mean score % is 100",
+      abv.get("engaged", {}).get("mean_score_pct") == 100.0, abv)
+check("struggling (wrong, unhurried) verdict mean score % is 0",
+      abv.get("struggling", {}).get("mean_score_pct") == 0.0, abv)
+check("each verdict's accuracy carries its own graded n",
+      abv["engaged"]["n"] == 1 and abv["struggling"]["n"] == 1, abv)
+
+print("\n-- check_behavior_summary (paper 04): per-item telemetry aggregate, tolerant of absence --")
+_tel = {"B1": {"total_time_ms": 5000, "direction_changes": 4, "selection_changes": 2,
+               "longest_pause_ms": 800, "time_to_first_input_ms": 200,
+               "hover_dwell_ms": {"a": 100, "b": 200}, "paste_detected": True, "tab_blur_count": 2},
+        "B2": {"total_time_ms": 3000, "direction_changes": 0, "selection_changes": 0,
+               "longest_pause_ms": 400, "time_to_first_input_ms": 600,
+               "hover_dwell_ms": {}, "paste_detected": False, "tab_blur_count": 0}}
+evfull("24TEL001A", "topic_posttest", "memory", "2026-09-11T13:00:00+00:00",
+       {"telemetry": _tel, "answers": {}}, 8000)
+conn.commit()
+cb = measures.check_behavior_summary(DB)
+check("n = item-telemetry records across items (only this row carries telemetry)", cb["items"] == 2, cb)
+check("mean per-item time ((5000+3000)/2)", cb["mean_time_ms"] == 4000.0, cb)
+check("mean direction changes ((4+0)/2)", cb["mean_direction_changes"] == 2.0, cb)
+check("mean selection changes ((2+0)/2)", cb["mean_selection_changes"] == 1.0, cb)
+check("paste rate over item records (1 of 2)", cb["paste_rate"] == 0.5, cb)
+check("tab-blur rate over item records (B1 blurred, B2 not)", cb["blur_rate"] == 0.5, cb)
+# Absent-telemetry tolerance: a fresh sink with rows but NO telemetry returns items=0 (not error).
+_emptydb = os.path.join(tmp, "notel.db")
+_ec = sqlite3.connect(_emptydb); _ec.execute(DDL)
+_ec.execute("INSERT INTO events (participant_id, event_type, topic_id, server_ts, meta)"
+            " VALUES ('24X0001A','topic_posttest','memory','2026-09-11T00:00:00+00:00','{}')")
+_ec.commit(); _ec.close()
+_cb_empty = measures.check_behavior_summary(_emptydb)
+check("absent-telemetry tolerance: items=0 with empty means, no error",
+      _cb_empty["items"] == 0 and _cb_empty["mean_time_ms"] is None, _cb_empty)
+check("ask_turn tolerates a sink with no ask_turn rows (zeros, no error)",
+      measures.ask_turn_summary(_emptydb)["turns"] == 0, measures.ask_turn_summary(_emptydb))
+
 # game_result rides in meta.game_result on a completion event.
 evm(flip_sid, "assessment_complete", T, {"game_result": {"rt_ms": 420, "trials": 10}})
 conn.commit()
@@ -324,6 +429,13 @@ check("n_pairs counts only pairs with BOTH pre and post", _gf["n_pairs"] == 3, _
 check("pre/post means over the pairs", _gf["pre_mean"] == 20.0 and _gf["post_mean"] == 81.7, _gf)
 check("mean normalised gain is reported, with its own denominator gain_n",
       _gf["gain"] is not None and _gf["gain_n"] == 3, _gf)
+# P01 add: the sample SD of gain per (topic, arm) cell. The three FLIP gains are known
+# (pre/post 10/95, 20/100, 30/50 over this topic), so the SD is the sample SD of those.
+_expected_sd = measures._sample_sd([(95 - 10) / (100 - 10), (100 - 20) / (100 - 20),
+                                    (50 - 30) / (100 - 30)], 3)
+check("gain_detail carries the sample SD of gain per cell (matches the three known gains)",
+      _gf["gain_sd"] == _expected_sd and _gf["gain_sd"] is not None and _gf["gain_sd"] > 0,
+      (_gf["gain_sd"], _expected_sd))
 check("ceiling ≥90 counted with its share (of n_pairs)",
       _gf["ceiling_ge90"] == 2 and _gf["ceiling_ge90_share"] == round(2 / 3, 3), _gf)
 check("ceiling ==100 counted separately", _gf["ceiling_eq100"] == 1, _gf)
@@ -485,14 +597,20 @@ _blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_b
                      # the three new DV-completer slices — same aggregate-only invariant
                      measures.gain_by_population_arm(DB, section_map=_secmap),
                      measures.game_psychophysics_summary(DB),
-                     measures.questionnaire_subscales(DB)])
+                     measures.questionnaire_subscales(DB),
+                     # the process/behavioural slices (P04 accuracy + per-item telemetry,
+                     # P07 free-chat) — same aggregate-only invariant, never a participant
+                     measures.effort_summary(DB), measures.check_behavior_summary(DB),
+                     measures.ask_turn_summary(DB)])
 for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A", MIGN, PLAIN,
              "24AGE0001A", "24AGE0005A", CEIL_A, CEIL_B, GNOPOST, GNOACT,
              # numeric (20260001) AND check-letter (20260001D) forms — both must be absent from
              # the three NEW slices too (they are now in _blob above), the hard invariant
              "20260001", "20260001D",
              # P05 / P09 / P02 synthetic SIDs
-             UGF1, MSCC2, gS, gH, gF, gW, "25IMI0001A", "25COI0001A", "25ARC0001A"):
+             UGF1, MSCC2, gS, gH, gF, gW, "25IMI0001A", "25COI0001A", "25ARC0001A",
+             # P04 / P07 process-behavioural synthetic SIDs (numeric + check-letter shapes)
+             "24REFL01A", "24ASK01A", "24ASK02A", "24EFF01A", "24EFF02A", "24TEL001A", "24X0001A"):
     check(f"{_sid} does not appear in any slice", _sid not in _blob, _blob[:200])
 
 conn.close()

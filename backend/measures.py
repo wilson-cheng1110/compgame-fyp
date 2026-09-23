@@ -291,17 +291,113 @@ def effort_summary(db_path=None) -> dict:
     rows = effort(db_path)
     timed = [r for r in rows if r["sec_per_item"] is not None]
     by = defaultdict(int)
+    # The process->performance link a verdict-count alone drops: the mean score % of the
+    # submissions IN each verdict class. `effort()` already computes correct/total per
+    # submission; here it is turned into accuracy and grouped by the verdict. A submission
+    # whose grading failed (correct is None -- no bank, or an off-schedule topic) carries no
+    # accuracy and is excluded from the mean, so each verdict's accuracy has its OWN n
+    # (`n`, the graded submissions in that class) beside the overall verdict count in
+    # `verdicts`. Aggregate-only: a mean %, never a participant.
+    acc: dict = defaultdict(list)
     for r in rows:
         by[r["verdict"]] += 1
+        if r["correct"] is not None and r["total"]:
+            acc[r["verdict"]].append(100.0 * r["correct"] / r["total"])
     paces = sorted(r["sec_per_item"] for r in timed)
+    accuracy_by_verdict = {
+        v: {"n": len(xs), "mean_score_pct": round(sum(xs) / len(xs), 1)}
+        for v, xs in acc.items()
+    }
     return {
         "submissions": len(rows),
         "timed": len(timed),
         "untimed": len(rows) - len(timed),
         "verdicts": dict(by),
+        "accuracy_by_verdict": accuracy_by_verdict,
         "median_sec_per_item": paces[len(paces) // 2] if paces else None,
         "fastest_sec_per_item": paces[0] if paces else None,
         "straight_lined": sum(1 for r in rows if r["straight_lined"]),
+    }
+
+
+# ── per-item behavioural telemetry (paper 04) ─────────────────────────────────
+#
+# The check events carry, when TELEMETRY_ENABLED was on, a per-item behavioural snapshot
+# under meta["telemetry"] -- a dict KEYED BY ITEM ID, each value an ItemTelemetry object
+# (frontend/lib/telemetry.ts): total_time_ms, hover_dwell_ms (a per-option map),
+# direction_changes, selection_changes, longest_pause_ms, paste_detected, tab_blur_count,
+# time_to_first_input_ms, and more. This reduces the whole cohort's per-item records to a
+# handful of means + rates -- the behavioural companion to effort()'s time-vs-accuracy view.
+#
+# TOLERANT OF ABSENCE. Telemetry ships OFF until the HSESC amendment lands, so on a box
+# where it never ran there are simply no `telemetry` keys: this returns items=0 with empty
+# means rather than erroring, exactly like game_result_summary reads zero trials.
+
+_CHECK_TELEMETRY_EVENTS = ["topic_pretest", "topic_posttest"]
+
+
+def check_behavior_summary(db_path=None) -> dict:
+    """Per-item behavioural telemetry on the pre/post checks, aggregated across every item and
+    participant into means + rates. n = the number of item-telemetry records (an item on one
+    submission), each statistic's denominator.
+
+    AGGREGATE-ONLY: means/rates only, never a participant or a per-item row. Filtered through
+    enrolled_only like every other slice, so non-roster / e2e traffic drops when a roster is
+    active. Returns zeros/empty (never an error) when telemetry was off -- `meta.telemetry` is
+    simply absent, so nothing is collected."""
+    rows, dropped = enrolled_only(_meta_events(_CHECK_TELEMETRY_EVENTS, db_path))
+
+    times, dirs, sels, pauses, firsts, hovers = [], [], [], [], [], []
+    paste = blur = n = 0
+
+    def _num(v):
+        return v if (isinstance(v, (int, float)) and not isinstance(v, bool)) else None
+
+    for r in rows:
+        tel = r["meta"].get("telemetry")
+        if not isinstance(tel, dict):
+            continue
+        for _item_id, t in tel.items():
+            if not isinstance(t, dict):
+                continue
+            n += 1
+            for src, dst in ((t.get("total_time_ms"), times),
+                             (t.get("direction_changes"), dirs),
+                             (t.get("selection_changes"), sels),
+                             (t.get("longest_pause_ms"), pauses),
+                             (t.get("time_to_first_input_ms"), firsts)):
+                v = _num(src)
+                if v is not None:
+                    dst.append(v)
+            hd = t.get("hover_dwell_ms")
+            if isinstance(hd, dict):
+                hovers.append(sum(v for v in (_num(x) for x in hd.values()) if v is not None))
+            if t.get("paste_detected") is True:
+                paste += 1
+            tb = _num(t.get("tab_blur_count"))
+            if tb is not None and tb > 0:
+                blur += 1
+
+    def _mean(xs, nd=1):
+        return round(sum(xs) / len(xs), nd) if xs else None
+
+    def _rate(count):
+        return round(count / n, 3) if n else None
+
+    return {
+        "items": n,
+        "mean_time_ms": _mean(times),
+        "mean_direction_changes": _mean(dirs, 2),
+        "mean_selection_changes": _mean(sels, 2),
+        "mean_longest_pause_ms": _mean(pauses),
+        "mean_time_to_first_input_ms": _mean(firsts),
+        "mean_hover_dwell_ms": _mean(hovers),
+        "paste_rate": _rate(paste),
+        "blur_rate": _rate(blur),
+        "test_traffic_excluded": dropped,
+        "note": "Per-item behavioural telemetry on the pre/post checks, aggregated across all "
+                "items/participants (means + rates; n = item-telemetry records). Empty when "
+                "TELEMETRY_ENABLED was off. Aggregate-only -- never a participant.",
     }
 
 
@@ -415,6 +511,11 @@ def gain_detail(db_path=None) -> list[dict]:
             "post_mean": _mean(b["post"], 1),
             "gain": _mean(b["gains"], 3),
             "gain_n": len(b["gains"]),
+            # Sample SD of the normalised gain for this (topic, arm) cell -- the spread the
+            # single ⟨g⟩ mean hides. Reuses _sample_sd (n-1; None for <2 gains, so a single-
+            # pair cell reads '—' rather than a misleading 0), the same helper the
+            # population×arm and subscale slices use.
+            "gain_sd": _sample_sd(b["gains"], 3),
             "ceiling_ge90": b["ceil90"],
             "ceiling_ge90_share": _share(b["ceil90"], n_pairs),
             "ceiling_eq100": b["ceil100"],
@@ -700,36 +801,193 @@ def questionnaire_by_arm(db_path=None) -> dict:
 
 def reflection_summary(db_path=None) -> dict:
     """Papers 03 (metacognition) and 07 (AI tutor). reflection_complete meta carries the
-    tutor transcript (+ turnQuality, directAnswers, endReason -- reflection-dialog.tsx), so
-    this reports live ENGAGEMENT: how many reflected vs skipped, mean human turns, the
-    direct-answer ('just tell me') rate. It is the live PROXY both papers show now. Paper
-    03's coded reflection DEPTH is the offline code_batch.py human double-coding pass
-    (pending), NOT derived here -- engagement volume is not depth."""
+    tutor transcript plus the reflection-gate outputs (insight, countedTurns, endReason,
+    turnQuality, directAnswers -- reflection-dialog.tsx's `finish`), so this reports live
+    ENGAGEMENT: how many reflected vs skipped, mean human/counted turns, the insight rate,
+    the end-reason split (reached insight vs hit the turn floor), a turn-quality roll-up
+    (share of turns the model flagged as counting / as understood), the direct-answer ('just
+    tell me') rate, and mean per-turn latency (consecutive transcript `ts` deltas). It is the
+    live PROXY both papers show now. Paper 03's coded reflection DEPTH is the offline
+    code_batch.py human double-coding pass (pending), NOT derived here -- engagement volume is
+    not depth. AGGREGATE-ONLY: counts + rates + means, never a participant."""
     rows = _meta_events(["reflection_complete", "reflection_skipped"], db_path)
     rows, dropped = enrolled_only(rows)
     completed = [r for r in rows if r["event_type"] == "reflection_complete"]
     skipped = [r for r in rows if r["event_type"] == "reflection_skipped"]
 
-    human_turns = []
-    direct_used = 0
+    human_turns, counted_turns, turn_latencies = [], [], []
+    direct_used = insight_count = 0
+    end_reasons: dict = defaultdict(int)
+    tq_total = tq_counts_true = tq_understood_true = 0
+
+    def _int(v):
+        return v if (isinstance(v, int) and not isinstance(v, bool)) else None
+
     for r in completed:
-        tr = r["meta"].get("transcript")
+        m = r["meta"]
+        tr = m.get("transcript")
         if isinstance(tr, list):
             human_turns.append(sum(1 for t in tr
                                    if isinstance(t, dict) and t.get("role") == "human"))
-        da = r["meta"].get("directAnswers")
-        if isinstance(da, int) and not isinstance(da, bool) and da > 0:
+            # Mean per-turn latency for THIS reflection, from consecutive `ts` deltas (each
+            # transcript turn carries a client ISO `ts`). Negative/unparseable deltas are
+            # dropped; a reflection with no usable timestamps contributes nothing.
+            stamps = [t.get("ts") for t in tr if isinstance(t, dict) and t.get("ts")]
+            deltas = [d for d in (_seconds_between(a, b) for a, b in zip(stamps, stamps[1:]))
+                      if d is not None and d >= 0]
+            if deltas:
+                turn_latencies.append(sum(deltas) / len(deltas))
+        ct = _int(m.get("countedTurns"))
+        if ct is not None:
+            counted_turns.append(ct)
+        da = _int(m.get("directAnswers"))
+        if da is not None and da > 0:
             direct_used += 1
+        if m.get("insight") is True:
+            insight_count += 1
+        er = m.get("endReason")
+        if isinstance(er, str) and er:
+            end_reasons[er] += 1
+        tq = m.get("turnQuality")
+        if isinstance(tq, list):
+            for t in tq:
+                if not isinstance(t, dict):
+                    continue
+                tq_total += 1
+                if t.get("counts") is True:
+                    tq_counts_true += 1
+                if t.get("understood") is True:
+                    tq_understood_true += 1
 
     who_reflected = {r["participant_id"] for r in completed}
+    n_comp = len(completed)
+
+    def _mean(xs, nd=1):
+        return round(sum(xs) / len(xs), nd) if xs else None
+
+    def _rate(count, total, nd=2):
+        return round(count / total, nd) if total else None
+
     return {
-        "reflections": len(completed),
+        "reflections": n_comp,
         "skipped": len(skipped),
         "participants_reflected": len(who_reflected),
-        "mean_human_turns": round(sum(human_turns) / len(human_turns), 1) if human_turns else None,
-        "direct_answer_rate": round(direct_used / len(completed), 2) if completed else None,
+        "mean_human_turns": _mean(human_turns),
+        "mean_counted_turns": _mean(counted_turns),
+        "direct_answer_rate": _rate(direct_used, n_comp),
+        "insight_rate": _rate(insight_count, n_comp),
+        # Reached insight vs stopped at the turn floor -- the two ways `finish` unlocks.
+        "end_reasons": dict(end_reasons),
+        # Share of tutor turns the model flagged as counting / as showing understanding,
+        # over all turns across all completed reflections (tq_total is the denominator).
+        "turn_quality": {
+            "turns": tq_total,
+            "counts_rate": _rate(tq_counts_true, tq_total),
+            "understood_rate": _rate(tq_understood_true, tq_total),
+        },
+        "mean_turn_latency_s": _mean(turn_latencies, 1),
         "test_traffic_excluded": dropped,
     }
+
+
+def ask_turn_summary(db_path=None) -> dict:
+    """Paper 07's FREE-CHAT aggregate: the floating AI-tutor widget logs one `ask_turn` per
+    question (ai-chat-widget.tsx, persisted since 2026-09-21 -- research_api gates it on
+    TELEMETRY_ENABLED). Each carries METADATA ONLY, never the question text: `duration_ms`
+    (latency, the events column) plus meta.chars (message length) and meta.sources (retrieved-
+    source count). This reduces them to distinct participants, total turns, mean/p50 latency,
+    mean chars, mean sources, and a per-topic table -- the one tutor channel that had no
+    reporting (reflection already had reflection_summary).
+
+    AGGREGATE-ONLY: counts + means, never a participant. Filtered through enrolled_only like
+    every other slice. Empty (zeros) when TELEMETRY_ENABLED was off -- there are simply no
+    ask_turn rows -- never an error."""
+    conn = sqlite3.connect(db_path or DB)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")   # see _rows(): live callers exist
+    try:
+        raw = conn.execute(
+            "SELECT participant_id, topic_id, duration_ms, meta FROM events"
+            "  WHERE event_type = 'ask_turn' ORDER BY server_ts").fetchall()
+    finally:
+        conn.close()
+
+    parsed = []
+    for r in raw:
+        try:
+            meta = json.loads(r["meta"] or "{}")
+        except (ValueError, TypeError):
+            meta = {}
+        parsed.append({"participant_id": r["participant_id"], "topic_id": r["topic_id"],
+                       "duration_ms": r["duration_ms"], "meta": meta})
+    rows, dropped = enrolled_only(parsed)
+
+    idx = topic_index()
+
+    def _num(v):
+        return v if (isinstance(v, (int, float)) and not isinstance(v, bool)) else None
+
+    durations, chars, sources = [], [], []
+    who = set()
+    by_topic: dict = defaultdict(lambda: {"turns": 0, "who": set(), "durations": []})
+    for r in rows:
+        who.add(r["participant_id"])
+        # Latency is the events COLUMN (the widget sends it as a top-level field); tolerate a
+        # copy in meta for any client that put it there.
+        d = _num(r["duration_ms"])
+        if d is None:
+            d = _num(r["meta"].get("duration_ms"))
+        c = _num(r["meta"].get("chars"))
+        s = _num(r["meta"].get("sources"))
+        if d is not None:
+            durations.append(d)
+        if c is not None:
+            chars.append(c)
+        if s is not None:
+            sources.append(s)
+        b = by_topic[r["topic_id"] or "—"]
+        b["turns"] += 1
+        b["who"].add(r["participant_id"])
+        if d is not None:
+            b["durations"].append(d)
+
+    def _mean(xs, nd=1):
+        return round(sum(xs) / len(xs), nd) if xs else None
+
+    def _p50(xs):
+        return sorted(xs)[len(xs) // 2] if xs else None
+
+    topics = [{"topic_id": t, "turns": b["turns"], "participants": len(b["who"]),
+               "mean_duration_ms": _mean(b["durations"])}
+              for t, b in sorted(by_topic.items(), key=lambda kv: idx.get(kv[0], 999))]
+
+    return {
+        "turns": len(rows),
+        "participants": len(who),
+        "mean_duration_ms": _mean(durations),
+        "p50_duration_ms": _p50(durations),
+        "mean_chars": _mean(chars, 1),
+        "mean_sources": _mean(sources, 2),
+        "by_topic": topics,
+        "test_traffic_excluded": dropped,
+        "note": "Free-chat AI-tutor usage (ask_turn) -- metadata only (latency, message length, "
+                "retrieved-source count), never the question text. Empty when TELEMETRY_ENABLED "
+                "was off. Aggregate-only.",
+    }
+
+
+def _seconds_between(earlier_iso: str | None, later_iso: str | None) -> float | None:
+    """Seconds between two ISO timestamps, or None if either is missing/unparseable. Used for
+    reflection per-turn latency (consecutive transcript `ts` deltas) -- never an identifier, so
+    it carries no SID-leak risk of its own. Tolerates a trailing 'Z'."""
+    if not earlier_iso or not later_iso:
+        return None
+    try:
+        a = datetime.fromisoformat(str(earlier_iso).replace("Z", "+00:00"))
+        b = datetime.fromisoformat(str(later_iso).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    return (b - a).total_seconds()
 
 
 def _weeks_between(earlier_iso: str | None, later_iso: str | None) -> float | None:

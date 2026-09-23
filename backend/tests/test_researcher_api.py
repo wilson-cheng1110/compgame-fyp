@@ -387,6 +387,73 @@ check("paper 02 surfaces a reverse-applied IMI subscale headline stat",
 for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
     check(f"paper 02's subscale table leaks no raw SID ({_leak})", _leak not in _p02s.text, _p02s.text[:200])
 
+print("\n-- PROCESS/BEHAVIOURAL: P04 accuracy-by-verdict + per-item telemetry, P07 gate + ask_turn --")
+# P04: a check with per-item behavioural telemetry in meta['telemetry'] (topic_api stores it
+# exactly there; record_event is the raw writer, so it persists even with TELEMETRY_ENABLED=0).
+# gestalt has no prior posttest for this student -> no once-only collision.
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "topic_posttest",
+                             "topic_id": "gestalt", "duration_ms": 9000,
+                             "meta": {"answers": {}, "form": "B", "telemetry": {
+                                 "g1": {"total_time_ms": 4000, "direction_changes": 3,
+                                        "selection_changes": 1, "paste_detected": True,
+                                        "tab_blur_count": 1, "hover_dwell_ms": {}},
+                                 "g2": {"total_time_ms": 2000, "direction_changes": 1,
+                                        "selection_changes": 0, "paste_detected": False,
+                                        "tab_blur_count": 0, "hover_dwell_ms": {}}}}})
+_p04 = pi.get("/api/researcher/paper/04-test-taking-behaviour")
+_p04j = _p04.json()
+check("paper 04 verdict table now carries a mean-score-% column",
+      _p04j.get("table") is not None
+      and _p04j["table"]["columns"] == ["Verdict", "n", "mean score %"], _p04j.get("table"))
+check("paper 04 surfaces the per-item behavioural block once telemetry exists",
+      any(s["label"] == "Item-telemetry records" for s in _p04j["stats"]),
+      [s["label"] for s in _p04j["stats"]])
+_itemstat = next((s for s in _p04j["stats"] if s["label"] == "Item-telemetry records"), None)
+check("the item-telemetry count reflects the two items", _itemstat and _itemstat["value"] == 2, _itemstat)
+check("paper 04 surfaces the paste / tab-blur rates as a stat",
+      any(s["label"] == "Paste rate" for s in _p04j["stats"]), [s["label"] for s in _p04j["stats"]])
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"paper 04's behavioural block leaks no raw SID ({_leak})", _leak not in _p04.text, _p04.text[:200])
+
+# P07: reflection-GATE outputs + the free-chat ask_turn aggregate. A rich reflection_complete
+# (insight/endReason/countedTurns/turnQuality/ts) and one ask_turn (metadata only) for the
+# enrolled student. ask_turn persists via the raw writer (the HTTP-layer telemetry strip is not
+# on this path).
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "reflection_complete",
+                             "topic_id": "fitts-law",
+                             "meta": {"transcript": [
+                                 {"role": "assistant", "content": "q", "ts": "2026-09-10T09:00:00+00:00"},
+                                 {"role": "human", "content": "a", "ts": "2026-09-10T09:00:12+00:00"}],
+                                 "countedTurns": 3, "insight": True, "endReason": "insight",
+                                 "turnQuality": [{"counts": True, "understood": True}],
+                                 "directAnswers": 0}})
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "ask_turn",
+                             "topic_id": "fitts-law", "duration_ms": 1500,
+                             "meta": {"chars": 42, "sources": 3}})
+_p07 = pi.get("/api/researcher/paper/07-ai-tutor-design")
+_p07j = _p07.json()
+_p07labels = [s["label"] for s in _p07j["stats"]]
+check("paper 07 surfaces the reflection-gate outputs (insight rate + end-reason split)",
+      "Reached insight" in _p07labels and "Ended on insight / floor" in _p07labels, _p07labels)
+check("paper 07 surfaces the free-chat ask_turn aggregate (turns + latency)",
+      "Free-chat turns" in _p07labels and "Mean chat latency" in _p07labels, _p07labels)
+check("paper 07 now returns a free-chat per-topic table",
+      _p07j.get("table") is not None
+      and _p07j["table"]["columns"] == ["Topic", "free-chat turns", "participants", "mean latency ms"],
+      _p07j.get("table"))
+check("the stale 'NOT persisted' free-chat note is gone (it IS persisted now)",
+      "NOT persisted" not in _p07.text, _p07.text[-320:])
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
+    check(f"paper 07's free-chat/gate block leaks no raw SID ({_leak})", _leak not in _p07.text, _p07.text[:200])
+
+# P03 shares the reflection slice -> the gate outputs must appear there too, but WITHOUT the
+# ask_turn free-chat block (that is paper 07 only).
+_p03labels = [s["label"] for s in pi.get("/api/researcher/paper/03-reflection-help-seeking").json()["stats"]]
+check("paper 03 also carries the reflection-gate outputs",
+      "Reached insight" in _p03labels and "Ended on insight / floor" in _p03labels, _p03labels)
+check("paper 03 does NOT carry the free-chat aggregate (paper 07 only)",
+      "Free-chat turns" not in _p03labels, _p03labels)
+
 print("\n-- export is pseudonymised: the real SID never leaves --")
 j = pi.get("/api/researcher/export")
 check("export json is 200", j.status_code == 200, j.status_code)
