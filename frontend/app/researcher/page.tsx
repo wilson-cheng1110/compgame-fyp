@@ -178,6 +178,14 @@ export default function ResearcherPage() {
     { flip: 0, control: 0, determinable: 0, complied: 0 },
   )
 
+  // ISO server_ts → a readable local timestamp for the sink-census "last seen" column.
+  const fmtTs = (iso: string | null) => {
+    if (!iso) return "—"
+    const d = new Date(iso)
+    return isNaN(d.getTime()) ? iso : d.toLocaleString()
+  }
+  const rec = mon?.sink_reconcile
+
   return (
     <main className="shell min-h-screen">
       <StaffHeader chip="Researcher" />
@@ -288,6 +296,62 @@ export default function ResearcherPage() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Age distribution + quartiles — the junk upper tail (a stray 99/100)
+                      is visible here rather than hidden inside the mean. */}
+                  {age && age.distribution.length > 0 && (
+                    <div
+                      className="u-card-quiet mt-4"
+                      style={{ padding: "0.9rem 1rem" }}
+                      data-testid="researcher-age-distribution"
+                    >
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <p className="u-stem" style={{ fontWeight: 600 }}>
+                          Age distribution
+                        </p>
+                        <p className="u-faint">
+                          Q1 {age.q1 ?? "—"} · median {age.median ?? "—"} · Q3 {age.q3 ?? "—"} ·
+                          IQR {age.iqr ?? "—"}
+                        </p>
+                      </div>
+                      <div className="mt-3" style={{ display: "grid", gap: "0.3rem" }}>
+                        {(() => {
+                          const maxCount = Math.max(...age.distribution.map((d) => d.count), 1)
+                          return age.distribution.map((d) => (
+                            <div key={d.value} className="flex items-center gap-2">
+                              <span
+                                className="u-num u-faint"
+                                style={{ width: "2.75rem", textAlign: "right" }}
+                              >
+                                {d.value}
+                              </span>
+                              <span
+                                style={{
+                                  flex: 1,
+                                  background: "var(--paper-sunken)",
+                                  borderRadius: 4,
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    display: "block",
+                                    height: "0.7rem",
+                                    width: `${Math.round((100 * d.count) / maxCount)}%`,
+                                    minWidth: d.count > 0 ? 2 : 0,
+                                    background: "var(--accent)",
+                                  }}
+                                />
+                              </span>
+                              <span className="u-num" style={{ width: "2rem" }}>
+                                {d.count}
+                              </span>
+                            </div>
+                          ))
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })()
@@ -427,6 +491,26 @@ export default function ResearcherPage() {
                 <StatCard key={label} label={label} value={n} />
               ))}
             </StatGrid>
+            {/* Data-hygiene reconcile, one line: sink streams vs accounts, check-letter
+                folded. Counts only — no SID is on this surface. */}
+            {rec && (
+              <p className="u-faint mt-3" data-testid="researcher-sink-reconcile">
+                Reconcile: {rec.sink_canonical_people} people across {rec.sink_streams} sink
+                stream(s) · {rec.matched_to_account} matched to an account ·{" "}
+                <span
+                  style={rec.excess_no_account > 0 ? { color: "var(--state-late)", fontWeight: 600 } : undefined}
+                >
+                  {rec.excess_no_account} with no account
+                </span>{" "}
+                ·{" "}
+                <span
+                  style={rec.split_by_check_letter > 0 ? { color: "var(--state-late)", fontWeight: 600 } : undefined}
+                >
+                  {rec.split_by_check_letter} split across the check-letter
+                </span>
+                .
+              </p>
+            )}
           </Panel>
         )}
 
@@ -535,6 +619,39 @@ export default function ResearcherPage() {
                 <StatCard key={k} label={k.replace(/^questionnaire_/, "")} value={mon!.questionnaires[k]} />
               ))}
             </StatGrid>
+          </Panel>
+        )}
+
+        {/* Sink health — the per-event-type capture census. An event type that has gone
+            quiet while others keep flowing is the capture-gap signature of the 2026
+            completion-events loss; a never-wired type shows as simply absent. */}
+        {mon && mon.sink_census.length > 0 && (
+          <Panel
+            title="Sink health — events by type"
+            desc="Every event type in the sink: row count, distinct participants, and when it was last seen. A type that has gone quiet while the rest of the sink flows is the capture-gap signal."
+          >
+            <DataTable testid="researcher-sink-census" caption="Events by type" minWidth={520}>
+              <thead>
+                <tr className="u-faint" style={THEAD_ROW_STYLE}>
+                  <th scope="col" className="p-3">Event type</th>
+                  <th scope="col" className="p-3">Rows</th>
+                  <th scope="col" className="p-3">Participants</th>
+                  <th scope="col" className="p-3">Last seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mon.sink_census.map((r) => (
+                  <tr key={r.event_type} style={TROW_STYLE}>
+                    <th scope="row" className="p-3" style={{ fontWeight: 600, textAlign: "left" }}>
+                      {r.event_type}
+                    </th>
+                    <td className="p-3 u-num">{r.n}</td>
+                    <td className="p-3 u-num">{r.participants}</td>
+                    <td className="p-3 u-faint">{fmtTs(r.last_seen)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
           </Panel>
         )}
 

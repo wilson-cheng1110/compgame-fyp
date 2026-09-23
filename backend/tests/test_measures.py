@@ -26,6 +26,11 @@ DDL = """CREATE TABLE events (
 
 tmp = tempfile.mkdtemp()
 DB = os.path.join(tmp, "sink.db")
+# sink_reconcile() reads the auth DB read-only (list_participants) to match streams to
+# accounts. Point it at a fresh path with no `users` table so the account side is
+# deterministically empty here (the sink-side counts are what this suite asserts; the
+# account-matching side is covered against real accounts in test_researcher_api.py).
+os.environ["AUTH_DB_PATH"] = os.path.join(tmp, "noauth.db")
 conn = sqlite3.connect(DB)
 conn.execute(DDL)
 
@@ -167,6 +172,27 @@ check("GENDER 'Prefer not to say' is a real option bar, not a null",
 check("labels come from the bank (not hardcoded)",
       [o["label"] for o in _gender["options"]][:2] == ["Female", "Male"], _gender)
 
+print("\n-- AGE distribution + quartiles: the junk upper tail is visible --")
+# Add a spread of ages incl. a junk '99', so the histogram + IQR have something to show.
+# With the existing 24DEMOG01A(22) that makes ages [18,20,20,22,22,99].
+for _sid, _age_v in (("24AGE0001A", "18"), ("24AGE0002A", "20"), ("24AGE0003A", "20"),
+                     ("24AGE0004A", "22"), ("24AGE0005A", "99")):
+    evm(_sid, "questionnaire_demographics", None, {"answers": {"AGE": _age_v}})
+conn.commit()
+_agefull = next(i for i in measures.demographics_summary(DB)["items"] if i["id"] == "AGE")
+check("existing min/max/median/mean are kept",
+      _agefull["min"] == 18 and _agefull["max"] == 99 and _agefull["median"] == 22
+      and _agefull["mean"] == 33.5, _agefull)
+check("quartiles are reported (q1/q3/IQR)",
+      _agefull["q1"] == 20.0 and _agefull["q3"] == 22.0 and _agefull["iqr"] == 2.0, _agefull)
+check("the distribution is a value->count histogram, ascending by value",
+      _agefull["distribution"] == [{"value": 18, "count": 1}, {"value": 20, "count": 2},
+                                   {"value": 22, "count": 2}, {"value": 99, "count": 1}],
+      _agefull["distribution"])
+check("the junk 99 shows in the tail (mean > median, IQR tight)",
+      _agefull["distribution"][-1]["value"] == 99 and _agefull["mean"] > _agefull["median"],
+      _agefull)
+
 # paas per-topic -> splits by the arm assigned for THIS topic.
 evm(flip_sid, "questionnaire_paas", T, {"answers": {"P1": 8}})
 evm(ctrl_sid, "questionnaire_paas", T, {"answers": {"P1": 3}})
@@ -269,11 +295,84 @@ ar2 = measures.affect_recall_summary(DB)
 check("affect_recall_summary buckets it under CONTROL (AR1 mean 2), not FLIP",
       ar2["control"]["items"]["AR1"]["mean"] == 2.0 and ar2["flip"]["items"]["AR1"]["mean"] == 5.0, ar2)
 
+print("\n-- gain_detail: pre/post BY ARM + ceiling shares + differential attrition --")
+# A clean topic (fitts-law, no prior events) with four FLIP-assigned students:
+#   CEIL_A  pre 10 -> post 95 (activity first)   -> determinable, ceiling≥90
+#   CEIL_B  pre 20 -> post 100 (activity first)  -> determinable, ceiling≥90 AND ==100
+#   NOPOST  pre 30, activity, no post-check      -> attrition: no_posttest, not a pair
+#   NOACT   pre 30 -> post 50, NO activity       -> attrition: no_activity, still a pair
+GT = "fitts-law"
+idxGT = measures.topic_index()[GT]
+_gflip = [s for s in (f"24F{i:05d}A" for i in range(4000)) if S.arm_for(s, idxGT) == S.FLIP]
+CEIL_A, CEIL_B, GNOPOST, GNOACT = _gflip[:4]
+ev(CEIL_A, "topic_pretest", GT, "2026-09-01T09:00:00+00:00", score=10)
+ev(CEIL_A, "understanding_complete", GT, "2026-09-01T09:05:00+00:00")
+ev(CEIL_A, "topic_posttest", GT, "2026-09-01T09:10:00+00:00", score=95)
+ev(CEIL_B, "topic_pretest", GT, "2026-09-01T09:00:00+00:00", score=20)
+ev(CEIL_B, "understanding_complete", GT, "2026-09-01T09:05:00+00:00")
+ev(CEIL_B, "topic_posttest", GT, "2026-09-01T09:10:00+00:00", score=100)
+ev(GNOPOST, "topic_pretest", GT, "2026-09-01T09:00:00+00:00", score=30)
+ev(GNOPOST, "understanding_complete", GT, "2026-09-01T09:05:00+00:00")
+ev(GNOACT, "topic_pretest", GT, "2026-09-01T09:00:00+00:00", score=30)
+ev(GNOACT, "topic_posttest", GT, "2026-09-01T09:10:00+00:00", score=50)
+conn.commit()
+
+gd = {(r["topic_id"], r["arm"]): r for r in measures.gain_detail(DB)}
+_gf = gd[(GT, S.FLIP)]
+check("assigned counts every pair with any event on that topic+arm", _gf["assigned"] == 4, _gf)
+check("n_pairs counts only pairs with BOTH pre and post", _gf["n_pairs"] == 3, _gf)
+check("pre/post means over the pairs", _gf["pre_mean"] == 20.0 and _gf["post_mean"] == 81.7, _gf)
+check("mean normalised gain is reported, with its own denominator gain_n",
+      _gf["gain"] is not None and _gf["gain_n"] == 3, _gf)
+check("ceiling ≥90 counted with its share (of n_pairs)",
+      _gf["ceiling_ge90"] == 2 and _gf["ceiling_ge90_share"] == round(2 / 3, 3), _gf)
+check("ceiling ==100 counted separately", _gf["ceiling_eq100"] == 1, _gf)
+check("differential attrition: no_activity by assigned arm", _gf["no_activity"] == 1, _gf)
+check("differential attrition: no_posttest by assigned arm", _gf["no_posttest"] == 1, _gf)
+check("gain_detail respects the frozen arm too (MIGN lands in memory/CONTROL, not FLIP)",
+      (T, S.CONTROL) in gd and gd[(T, S.CONTROL)]["assigned"] >= 1
+      and FROZEN == S.CONTROL, gd.get((T, S.CONTROL)))
+
+print("\n-- sink_census: per-event-type capture health, distinct participants counted --")
+cen = {r["event_type"]: r for r in measures.sink_census(DB)}
+check("every census row carries n, participants, first_seen, last_seen",
+      all({"event_type", "n", "participants", "first_seen", "last_seen"} <= set(r)
+          for r in measures.sink_census(DB)))
+check("distinct participants, not row count (demographics: 7 people, 7 rows)",
+      cen["questionnaire_demographics"]["participants"] == 7
+      and cen["questionnaire_demographics"]["n"] == 7, cen.get("questionnaire_demographics"))
+check("first_seen <= last_seen for a repeated event_type",
+      cen["topic_pretest"]["first_seen"] <= cen["topic_pretest"]["last_seen"], cen.get("topic_pretest"))
+check("a wired event type is present (understanding_complete, the manipulation check)",
+      "understanding_complete" in cen, list(cen))
+
+print("\n-- sink_reconcile: counts-only sink-streams-vs-accounts, check-letter folded --")
+# A person recorded under BOTH the numeric and the check-letter SID: two streams, one
+# canonical person. This is the split_by_check_letter signal.
+ev("20260001", "topic_complete", None, "2026-09-01T10:00:00+00:00")
+ev("20260001D", "topic_complete", None, "2026-09-01T10:00:00+00:00")
+conn.commit()
+rec = measures.sink_reconcile(DB)
+check("reconcile carries counts only (no *_id/sid string field names that hold SIDs)",
+      set(rec) == {"sink_streams", "sink_canonical_people", "accounts_canonical",
+                   "matched_to_account", "excess_no_account", "split_by_check_letter"}, rec)
+check("all reconcile values are integers", all(isinstance(v, int) for v in rec.values()), rec)
+check("canonicalising the check-letter folds the twin (streams > canonical people)",
+      rec["sink_streams"] > rec["sink_canonical_people"], rec)
+check("split_by_check_letter flags the numeric/letter twin", rec["split_by_check_letter"] >= 1, rec)
+check("with no accounts here, every canonical person is excess_no_account",
+      rec["matched_to_account"] == 0
+      and rec["excess_no_account"] == rec["sink_canonical_people"], rec)
+
 print("\n-- NO SID LEAK: every slice returns counts, never a participant id --")
 _blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_by_arm(DB),
                      measures.reflection_summary(DB), measures.game_result_summary(DB),
-                     measures.retention_summary(DB), measures.affect_recall_summary(DB)])
-for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A", MIGN, PLAIN):
+                     measures.retention_summary(DB), measures.affect_recall_summary(DB),
+                     measures.gain_detail(DB), measures.sink_census(DB),
+                     measures.sink_reconcile(DB)])
+for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A", MIGN, PLAIN,
+             "24AGE0001A", "24AGE0005A", CEIL_A, CEIL_B, GNOPOST, GNOACT,
+             "20260001", "20260001D"):
     check(f"{_sid} does not appear in any slice", _sid not in _blob, _blob[:200])
 
 conn.close()

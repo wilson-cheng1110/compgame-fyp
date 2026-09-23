@@ -441,9 +441,36 @@ export interface ResearcherMonitor {
   }[]
   /** Distinct participants who finished each questionnaire instrument. */
   questionnaires: Record<string, number>
+  /** Per event_type capture census — the stale-event-type / capture-gap detector. Counts
+   *  only (COUNT(DISTINCT participant_id)), never a raw participant id. */
+  sink_census: SinkCensusRow[]
+  /** Counts-only reconcile of sink participant streams vs auth accounts. No SID leaves. */
+  sink_reconcile: SinkReconcile
   roster_active: boolean
   /** Rows dropped as non-roster (test/e2e) traffic, or null when no roster is gating. */
   test_traffic_excluded: number | null
+}
+
+export interface SinkCensusRow {
+  event_type: string
+  n: number
+  /** DISTINCT participants who produced this event type — never the ids themselves. */
+  participants: number
+  first_seen: string | null
+  last_seen: string | null
+}
+
+export interface SinkReconcile {
+  /** Distinct raw participant_id streams in the sink. */
+  sink_streams: number
+  /** Distinct people after folding the check-letter (12345678 and 12345678D → one). */
+  sink_canonical_people: number
+  accounts_canonical: number
+  matched_to_account: number
+  /** Canonical sink people with NO matching account — the data-hygiene alarm. */
+  excess_no_account: number
+  /** People recorded under BOTH the numeric and the check-letter SID. */
+  split_by_check_letter: number
 }
 
 export interface ForgetPreview {
@@ -468,6 +495,11 @@ export interface DemographicsItemAge {
   max: number | null
   median: number | null
   mean: number | null
+  q1: number | null
+  q3: number | null
+  iqr: number | null
+  /** value → count histogram, ascending by value — makes a junk upper tail visible. */
+  distribution: { value: number; count: number }[]
 }
 export interface DemographicsItemSingle {
   id: string

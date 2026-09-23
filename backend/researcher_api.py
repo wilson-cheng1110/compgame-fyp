@@ -173,6 +173,13 @@ def _build_monitor() -> dict:
         "arms": arms,
         # DISTINCT participants per questionnaire instrument -- "how many finished each".
         "questionnaires": research_store.event_counts_by_type("questionnaire"),
+        # Capture health: one row per event_type (count, distinct participants, first/last
+        # seen). Aggregate-only -- COUNT(DISTINCT ...), never a participant_id. The
+        # stale-event-type / capture-gap detector.
+        "sink_census": measures.sink_census(),
+        # Data-hygiene reconcile of sink streams vs auth accounts -- COUNTS ONLY, no SID.
+        # split_by_check_letter flags people recorded under both the letter and numeric SID.
+        "sink_reconcile": measures.sink_reconcile(),
         "roster_active": auth_store.roster_active(),
         "test_traffic_excluded": dropped,   # None when no roster is gating
     }
@@ -273,9 +280,23 @@ def _paper_slice(pid: str) -> dict:
             {"label": "CONTROL pairs (pre+post)", "value": c["n"],
              "sub": f"⟨g⟩ {c['gain'] if c['gain'] is not None else '—'}"},
         ]
-        table = {"columns": ["Arm", "n", "mean pre", "mean post", "norm. gain ⟨g⟩"],
-                 "rows": [["FLIP", f["n"], f["pre"], f["post"], f["gain"]],
-                          ["CONTROL", c["n"], c["pre"], c["post"], c["gain"]]]}
+
+        # The by-(topic, arm) DETAIL table — the computed table that used to be discarded.
+        # Reads measures.gain_detail(): per topic per assigned arm, the pair count, pre/
+        # post means, mean ⟨g⟩ (over gain_n, since a pre==100 pair yields no normalised
+        # gain), the CEILING shares (post≥90 / ==100 — the ceiling the delayed retention
+        # DV exists to escape), and DIFFERENTIAL ATTRITION (no-activity / no-post-check by
+        # assigned arm). Every count sits beside its denominator (assigned / n). The
+        # frontend renders this generic {columns, rows} table already (04/05 do).
+        gd = measures.gain_detail()
+        table = {
+            "columns": ["Topic", "Arm", "n (pre+post)", "mean pre", "mean post", "⟨g⟩",
+                        "post≥90", "post=100", "assigned", "no activity", "no post-check"],
+            "rows": [[r["topic_id"], r["arm"], r["n_pairs"], r["pre_mean"], r["post_mean"],
+                      r["gain"], r["ceiling_ge90"], r["ceiling_eq100"], r["assigned"],
+                      r["no_activity"], r["no_posttest"]]
+                     for r in gd],
+        }
 
         # The DELAYED retention block (docs/end-of-study-battery-plan.md): the
         # immediate post-test DV is ceiling'd (≈91/100), compressing the FLIP-CONTROL
@@ -295,14 +316,16 @@ def _paper_slice(pid: str) -> dict:
         return env("Normalised gain ⟨g⟩ from the MC pre/post concept inventory, by assigned "
                    "arm — the primary H1 DV — plus the DELAYED Form-C retention score once the "
                    "end-of-study battery has run. The short-answer probe is the secondary "
-                   "offline pass.",
+                   "offline pass. The table breaks it out per topic per arm, with ceiling "
+                   "shares and differential attrition.",
                    "live", stats,
                    ("Interim read; retention re-test is the delayed DV — see the retention rows "
                     "above for where the flip effect is predicted to show up (productive-"
                     "failure theory: FLIP should decay slower)." if ret["n"] else
                     "Interim read over determinable pairs; the full pre-registered N needs the "
                     "remaining topics to release. Retention re-test (delayed DV) is pending — "
-                    "the end-of-study battery runs ~2026-11-23..26."))
+                    "the end-of-study battery runs ~2026-11-23..26."),
+                   table=table)
 
     if pid == "02-motivation-experience":
         q = measures.questionnaire_by_arm()

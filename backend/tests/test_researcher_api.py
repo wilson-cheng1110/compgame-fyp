@@ -118,7 +118,8 @@ research_store.record_event({"participant_id": "24STUDENT1B",
 mon = pi.get("/api/researcher/monitor")
 check("monitor is 200 for the PI", mon.status_code == 200, mon.text[:200])
 m = mon.json()
-for k in ("sink", "accounts", "coverage", "arms", "questionnaires", "roster_active"):
+for k in ("sink", "accounts", "coverage", "arms", "questionnaires", "roster_active",
+          "sink_census", "sink_reconcile"):
     check(f"monitor carries `{k}`", k in m, list(m))
 check("accounts break down by section", isinstance(m["accounts"].get("by_section"), dict))
 check("MSC appears as a section even before anyone signs up there",
@@ -148,6 +149,40 @@ _known_topics = {t["id"] for t in _sch._load().get("topics", [])}
 check("the arm table carries only real schedule topics (no phantom/off-schedule rows)",
       all(a["topic_id"] in _known_topics for a in m_c["arms"]),
       [a["topic_id"] for a in m_c["arms"]])
+
+print("\n-- monitor: sink census + reconcile (aggregate-only, no SID leak) --")
+# Record a person under BOTH the numeric and the check-letter form of the same SID: two
+# raw streams that canonicalise to one person (the reconcile split_by_check_letter signal),
+# neither of which has an account.
+research_store.record_event({"participant_id": "20250001",
+                             "event_type": "understanding_complete", "topic_id": "memory"})
+research_store.record_event({"participant_id": "20250001A",
+                             "event_type": "topic_posttest", "topic_id": "memory", "score": 3.0})
+m2 = pi.get("/api/researcher/monitor").json()
+_cen = {r["event_type"]: r for r in m2["sink_census"]}
+check("sink_census is a list of per-event-type rows with counts + first/last seen",
+      isinstance(m2["sink_census"], list) and all(
+          {"event_type", "n", "participants", "first_seen", "last_seen"} <= set(r)
+          for r in m2["sink_census"]), m2["sink_census"][:2])
+check("sink_census counts a wired event type (topic_posttest present with n>=1)",
+      "topic_posttest" in _cen and _cen["topic_posttest"]["n"] >= 1, list(_cen))
+check("sink_census participants is DISTINCT (never more than the row count)",
+      all(r["participants"] <= r["n"] for r in m2["sink_census"]), m2["sink_census"][:3])
+_rec = m2["sink_reconcile"]
+check("sink_reconcile is counts-only (the exact integer-count field set)",
+      set(_rec) == {"sink_streams", "sink_canonical_people", "accounts_canonical",
+                    "matched_to_account", "excess_no_account", "split_by_check_letter"}, _rec)
+check("sink_reconcile values are all integers", all(isinstance(v, int) for v in _rec.values()), _rec)
+check("reconcile matched the real enrolled student's stream to an account",
+      _rec["matched_to_account"] >= 1, _rec)
+check("reconcile flags the numeric/check-letter twin as one split person",
+      _rec["split_by_check_letter"] >= 1, _rec)
+check("the account-less twin shows as excess_no_account", _rec["excess_no_account"] >= 1, _rec)
+# THE HARD INVARIANT for the new fields: aggregate-only, never a raw SID. Assert both the
+# numeric and the check-letter synthetic SIDs are absent from the whole monitor payload.
+_mon_text = pi.get("/api/researcher/monitor").text
+for _leak in ("20250001", "20250001A", "24STUDENT1B", "99Z00000Z"):
+    check(f"the monitor payload leaks no raw SID ({_leak})", _leak not in _mon_text, _mon_text[:160])
 
 print("\n-- the papers dashboard: same gate, aggregate-only, no SID leak --")
 # A demographics submission for a real enrolled student, straight into the sink.
@@ -199,6 +234,25 @@ check("paper 01 now carries a retention stat once a topic_retention row exists",
       _p01.status_code == 200 and any("Retention" in s["label"] for s in _p01.json()["stats"]),
       _p01.json()["stats"])
 check("paper 01's retention stats leak no raw SID", "24STUDENT1B" not in _p01.text, _p01.text[:200])
+
+print("\n-- paper 01 now RETURNS its computed table (was discarded): pre/post by arm --")
+# Give the memory pair a pretest too, so there is a genuine pre+post pair for gain_detail
+# to populate a real row (24STUDENT1B already has understanding_complete + topic_posttest).
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "topic_pretest",
+                             "topic_id": "memory", "score": 2.0})
+_p01resp = pi.get("/api/researcher/paper/01-flip-effectiveness")
+_p01t = _p01resp.json()
+check("paper 01 returns a non-null table (the by-topic-arm detail, no longer discarded)",
+      _p01t.get("table") is not None, list(_p01t))
+check("the table columns are the pre/post-by-arm + ceiling + attrition detail",
+      _p01t["table"]["columns"][:6] == ["Topic", "Arm", "n (pre+post)", "mean pre",
+                                        "mean post", "⟨g⟩"], _p01t["table"]["columns"])
+check("the table has at least one (topic, arm) row", len(_p01t["table"]["rows"]) >= 1,
+      _p01t["table"]["rows"][:2])
+_memrows = [r for r in _p01t["table"]["rows"] if r[0] == "memory" and r[2] >= 1]
+check("the memory pre+post pair populates a row with a computed gain",
+      len(_memrows) == 1 and _memrows[0][5] is not None, _memrows)
+check("paper 01's table leaks no raw SID", "24STUDENT1B" not in _p01resp.text, _p01resp.text[:200])
 
 _p02 = pi.get("/api/researcher/paper/02-motivation-experience")
 check("paper 02 now carries an affect-recall stat once a questionnaire_affect_recall row exists",

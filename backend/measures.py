@@ -46,6 +46,7 @@ running is a check nobody runs (same reasoning as check_corpus_coverage.py).
 import argparse
 import json
 import os
+import re
 import sqlite3
 import sys
 from collections import defaultdict
@@ -348,6 +349,161 @@ def coverage(db_path=None) -> dict:
     }
 
 
+def gain_detail(db_path=None) -> list[dict]:
+    """Per (topic_id, ASSIGNED arm): the pre/post learning DV in the detail the headline
+    aggregate hides -- pair count, pre/post means, mean normalised gain <g>, the CEILING
+    shares (post >= 90 and == 100, the compression the end-of-study battery exists to
+    escape), and DIFFERENTIAL ATTRITION (no_activity / no_posttest counts by the arm each
+    pair was ASSIGNED).
+
+    Reuses per_topic()'s rows and its already-resolved arm (which honours the SID-canon
+    frozen-arm ground truth via _resolved_arm), so nothing about the arm is recomputed
+    here. Attrition is split by ASSIGNED arm -- assignable even for a pair with no
+    activity, because the arm is deterministic per (participant, topic) -- mirroring how
+    coverage() enumerates pairs, but per arm.
+
+    AGGREGATE-ONLY: every row is counts + means for a (topic, arm) cell, never a
+    participant. Each statistic carries its own denominator (`assigned` for attrition,
+    `n_pairs` for the ceiling shares, `gain_n` for <g>, since a pre==100 pair cannot
+    contribute a normalised gain). Filtered through enrolled_only, like the other
+    dashboard slices, so non-roster/e2e traffic is dropped when a roster is active."""
+    idx = topic_index()
+    rows, _ = enrolled_only(per_topic(db_path))
+
+    agg: dict = defaultdict(lambda: {
+        "assigned": 0, "pre": [], "post": [], "gains": [],
+        "ceil90": 0, "ceil100": 0, "no_activity": 0, "no_posttest": 0})
+    for r in rows:
+        tid = r["topic_id"]
+        arm = r["arm"]
+        if tid not in idx or arm not in (schedule.FLIP, schedule.CONTROL):
+            continue
+        b = agg[(tid, arm)]
+        b["assigned"] += 1
+        if r["played_first_basis"] == "activity never recorded":
+            b["no_activity"] += 1
+        elif r["played_first_basis"] == "post-check not sat":
+            b["no_posttest"] += 1
+        pre, post = r["pre_score"], r["post_score"]
+        if pre is not None and post is not None:
+            b["pre"].append(pre)
+            b["post"].append(post)
+            if pre < 100:
+                b["gains"].append((post - pre) / (100 - pre))
+            if post >= 90:
+                b["ceil90"] += 1
+            if post == 100:
+                b["ceil100"] += 1
+
+    def _mean(xs, ndigits):
+        return round(sum(xs) / len(xs), ndigits) if xs else None
+
+    def _share(count, total):
+        return round(count / total, 3) if total else None
+
+    out = []
+    for (tid, arm), b in sorted(
+            agg.items(),
+            key=lambda kv: (idx.get(kv[0][0], 999), 0 if kv[0][1] == schedule.FLIP else 1)):
+        n_pairs = len(b["pre"])
+        out.append({
+            "topic_id": tid,
+            "arm": arm,
+            "assigned": b["assigned"],
+            "n_pairs": n_pairs,
+            "pre_mean": _mean(b["pre"], 1),
+            "post_mean": _mean(b["post"], 1),
+            "gain": _mean(b["gains"], 3),
+            "gain_n": len(b["gains"]),
+            "ceiling_ge90": b["ceil90"],
+            "ceiling_ge90_share": _share(b["ceil90"], n_pairs),
+            "ceiling_eq100": b["ceil100"],
+            "ceiling_eq100_share": _share(b["ceil100"], n_pairs),
+            "no_activity": b["no_activity"],
+            "no_posttest": b["no_posttest"],
+        })
+    return out
+
+
+def sink_census(db_path=None) -> list[dict]:
+    """Per-event-type capture census: one row per event_type with its row count, the
+    number of DISTINCT participants who produced it, and the first/last time it was seen.
+    The stale-event-type / capture-gap detector -- an event_type that has gone quiet
+    while the rest of the sink flows is the exact signature of the 2026 completion-events
+    loss, and a whole event_type that was never wired shows up as simply absent.
+
+    One GROUP BY, cheap. AGGREGATE-ONLY: it COUNTs distinct participants, it never
+    projects participant_id, so no SID can leave through it (test asserts this)."""
+    conn = sqlite3.connect(db_path or DB)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")   # see _rows(): live callers exist
+    try:
+        rows = conn.execute(
+            "SELECT event_type,"
+            "       COUNT(*) AS n,"
+            "       COUNT(DISTINCT participant_id) AS participants,"
+            "       MIN(server_ts) AS first_seen,"
+            "       MAX(server_ts) AS last_seen"
+            "  FROM events GROUP BY event_type ORDER BY event_type").fetchall()
+    finally:
+        conn.close()
+    return [{"event_type": r["event_type"], "n": r["n"], "participants": r["participants"],
+             "first_seen": r["first_seen"], "last_seen": r["last_seen"]} for r in rows]
+
+
+_SID_CHECK_LETTER = re.compile(r"\d{8}[A-Za-z]")
+
+
+def _canon_sid_local(raw: str) -> str:
+    """The SID-canon rule (auth_store._canon_sid), inlined as an offline fallback: strip
+    the check-letter for the exact 8-digits-then-one-letter shape, else strip+upper.
+    Prefer auth_store's own function when it imports (sink_reconcile does)."""
+    s = (raw or "").strip()
+    return s[:8] if _SID_CHECK_LETTER.fullmatch(s) else s.upper()
+
+
+def sink_reconcile(db_path=None) -> dict:
+    """Data-hygiene reconcile of sink participant STREAMS against auth ACCOUNTS -- COUNTS
+    ONLY, never a SID. Canonicalises the check-letter on BOTH sides (the same _canon_sid
+    rule) so a person recorded as both `12345678` and `12345678D` is one canonical person,
+    and matched against accounts on the same canonical key.
+
+    Reads the auth DB read-only (auth_store.list_participants); if the auth stack is
+    unavailable it degrades to sink-side counts only (accounts empty). NEVER returns or
+    prints a participant_id/SID: every field is an integer (test asserts absence)."""
+    conn = sqlite3.connect(db_path or DB)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")
+    try:
+        raw = [r["participant_id"] for r in conn.execute(
+            "SELECT DISTINCT participant_id FROM events"
+            "  WHERE participant_id IS NOT NULL").fetchall()]
+    finally:
+        conn.close()
+
+    canon = _canon_sid_local
+    accounts: set = set()
+    try:
+        import auth_store
+        canon = auth_store._canon_sid
+        accounts = {auth_store._canon_sid(p["sid"]) for p in auth_store.list_participants()}
+    except Exception:
+        pass
+
+    fold: dict = defaultdict(int)   # canonical key -> number of raw streams folding onto it
+    for p in raw:
+        fold[canon(p)] += 1
+    canonical = set(fold)
+    return {
+        "sink_streams": len(raw),
+        "sink_canonical_people": len(canonical),
+        "accounts_canonical": len(accounts),
+        "matched_to_account": len(canonical & accounts),
+        "excess_no_account": len(canonical - accounts),
+        "split_by_check_letter": sum(1 for v in fold.values() if v > 1),
+    }
+
+
 # ── the research-papers dashboard slices (aggregate-only) ─────────────────────
 #
 # These feed /researcher's per-paper live panels. EVERY function here returns COUNTS
@@ -417,7 +573,9 @@ def demographics_summary(db_path=None) -> dict:
     papers dashboard. Per single item: the count against each labelled option (GENDER's
     'Prefer not to say' is one such option, so its decline rate is a real bar); AGE (a
     bounded text item) reports answered/declined + min/max/median/mean over the typed
-    integers. Labels come from the bank so the panel never re-hardcodes them."""
+    integers, PLUS a value->count distribution and the quartiles (q1/q3/IQR) so a junk
+    upper tail (a stray '99'/'100') is visible rather than hidden inside the mean. Labels
+    come from the bank so the panel never re-hardcodes them."""
     inst = _instrument("demographics")
     items = (inst or {}).get("items", [])
     rows = _meta_events(["questionnaire_demographics"], db_path)
@@ -440,6 +598,24 @@ def demographics_summary(db_path=None) -> dict:
                 except (ValueError, TypeError):
                     pass
             nums.sort()
+
+            def _pctile(xs, p):
+                """Linear-interpolated percentile (numpy 'linear'/type-7). None on empty."""
+                if not xs:
+                    return None
+                if len(xs) == 1:
+                    return xs[0]
+                k = (len(xs) - 1) * p
+                lo = int(k)
+                hi = min(lo + 1, len(xs) - 1)
+                val = xs[lo] + (xs[hi] - xs[lo]) * (k - lo)
+                return round(val, 1)
+
+            q1 = _pctile(nums, 0.25)
+            q3 = _pctile(nums, 0.75)
+            dist = defaultdict(int)
+            for v in nums:
+                dist[v] += 1
             out_items.append({
                 "id": iid, "text": it["text"], "kind": "age",
                 "answered": len(nums), "declined": n - len(nums),
@@ -447,6 +623,10 @@ def demographics_summary(db_path=None) -> dict:
                 "max": nums[-1] if nums else None,
                 "median": nums[len(nums) // 2] if nums else None,
                 "mean": round(sum(nums) / len(nums), 1) if nums else None,
+                "q1": q1, "q3": q3,
+                "iqr": (round(q3 - q1, 1) if (q1 is not None and q3 is not None) else None),
+                # value -> count, ascending by value; the junk tail is now inspectable.
+                "distribution": [{"value": v, "count": dist[v]} for v in sorted(dist)],
             })
         else:
             opts = it.get("options", [])
