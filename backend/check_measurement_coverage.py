@@ -88,21 +88,19 @@ def counts(db_path=None):
         conn.close()
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--quiet", action="store_true", help="exit 1 on any broken signal")
-    ap.add_argument("--db")
-    args = ap.parse_args()
+def summary(db_path=None) -> dict:
+    """Every signal this check computes, as ONE aggregate-only dict — the same logic
+    ``main()`` prints, factored out so the CLI and the /researcher health endpoint read
+    a single source of truth (mirrors how ``grade_batch.run()`` was exposed for its CLI).
 
-    total, recent = counts(args.db)
+    AGGREGATE-ONLY by construction: counts, statuses, event-type names and MAX(server_ts)
+    timestamps — never a participant_id. The withdrawal check counts DISTINCT stuck
+    participants and keeps the SIDs it looks them up by strictly internal. `problems` is
+    the exit-code driver (any entry → the CLI returns 1); it carries no SID either."""
+    total, recent = counts(db_path)
     active = sum(recent.values())
-    broken, never = [], []
 
-    if not args.quiet:
-        print(f"\nSink activity in the last {WINDOW_DAYS} days: {active} event(s)\n")
-        print(f"{'event':26} {'n':>6} {'recent':>7}  {'status':9} what it measures")
-        print("-" * 96)
-
+    signals, broken, never = [], [], []
     for ev, (what, needed_for, kind) in SIGNALS.items():
         n, last = total.get(ev, (0, None))
         rec = recent.get(ev, 0)
@@ -117,44 +115,34 @@ def main() -> int:
             broken.append((ev, needed_for, last))
         else:
             status = "ok"
-        if not args.quiet:
-            print(f"{ev:26} {n:>6} {rec:>7}  {status:9} {what}  [{needed_for}]")
+        signals.append({"event": ev, "what": what, "needed_for": needed_for,
+                        "kind": kind, "n": n, "recent": rec, "last": last,
+                        "status": status})
 
-    if not args.quiet:
-        print(f"\n{'not built yet -- named so the gap is visible, not rediscovered':<60}")
-        for ev, (what, needed_for) in NOT_BUILT.items():
-            print(f"{ev:26} {'-':>6} {'-':>7}  {'TODO':9} {what}  [{needed_for}]")
+    not_built = [{"event": ev, "what": what, "needed_for": needed_for}
+                 for ev, (what, needed_for) in NOT_BUILT.items()]
 
     # The headline. Not "did events arrive" but "can the manipulation check be made".
-    cov = measures.coverage(args.db)
-    det = cov["determinable"]
-    pairs = cov["pairs"]
+    cov = measures.coverage(db_path)
+    det, pairs = cov["determinable"], cov["pairs"]
     pct = (100 * det / pairs) if pairs else 0
-    if not args.quiet:
-        print(f"\nManipulation check -- the number to watch")
-        print(f"  participant x topic pairs with any event : {pairs}")
-        print(f"  played_first DETERMINABLE                : {det}  ({pct:.0f}%)")
-        print(f"  complied with their assigned arm         : {cov['complied']}")
-        print(f"  undeterminable, activity never recorded  : {cov['no_activity']}")
-        print(f"  undeterminable, post-check not sat       : {cov['no_posttest']}")
-        print(f"  took the unit's logged escape            : {cov['took_escape']}")
+    manipulation = {
+        "pairs": pairs, "determinable": det, "determinable_pct": round(pct, 1),
+        "complied": cov["complied"], "no_activity": cov["no_activity"],
+        "no_posttest": cov["no_posttest"], "took_escape": cov["took_escape"],
+    }
 
     # ── effort: is a response a response at all ───────────────────────────
-    eff = measures.effort_summary(args.db)
-    if not args.quiet and eff["submissions"]:
-        v = eff["verdicts"]
-        print(f"\nEffort -- time set against accuracy, which a score alone cannot give you")
-        print(f"  check submissions                        : {eff['submissions']}")
-        print(f"  with timing                              : {eff['timed']}"
-              f"   (no timing: {eff['untimed']})")
-        print(f"  median seconds per item                  : {eff['median_sec_per_item']}")
-        print(f"  same option for every item               : {eff['straight_lined']}")
-        for k in ("engaged", "struggling", "fast and correct", "rapid guess", "no timing"):
-            if v.get(k):
-                print(f"    {k:38}: {v[k]}")
-        print(f"  (threshold {measures.THRESHOLD_S_PER_ITEM}s/item -- a DEFAULT. Set it from"
-              f" the cohort's own\n   distribution before analysis; the median above is the"
-              f" place to start.)")
+    eff = measures.effort_summary(db_path)
+    rg = eff["verdicts"].get("rapid guess", 0)
+    effort = {
+        "submissions": eff["submissions"], "timed": eff["timed"], "untimed": eff["untimed"],
+        "median_sec_per_item": eff["median_sec_per_item"],
+        "fastest_sec_per_item": eff["fastest_sec_per_item"],
+        "straight_lined": eff["straight_lined"], "rapid_guess": rg,
+        "rapid_guess_rate": round(rg / eff["timed"], 3) if eff["timed"] else None,
+        "verdicts": eff["verdicts"], "threshold_s_per_item": measures.THRESHOLD_S_PER_ITEM,
+    }
 
     # ── the backup, which cannot report its own absence ───────────────────
     #
@@ -170,29 +158,24 @@ def main() -> int:
                   - datetime.fromtimestamp(hb, timezone.utc)).total_seconds() / 3600
     except (ImportError, OSError):
         hb_age = None
-    if not args.quiet:
-        print(f"\nBackups")
-        print(f"  last successful backup                   : "
-              + ("never" if hb_age is None else f"{hb_age:.1f} hours ago"))
+    backup = {"hours_since": round(hb_age, 1) if hb_age is not None else None}
 
     # Withdrawn participants whose rows are still in the sink (export now filters
     # them, but a --forget purge should still run so disk erasure actually happens).
+    # COUNT ONLY — the SIDs used to look them up never leave this function.
+    stuck = 0
     try:
         import auth_store, sqlite3 as _sq
         w = auth_store.withdrawn_sids()
         if w:
-            conn = _sq.connect(args.db or DB)
+            conn = _sq.connect(db_path or DB)
             placeholders = ",".join("?" * len(w))
             stuck = conn.execute(
                 f"SELECT COUNT(DISTINCT participant_id) FROM events WHERE participant_id IN ({placeholders})",
                 tuple(w)).fetchone()[0]
             conn.close()
-            if not args.quiet and stuck:
-                print(f"\nWithdrawals: {stuck} withdrawn participant(s) still have rows in the "
-                      f"sink. The export excludes them, but run "
-                      f"`python research_store.py --forget <SID> --yes` to erase from disk.")
     except Exception:
-        pass
+        stuck = 0
 
     problems = []
     if hb_age is None:
@@ -202,7 +185,6 @@ def main() -> int:
         problems.append(f"the last successful backup was {hb_age:.0f} hours ago; the hourly "
                         f"task has stopped and nothing else would have said so")
 
-    rg = eff["verdicts"].get("rapid guess", 0)
     if eff["timed"] and rg / max(eff["timed"], 1) > 0.5:
         problems.append(f"{rg} of {eff['timed']} timed check submissions look like rapid "
                         f"guessing (median {eff['median_sec_per_item']}s/item). Either the "
@@ -221,9 +203,82 @@ def main() -> int:
                         f"pairs ({pct:.0f}%) -- a FLIP/CONTROL comparison over this is "
                         f"uninterpretable")
 
-    if problems:
+    return {
+        "window_days": WINDOW_DAYS,
+        "active": active,
+        "signals": signals,
+        "not_built": not_built,
+        "manipulation": manipulation,
+        "effort": effort,
+        "backup": backup,
+        "withdrawals": {"stuck_in_sink": stuck},
+        "problems": problems,
+        "ok": not problems,
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--quiet", action="store_true", help="exit 1 on any broken signal")
+    ap.add_argument("--db")
+    args = ap.parse_args()
+
+    s = summary(args.db)
+    active, window = s["active"], s["window_days"]
+
+    if not args.quiet:
+        print(f"\nSink activity in the last {window} days: {active} event(s)\n")
+        print(f"{'event':26} {'n':>6} {'recent':>7}  {'status':9} what it measures")
+        print("-" * 96)
+        for r in s["signals"]:
+            print(f"{r['event']:26} {r['n']:>6} {r['recent']:>7}  {r['status']:9} "
+                  f"{r['what']}  [{r['needed_for']}]")
+
+        print(f"\n{'not built yet -- named so the gap is visible, not rediscovered':<60}")
+        for r in s["not_built"]:
+            print(f"{r['event']:26} {'-':>6} {'-':>7}  {'TODO':9} "
+                  f"{r['what']}  [{r['needed_for']}]")
+
+        m = s["manipulation"]
+        print(f"\nManipulation check -- the number to watch")
+        print(f"  participant x topic pairs with any event : {m['pairs']}")
+        print(f"  played_first DETERMINABLE                : {m['determinable']}  "
+              f"({m['determinable_pct']:.0f}%)")
+        print(f"  complied with their assigned arm         : {m['complied']}")
+        print(f"  undeterminable, activity never recorded  : {m['no_activity']}")
+        print(f"  undeterminable, post-check not sat       : {m['no_posttest']}")
+        print(f"  took the unit's logged escape            : {m['took_escape']}")
+
+        eff = s["effort"]
+        if eff["submissions"]:
+            v = eff["verdicts"]
+            print(f"\nEffort -- time set against accuracy, which a score alone cannot give you")
+            print(f"  check submissions                        : {eff['submissions']}")
+            print(f"  with timing                              : {eff['timed']}"
+                  f"   (no timing: {eff['untimed']})")
+            print(f"  median seconds per item                  : {eff['median_sec_per_item']}")
+            print(f"  same option for every item               : {eff['straight_lined']}")
+            for k in ("engaged", "struggling", "fast and correct", "rapid guess", "no timing"):
+                if v.get(k):
+                    print(f"    {k:38}: {v[k]}")
+            print(f"  (threshold {eff['threshold_s_per_item']}s/item -- a DEFAULT. Set it from"
+                  f" the cohort's own\n   distribution before analysis; the median above is the"
+                  f" place to start.)")
+
+        hb = s["backup"]["hours_since"]
+        print(f"\nBackups")
+        print(f"  last successful backup                   : "
+              + ("never" if hb is None else f"{hb:.1f} hours ago"))
+
+        stuck = s["withdrawals"]["stuck_in_sink"]
+        if stuck:
+            print(f"\nWithdrawals: {stuck} withdrawn participant(s) still have rows in the "
+                  f"sink. The export excludes them, but run "
+                  f"`python research_store.py --forget <SID> --yes` to erase from disk.")
+
+    if s["problems"]:
         print("\nPROBLEMS")
-        for p in problems:
+        for p in s["problems"]:
             print(f"  - {p}")
         return 1
     if not args.quiet:

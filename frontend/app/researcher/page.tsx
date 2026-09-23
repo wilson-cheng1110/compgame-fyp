@@ -10,6 +10,7 @@ import {
   type DemographicsSummary,
   type DemographicsItemAge,
   type DemographicsItemSingle,
+  type ResearcherHealth,
 } from "@/lib/api"
 import { PAPERS, paperLiveTone } from "@/lib/papers"
 import {
@@ -48,6 +49,7 @@ export default function ResearcherPage() {
   const [state, setState] = useState<"checking" | "denied" | "ok">("checking")
   const [mon, setMon] = useState<ResearcherMonitor | null>(null)
   const [dem, setDem] = useState<DemographicsSummary | null>(null)
+  const [hlt, setHlt] = useState<ResearcherHealth | null>(null)
   const [loadedAt, setLoadedAt] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [note, setNote] = useState<{ kind: "ok" | "bad"; text: string } | null>(null)
@@ -59,15 +61,17 @@ export default function ResearcherPage() {
 
   const load = useCallback(async () => {
     setRefreshing(true)
-    const [res, demRes] = await Promise.all([
+    const [res, demRes, hltRes] = await Promise.all([
       researcher.monitor(),
       researcher.demographics(),
+      researcher.health(),
     ])
     if (res.ok && res.data) {
       setMon(res.data)
       setLoadedAt(new Date())
     }
     if (demRes.ok && demRes.data) setDem(demRes.data)
+    if (hltRes.ok && hltRes.data) setHlt(hltRes.data)
     setRefreshing(false)
   }, [])
 
@@ -185,6 +189,25 @@ export default function ResearcherPage() {
     return isNaN(d.getTime()) ? iso : d.toLocaleString()
   }
   const rec = mon?.sink_reconcile
+
+  // ── signal health (the two offline CLI checks, surfaced) ─────────────────────
+  const sig = hlt?.signal
+  const corp = hlt?.corpus
+  // BROKEN = a required signal that stopped arriving while the sink flows (the 2026
+  // completion-events loss signature); NEVER = one that has produced no rows at all.
+  const brokenCount = sig ? sig.signals.filter((s) => s.status === "BROKEN").length : 0
+  const neverCount = sig ? sig.signals.filter((s) => s.status === "NEVER").length : 0
+  const watchSignals = sig
+    ? sig.signals.filter((s) => s.status === "BROKEN" || s.status === "NEVER")
+    : []
+  const backupHours = sig?.backup.hours_since ?? null
+  const backupLabel = backupHours == null ? "never" : `${backupHours}h ago`
+  // A backup that never ran, or is older than the ~hourly task's grace window, is the
+  // one failure that costs the whole dataset — it earns amber.
+  const backupAlarm = !!sig && (backupHours == null || backupHours > 26)
+  const rapidRate = sig?.effort.rapid_guess_rate ?? null
+  const rapidLabel = rapidRate == null ? "—" : `${Math.round(rapidRate * 100)}%`
+  const rapidAlarm = rapidRate != null && rapidRate > 0.5
 
   return (
     <main className="shell min-h-screen">
@@ -469,6 +492,190 @@ export default function ResearcherPage() {
                   of the 2026 completion-events loss. Check the game→sink write path before
                   trusting a low determinable count.
                 </Banner>
+              </div>
+            )}
+          </Panel>
+        )}
+
+        {/* Signal health — the deployment heartbeat, promoted from the two offline CLI
+            checks (check_measurement_coverage + check_corpus_coverage). Previously visible
+            only by ssh-ing in to run a script; aggregate-only, counts and statuses. */}
+        {sig && (
+          <Panel
+            title="Signal health — deployment heartbeat"
+            testid="researcher-health"
+            desc="The two offline CLI checks, surfaced live: 14-day event staleness, a severed capture pipe, backup age, rapid-guessing, and per-topic RAG-corpus coverage. Counts and statuses only — no identity."
+          >
+            <StatGrid cols={5} testid="researcher-health-signals">
+              <StatCard
+                label={`Events (${sig.window_days}d)`}
+                value={sig.active}
+                sub="sink activity in the window"
+                accent
+              />
+              <StatCard
+                label="Broken pipes"
+                value={brokenCount}
+                sub="required signal(s) gone quiet"
+                alarm={brokenCount > 0}
+              />
+              <StatCard
+                label="Never arrived"
+                value={neverCount}
+                sub="required signal(s) with no rows"
+                alarm={neverCount > 0}
+              />
+              <StatCard
+                label="Last backup"
+                value={backupLabel}
+                sub={backupAlarm ? "the dataset has no fresh copy" : "hourly task healthy"}
+                alarm={backupAlarm}
+              />
+              <StatCard
+                label="Rapid-guess"
+                value={rapidLabel}
+                sub={
+                  sig.effort.timed
+                    ? `${sig.effort.rapid_guess} of ${sig.effort.timed} timed`
+                    : "no timed submissions"
+                }
+                alarm={rapidAlarm}
+              />
+            </StatGrid>
+
+            {sig.problems.length > 0 ? (
+              <div className="mt-3" data-testid="researcher-health-problems">
+                <Banner tone="alarm">
+                  <p style={{ fontWeight: 600 }}>
+                    {sig.problems.length} signal problem(s) — check before trusting the data:
+                  </p>
+                  <ul style={{ marginTop: "0.35rem", paddingLeft: "1.1rem", listStyle: "disc" }}>
+                    {sig.problems.map((p, i) => (
+                      <li key={i} className="u-faint" style={{ marginTop: "0.15rem" }}>
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </Banner>
+              </div>
+            ) : (
+              <div className="mt-3" data-testid="researcher-health-ok">
+                <Banner tone="ok">Every required signal is arriving.</Banner>
+              </div>
+            )}
+
+            {/* Which required signals need attention, named. A healthy sink shows none. */}
+            {watchSignals.length > 0 && (
+              <div className="mt-4">
+                <DataTable
+                  testid="researcher-health-signal-table"
+                  caption="Required signals needing attention (broken pipe / never arrived)"
+                  minWidth={560}
+                >
+                  <thead>
+                    <tr className="u-faint" style={THEAD_ROW_STYLE}>
+                      <th scope="col" className="p-3">Event</th>
+                      <th scope="col" className="p-3">Rows</th>
+                      <th scope="col" className="p-3">Recent</th>
+                      <th scope="col" className="p-3">Status</th>
+                      <th scope="col" className="p-3">Needed for</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {watchSignals.map((r) => (
+                      <tr key={r.event} style={TROW_STYLE}>
+                        <th
+                          scope="row"
+                          className="p-3"
+                          style={{ fontWeight: 600, textAlign: "left" }}
+                        >
+                          {r.event}
+                        </th>
+                        <td className="p-3 u-num">{r.n}</td>
+                        <td className="p-3 u-num">{r.recent}</td>
+                        <td className="p-3" style={{ color: "var(--state-late)", fontWeight: 600 }}>
+                          {r.status}
+                        </td>
+                        <td className="p-3 u-faint">{r.needed_for}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              </div>
+            )}
+
+            {/* Per-topic RAG-corpus coverage. A zero-coverage topic (norman / hicks-law on
+                the 2023 decks) means the tutor is ungrounded there — flagged amber. */}
+            {corp && (
+              <div className="mt-6">
+                <p className="u-eyebrow">
+                  RAG corpus — {corp.chunks} chunks
+                  {corp.uncovered.length > 0 ? (
+                    <span style={{ color: "var(--state-late)", fontWeight: 600 }}>
+                      {" "}
+                      · {corp.uncovered.length} topic(s) uncovered
+                    </span>
+                  ) : (
+                    <span style={{ color: "var(--state-done)" }}> · every topic grounded</span>
+                  )}
+                </p>
+                {!corp.db_exists && (
+                  <div className="mt-2">
+                    <Banner tone="alarm">
+                      No vector store found — the tutor has no corpus to ground its answers on.
+                    </Banner>
+                  </div>
+                )}
+                <div className="mt-3">
+                  <DataTable
+                    testid="researcher-health-corpus"
+                    caption="Per-topic corpus coverage (word-boundary term hits in the vector store)"
+                    minWidth={520}
+                  >
+                    <thead>
+                      <tr className="u-faint" style={THEAD_ROW_STYLE}>
+                        <th scope="col" className="p-3">Topic</th>
+                        <th scope="col" className="p-3">Hits</th>
+                        <th scope="col" className="p-3">Status</th>
+                        <th scope="col" className="p-3">Matched terms</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {corp.topics.map((t) => {
+                        const uncovered = t.status === "uncovered"
+                        const emphasis = uncovered
+                          ? { color: "var(--state-late)", fontWeight: 600 }
+                          : undefined
+                        const statusStyle = uncovered
+                          ? emphasis
+                          : t.status === "thin"
+                            ? { color: "var(--state-late)" }
+                            : { color: "var(--state-done)" }
+                        const termStr = Object.entries(t.hits)
+                          .map(([k, v]) => `${k}=${v}`)
+                          .join(", ")
+                        return (
+                          <tr key={t.topic} style={TROW_STYLE}>
+                            <th
+                              scope="row"
+                              className="p-3"
+                              style={{ textAlign: "left", ...(emphasis ?? {}) }}
+                            >
+                              {t.topic}
+                            </th>
+                            <td className="p-3 u-num" style={emphasis}>
+                              {t.total_hits}
+                            </td>
+                            <td className="p-3" style={statusStyle}>
+                              {t.status}
+                            </td>
+                            <td className="p-3 u-faint">{termStr || "— nothing matched —"}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </DataTable>
+                </div>
               </div>
             )}
           </Panel>

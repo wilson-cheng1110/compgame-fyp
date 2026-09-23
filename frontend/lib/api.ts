@@ -540,11 +540,85 @@ export interface PaperSlice {
   table?: PaperTable | null
 }
 
+// ── deployment signal-health (aggregate-only) ──────────────────────────────────
+//
+// The two offline CLI checks (check_measurement_coverage / check_corpus_coverage),
+// surfaced live. Counts, statuses and timestamps only — no participant id crosses the
+// wire, same as every other researcher payload. Mirrors the backend summary() dicts.
+
+/** One measurement signal's staleness verdict. `status`: "ok" | "BROKEN" (a severed
+ *  capture pipe — the 2026 completion-events loss signature) | "NEVER" | "none". `last`
+ *  is a MAX(server_ts) timestamp, never a participant id. */
+export interface HealthSignalRow {
+  event: string
+  what: string
+  needed_for: string
+  kind: string
+  n: number
+  recent: number
+  last: string | null
+  status: string
+}
+export interface ResearcherSignalHealth {
+  window_days: number
+  active: number
+  signals: HealthSignalRow[]
+  not_built: { event: string; what: string; needed_for: string }[]
+  manipulation: {
+    pairs: number
+    determinable: number
+    determinable_pct: number
+    complied: number
+    no_activity: number
+    no_posttest: number
+    took_escape: number
+  }
+  effort: {
+    submissions: number
+    timed: number
+    untimed: number
+    median_sec_per_item: number | null
+    fastest_sec_per_item: number | null
+    straight_lined: number
+    rapid_guess: number
+    rapid_guess_rate: number | null
+    verdicts: Record<string, number>
+    threshold_s_per_item: number
+  }
+  /** Hours since the last successful sink backup, or null if none has ever completed —
+   *  the one failure that costs the whole dataset, and which can't report its own absence. */
+  backup: { hours_since: number | null }
+  withdrawals: { stuck_in_sink: number }
+  /** Human-readable problem lines (the CLI's exit-code driver). No SID. */
+  problems: string[]
+  ok: boolean
+}
+/** Per-topic RAG-corpus coverage. `status`: "ok" | "thin" (< 5 hits) | "uncovered". */
+export interface CorpusTopicRow {
+  topic: string
+  total_hits: number
+  status: "ok" | "thin" | "uncovered"
+  hits: Record<string, number>
+}
+export interface ResearcherCorpusHealth {
+  db_exists: boolean
+  chunks: number
+  topics: CorpusTopicRow[]
+  uncovered: string[]
+  ok: boolean
+}
+export interface ResearcherHealth {
+  signal: ResearcherSignalHealth
+  corpus: ResearcherCorpusHealth
+}
+
 export const researcher = {
   whoami: () => api.get<{ ok: true; sid: string }>("/api/researcher/whoami"),
   monitor: () => api.get<ResearcherMonitor>("/api/researcher/monitor"),
   /** The shared demographics distribution for the papers dashboard (aggregate-only). */
   demographics: () => api.get<DemographicsSummary>("/api/researcher/demographics"),
+  /** Deployment signal-health from the two offline CLI checks (aggregate-only). */
+  health: () => api.get<ResearcherHealth>("/api/researcher/health"),
   /** One paper's live-data slice — a normalized envelope rendered generically. */
   paper: (id: string) =>
     api.get<PaperSlice>(`/api/researcher/paper/${encodeURIComponent(id)}`),

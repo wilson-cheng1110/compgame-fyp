@@ -56,16 +56,22 @@ def load_documents(db_path):
     return [r[0] for r in rows]
 
 
-def main():
-    quiet = "--quiet" in sys.argv
-    if not os.path.exists(DB):
-        print(f"FAIL  no vector store at {DB}")
-        return 2
+def summary(db_path=None) -> dict:
+    """Per-topic corpus coverage as ONE importable dict — the same per-term word-boundary
+    matching ``main()`` prints, factored out so the CLI and the /researcher health endpoint
+    read a single source of truth (mirrors how ``grade_batch.run()`` was exposed for its CLI).
 
-    docs = load_documents(DB)
-    print(f"corpus: {len(docs)} chunks  ({DB})\n")
+    AGGREGATE-ONLY: chunk counts and per-topic hit counts over the lecture corpus — there is
+    no participant data in the vector store, so nothing here can carry a SID. A missing store
+    is reported (`db_exists=False`), not raised, so the endpoint degrades to "uncovered" rather
+    than erroring."""
+    path = db_path or DB
+    if not os.path.exists(path):
+        return {"db_exists": False, "chunks": 0, "topics": [],
+                "uncovered": list(TOPIC_TERMS), "ok": False}
 
-    uncovered = []
+    docs = load_documents(path)
+    topics, uncovered = [], []
     for topic, terms in TOPIC_TERMS.items():
         per_term = {}
         for term in terms:
@@ -77,15 +83,38 @@ def main():
         hits = {t: n for t, n in per_term.items() if n}
         if not hits:
             uncovered.append(topic)
+        status = "uncovered" if not hits else ("thin" if total < 5 else "ok")
+        topics.append({
+            "topic": topic, "total_hits": total, "status": status,
+            # Top few matched terms with their counts (the CLI shows the same four).
+            "hits": dict(sorted(hits.items(), key=lambda kv: -kv[1])[:4]),
+        })
 
-        mark = "UNCOVERED" if not hits else ("thin " if total < 5 else "ok   ")
+    return {"db_exists": True, "chunks": len(docs), "topics": topics,
+            "uncovered": uncovered, "ok": not uncovered}
+
+
+def main():
+    quiet = "--quiet" in sys.argv
+    s = summary()
+    if not s["db_exists"]:
+        print(f"FAIL  no vector store at {DB}")
+        return 2
+
+    print(f"corpus: {s['chunks']} chunks  ({DB})\n")
+
+    for row in s["topics"]:
+        hits = row["hits"]
+        mark = {"uncovered": "UNCOVERED", "thin": "thin ", "ok": "ok   "}[row["status"]]
         if not quiet or not hits:
-            shown = ", ".join(f"{t}={n}" for t, n in sorted(hits.items(), key=lambda kv: -kv[1])[:4])
-            print(f"  {mark}  {topic:<18} {total:>4} hit(s)   {shown or '-- nothing matched --'}")
+            shown = ", ".join(f"{t}={n}" for t, n in hits.items())
+            print(f"  {mark}  {row['topic']:<18} {row['total_hits']:>4} hit(s)   "
+                  f"{shown or '-- nothing matched --'}")
 
     print()
-    if uncovered:
-        print(f"FAIL  {len(uncovered)} topic(s) with ZERO corpus coverage: {', '.join(uncovered)}")
+    if s["uncovered"]:
+        print(f"FAIL  {len(s['uncovered'])} topic(s) with ZERO corpus coverage: "
+              f"{', '.join(s['uncovered'])}")
         print("      Add the current lecture decks to backend/ and run: python rebuild_db.py")
         return 1
     print("PASS  every topic has at least one grounded chunk.")

@@ -51,6 +51,8 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 import auth_store
+import check_corpus_coverage
+import check_measurement_coverage
 import measures
 import research_api
 import research_store
@@ -191,6 +193,33 @@ async def monitor(response: Response, session: Optional[str] = Cookie(default=No
     if err:
         return err
     return await asyncio.to_thread(_build_monitor)
+
+
+# ── deployment signal-health, surfaced from the two offline CLI checks ─────────
+#
+# The measurement-coverage and corpus-coverage checks were CLI-only: to see the
+# deployment heartbeat -- 14-day event staleness, a severed capture pipe, the backup
+# age, rapid-guessing, and whether the RAG corpus still covers every topic -- the
+# researcher had to ssh in and run a script. This puts the SAME summaries on the
+# dashboard. It calls each check's importable summary() (the one main() also calls,
+# mirroring grade_batch.run()), so nothing about what they compute changes here.
+#
+# AGGREGATE-ONLY, like every route on this surface: both summaries return counts,
+# statuses, event-type names and timestamps -- never a participant_id. Heavy-ish (it
+# scans the sink a couple of times and loads the vector store once), and infrequent
+# (a researcher-only call), so it runs off the event loop like /monitor.
+
+def _build_health() -> dict:
+    return {"signal": check_measurement_coverage.summary(),
+            "corpus": check_corpus_coverage.summary()}
+
+
+@router.get("/health")
+async def health(response: Response, session: Optional[str] = Cookie(default=None)):
+    sid, err = _researcher(session, response)
+    if err:
+        return err
+    return await asyncio.to_thread(_build_health)
 
 
 # ── the research-papers dashboard (aggregate-only, one place per paper) ────────

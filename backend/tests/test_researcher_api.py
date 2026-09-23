@@ -454,6 +454,57 @@ check("paper 03 also carries the reflection-gate outputs",
 check("paper 03 does NOT carry the free-chat aggregate (paper 07 only)",
       "Free-chat turns" not in _p03labels, _p03labels)
 
+print("\n-- SIGNAL HEALTH: the two offline CLI checks, surfaced (same gate, aggregate-only) --")
+# The deployment heartbeat -- 14-day staleness / broken-pipe / backup age / rapid-guess from
+# check_measurement_coverage, per-topic corpus coverage from check_corpus_coverage -- promoted
+# from CLI-only onto /researcher. Same two-part gate; must never carry a raw SID.
+check("a student cannot see signal health (403)",
+      student.get("/api/researcher/health").status_code == 403)
+check("a teacher (admin) cannot see signal health (403)",
+      teacher.get("/api/researcher/health").status_code == 403)
+check("no session -> 401 on health",
+      anon.get("/api/researcher/health").status_code == 401)
+_h = pi.get("/api/researcher/health")
+check("the PI gets signal health (200)", _h.status_code == 200, _h.text[:160])
+_hj = _h.json()
+check("health carries both `signal` and `corpus`",
+      {"signal", "corpus"} <= set(_hj), list(_hj))
+_sig = _hj["signal"]
+for _k in ("window_days", "active", "signals", "not_built", "manipulation", "effort",
+           "backup", "withdrawals", "problems", "ok"):
+    check(f"signal health carries `{_k}`", _k in _sig, list(_sig))
+check("signal.signals is a list of per-event rows with counts + a status",
+      isinstance(_sig["signals"], list) and all(
+          {"event", "n", "recent", "status", "needed_for"} <= set(r) for r in _sig["signals"]),
+      _sig["signals"][:2])
+check("signal.manipulation.determinable reflects the pair we made (>=1)",
+      _sig["manipulation"]["determinable"] >= 1, _sig["manipulation"])
+check("signal.backup.hours_since is a number or None (never a SID)",
+      _sig["backup"]["hours_since"] is None or isinstance(_sig["backup"]["hours_since"], (int, float)),
+      _sig["backup"])
+check("signal.withdrawals.stuck_in_sink is an integer count",
+      isinstance(_sig["withdrawals"]["stuck_in_sink"], int), _sig["withdrawals"])
+check("signal.problems is a list of strings", isinstance(_sig["problems"], list)
+      and all(isinstance(p, str) for p in _sig["problems"]), _sig["problems"][:2])
+_corp = _hj["corpus"]
+for _k in ("db_exists", "chunks", "topics", "uncovered", "ok"):
+    check(f"corpus health carries `{_k}`", _k in _corp, list(_corp))
+check("corpus.topics rows carry topic/total_hits/status/hits",
+      isinstance(_corp["topics"], list) and all(
+          {"topic", "total_hits", "status", "hits"} <= set(r) for r in _corp["topics"]),
+      _corp["topics"][:2])
+# The committed 2023 vector store grounds neither `norman` nor `hicks-law` (CLAUDE.md); the
+# check must still flag those as zero-coverage rather than silently pass.
+check("corpus reads the committed vector store (db_exists, chunks>0)",
+      _corp["db_exists"] is True and _corp["chunks"] > 0, _corp.get("chunks"))
+check("corpus flags the known zero-coverage topics (norman, hicks-law)",
+      "norman" in _corp["uncovered"] and "hicks-law" in _corp["uncovered"], _corp["uncovered"])
+check("corpus.ok is False while a topic is uncovered", _corp["ok"] is False, _corp["ok"])
+# THE HARD INVARIANT: aggregate-only, never a raw SID -- numeric AND check-letter forms, plus
+# the non-roster and enrolled SIDs, absent from the WHOLE health payload.
+for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z", "24TEACH01A", "24RSRCHR1A"):
+    check(f"the health payload leaks no raw SID ({_leak})", _leak not in _h.text, _h.text[:160])
+
 print("\n-- export is pseudonymised: the real SID never leaves --")
 j = pi.get("/api/researcher/export")
 check("export json is 200", j.status_code == 200, j.status_code)
