@@ -47,9 +47,16 @@ export default function StartMenuClient() {
     }
   }, [])
 
-  // Function to handle navigation - fixed to use absolute paths
+  // Function to handle navigation - fixed to use absolute paths.
+  // Carry the unit context (?unit=/step/of) forward through the sub-canvas hop.
+  // Deliberate mid-study procedure change (preserve unit context to reduce fitts
+  // post-check drop-off / differential attrition by arm): a student who launched
+  // this activity from a topic unit must land back on the unit's post-check, not
+  // the dashboard. window.location.search is empty in free play, so that path is
+  // unchanged.
   const handleNavigate = (path: string) => {
-    window.location.href = `/games/fitts-law-understanding/app/game/${path}`
+    const unitQuery = typeof window !== "undefined" ? window.location.search : ""
+    window.location.href = `/games/fitts-law-understanding/app/game/${path}${unitQuery}`
   }
 
   return (

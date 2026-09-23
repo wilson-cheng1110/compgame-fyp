@@ -129,16 +129,24 @@ export default function SizeGame() {
     [caughtFish.length, fishes.length],
   )
 
+  // Carry the unit context (?unit=/step/of) forward through every internal hop of
+  // this sub-canvas. Deliberate mid-study procedure change (preserve unit context
+  // to reduce fitts post-check drop-off / differential attrition by arm): a student
+  // who launched this activity from a topic unit must be returned to the unit's
+  // post-check (via the unit-aware debrief), not stranded on the dashboard. The
+  // search string is empty in free play, so that path is unchanged.
+  const withUnit = (path: string) => `${path}${isClient ? window.location.search : ""}`
+
   const navigateToGameMenu = () => {
-    router.push("/games/fitts-law-understanding/app")
+    router.push(withUnit("/games/fitts-law-understanding/app"))
   }
 
   const navigateToDebrief = () => {
-    router.push("/games/fitts-law-understanding/debrief")
+    router.push(withUnit("/games/fitts-law-understanding/debrief"))
   }
 
   const navigateToDistance = () => {
-    router.push("/games/fitts-law-understanding/app/game/distance")
+    router.push(withUnit("/games/fitts-law-understanding/app/game/distance"))
   }
 
   return (
