@@ -460,3 +460,107 @@
 .shell .u-group-body {
   padding: 0 0.75rem 0.75rem;
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   STAFF-CONSOLE polish — the teacher (/admin) and researcher (/researcher)
+   monitoring surfaces. ADDITIVE and design-system-native: it promotes the shared
+   Panel / StatCard / DataTable primitives (components/staff/*) so a dense
+   monitoring page reads as distinct sections of comfortable tables and stat
+   tiles, not one tall column of tiny grey labels. Tokens only — no new palette.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* Section header: a Panel's title stops being a tiny eyebrow and becomes a real
+   heading, with a hairline divider under the whole header block so each section
+   is visually separated from its body. */
+.shell .u-panel-head {
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--rule);
+}
+.shell .u-panel-title {
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+/* A small uppercase group label that sits ABOVE a cluster of panels, grouping the
+   page into a few named zones (Study health · Cohort · Instruments · …). */
+.shell .u-zone {
+  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 2px solid var(--rule-strong);
+}
+.shell .u-zone-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--accent);
+}
+.shell .u-zone-title {
+  color: var(--ink);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin-top: 0.15rem;
+}
+
+/* Stat tiles: even height across a grid row, and a quiet hover so a row of tiles
+   reads as one instrument rather than loose boxes. The number is styled inline in
+   StatCard (Roboto Mono, tabular). */
+.shell .u-statcard {
+  height: 100%;
+  transition: box-shadow 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.shell .u-statcard:hover {
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-1px);
+}
+
+/* Data tables: a clear header band, comfortable rows, zebra + row hover, and a
+   right-aligned numeric column opt-in (.u-r on the header AND the cell). */
+.shell .u-datatable {
+  font-size: 0.9rem;
+}
+.shell .u-datatable thead th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+.shell .u-datatable tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--paper-sunken) 50%, transparent);
+}
+.shell .u-datatable tbody tr:hover {
+  background: var(--accent-soft);
+}
+.shell .u-datatable td,
+.shell .u-datatable th {
+  vertical-align: middle;
+}
+.shell .u-r {
+  text-align: right !important;
+}
+
+/* Horizontal scroll container with pure-CSS scroll-shadows (Lea Verou's
+   technique): a soft shadow peeks from an edge ONLY while that edge has more
+   table to scroll to, so a clipped column is never silent on a narrow screen. */
+.shell .u-scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  background:
+    linear-gradient(to right, var(--paper-raised) 32%, rgba(0, 0, 0, 0)) left center,
+    linear-gradient(to left, var(--paper-raised) 32%, rgba(0, 0, 0, 0)) right center,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) left center,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) right center;
+  background-repeat: no-repeat;
+  background-size: 34px 100%, 34px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
+}

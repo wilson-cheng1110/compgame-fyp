@@ -6,10 +6,22 @@ import type { ReactNode } from "react"
 // optional slot for extra actions (the researcher⇄admin cross-link). One header for both
 // consoles so they read as one product. The wordmark is "HCI Playground" (the app's
 // user-facing name; the internal code/repo name stays COMPGame).
-export function StaffHeader({ chip, children }: { chip: string; children?: ReactNode }) {
+export function StaffHeader({
+  chip,
+  children,
+  wide,
+}: {
+  chip: string
+  children?: ReactNode
+  // Widen the nav's inner container to match a wider page body (the researcher
+  // dashboard uses max-w-7xl). Default keeps the max-w-5xl the teacher panel uses.
+  wide?: boolean
+}) {
   return (
     <header className="u-nav">
-      <div className="mx-auto w-full max-w-5xl px-5 h-14 flex items-center justify-between">
+      <div
+        className={`mx-auto w-full ${wide ? "max-w-7xl" : "max-w-5xl"} px-5 h-14 flex items-center justify-between`}
+      >
         <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
           <Image src="/images/logo.png" alt="" width={26} height={26} priority />
           {/* Hidden on narrow screens so the right-hand actions never overlap it. */}

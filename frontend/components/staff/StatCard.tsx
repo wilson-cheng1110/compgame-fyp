@@ -29,11 +29,13 @@ export function StatCard({
   const valueColor = alarm ? "var(--state-late)" : accent ? "var(--accent)" : "var(--ink)"
   return (
     <div
-      className="u-card"
+      className="u-card u-statcard"
       data-testid={testid}
       style={{
-        padding: "0.95rem 1.1rem",
+        padding: "1.05rem 1.2rem",
         minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
         borderColor: alarm ? "var(--state-late)" : undefined,
       }}
     >
@@ -43,18 +45,18 @@ export function StatCard({
       <p
         className="u-num"
         style={{
-          fontSize: "1.85rem",
+          fontSize: "2rem",
           fontWeight: 600,
-          lineHeight: 1.1,
-          letterSpacing: "-0.02em",
-          marginTop: "0.3rem",
+          lineHeight: 1.05,
+          letterSpacing: "-0.03em",
+          marginTop: "0.4rem",
           color: valueColor,
         }}
       >
         {value}
       </p>
       {sub != null && sub !== "" && (
-        <p className="u-faint" style={{ marginTop: "0.2rem" }}>
+        <p className="u-faint" style={{ marginTop: "0.3rem" }}>
           {sub}
         </p>
       )}

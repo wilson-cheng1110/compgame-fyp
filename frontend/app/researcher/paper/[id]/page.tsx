@@ -2,7 +2,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getPaper, PAPERS, paperLiveTone } from "@/lib/papers"
-import { StaffHeader, Panel, StatGrid, StatCard } from "@/components/staff"
+import { StaffHeader, Panel, StatGrid, StatCard, DataTable, THEAD_ROW_STYLE, TROW_STYLE } from "@/components/staff"
 import type { PaperSlice } from "@/lib/api"
 
 // ONE PAPER's page, in the research-programme dashboard added to /researcher. A SERVER
@@ -185,7 +185,7 @@ export default async function ResearcherPaperPage({
         </Link>
       </StaffHeader>
 
-      <div className="mx-auto w-full max-w-3xl px-5 py-8 pb-20">
+      <div className="mx-auto w-full max-w-5xl px-5 py-8 pb-20">
         <p className="u-eyebrow">
           Paper {order} of {PAPERS.length} · {paper.role}
         </p>
@@ -286,12 +286,12 @@ export default async function ResearcherPaperPage({
               )}
 
               {slice.table && slice.table.rows.length > 0 && (
-                <div className="mt-4" style={{ overflowX: "auto" }}>
-                  <table className="w-full" style={{ borderCollapse: "collapse" }}>
+                <div className="mt-4">
+                  <DataTable minWidth={Math.max(520, slice.table.columns.length * 96)}>
                     <thead>
-                      <tr className="u-faint">
-                        {slice.table.columns.map((col) => (
-                          <th key={col} className="p-2" style={{ textAlign: "left" }}>
+                      <tr className="u-faint" style={THEAD_ROW_STYLE}>
+                        {slice.table.columns.map((col, ci) => (
+                          <th key={col} scope="col" className={ci === 0 ? "p-3" : "p-3 u-r"}>
                             {col}
                           </th>
                         ))}
@@ -299,16 +299,16 @@ export default async function ResearcherPaperPage({
                     </thead>
                     <tbody>
                       {slice.table.rows.map((row, ri) => (
-                        <tr key={ri} style={{ borderTop: "1px solid var(--rule-strong)" }}>
+                        <tr key={ri} style={TROW_STYLE}>
                           {row.map((cell, ci) => (
-                            <td key={ci} className="p-2 u-num">
+                            <td key={ci} className={ci === 0 ? "p-3" : "p-3 u-num u-r"}>
                               {cell === null ? "—" : cell}
                             </td>
                           ))}
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
               )}
 

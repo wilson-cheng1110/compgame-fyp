@@ -44,6 +44,18 @@ import {
 // into Panels, and the two non-read-only actions (export, erase) sit in their own
 // "sensitive" zone. Presentation only — all figures, alarms and flows are unchanged.
 
+// A page-level zone header: the small uppercase kicker + a heading + a strong
+// divider, grouping the long monitor into a few named zones so it reads as
+// distinct sections rather than one endless column.
+function Zone({ label, title }: { label: string; title: string }) {
+  return (
+    <div className="u-zone">
+      <p className="u-zone-label">{label}</p>
+      <h2 className="u-zone-title">{title}</h2>
+    </div>
+  )
+}
+
 export default function ResearcherPage() {
   const router = useRouter()
   const [state, setState] = useState<"checking" | "denied" | "ok">("checking")
@@ -211,27 +223,33 @@ export default function ResearcherPage() {
 
   return (
     <main className="shell min-h-screen">
-      <StaffHeader chip="Researcher" />
+      <StaffHeader chip="Researcher" wide />
 
-      <div className="mx-auto w-full max-w-5xl px-5 py-8 pb-20">
-        <p className="u-eyebrow">Study</p>
-        <h1 className="u-h1 mt-1">Monitoring</h1>
-        <p className="u-stem u-muted mt-2">
-          Read-only. How the data is filling in — arm balance, the manipulation check, and
-          coverage per section. The teacher panel cannot see any of this. Grading stays the
-          offline blind pass; nothing here reveals a score against an identity.
-        </p>
+      <div className="mx-auto w-full max-w-7xl px-5 py-8 pb-20">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <p className="u-eyebrow">Study</p>
+            <h1 className="u-h1 mt-1">Monitoring</h1>
+            <p className="u-stem u-muted mt-2">
+              Read-only. How the data is filling in — arm balance, the manipulation check, and
+              coverage per section. The teacher panel cannot see any of this. Grading stays the
+              offline blind pass; nothing here reveals a score against an identity.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3 mt-4">
-          <button
-            className="u-btn"
-            onClick={load}
-            disabled={refreshing}
-            data-testid="researcher-refresh"
-          >
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
-          {loadedAt && <span className="u-faint">as of {loadedAt.toLocaleTimeString()}</span>}
+          <div className="flex items-center gap-3 shrink-0">
+            {loadedAt && (
+              <span className="u-faint">as of {loadedAt.toLocaleTimeString()}</span>
+            )}
+            <button
+              className="u-btn"
+              onClick={load}
+              disabled={refreshing}
+              data-testid="researcher-refresh"
+            >
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
         </div>
 
         {note && (
@@ -257,7 +275,10 @@ export default function ResearcherPage() {
             below already carries the real N/arm/coverage/questionnaire figures every
             paper's live panel is built on. Per-paper live queries are Phase 2 — this is
             structure only. */}
+        <Zone label="Research programme" title="Nine-paper dashboard & demographics" />
+
         <Panel
+          tight
           title="Shared — demographics & cross-paper covariates"
           testid="researcher-papers-shared"
           desc="Basic demographics common to all nine papers, aggregate-only from the sink's questionnaire_demographics events (measures.demographics_summary). The cross-paper covariates — N, arm balance, compliance, questionnaire completion — are the Accounts & sink, Arm balance and Questionnaires panels below."
@@ -456,9 +477,14 @@ export default function ResearcherPage() {
           </div>
         </Panel>
 
+        {(c || sig) && (
+          <Zone label="Study health" title="Manipulation check & capture heartbeat" />
+        )}
+
         {/* HERO — the manipulation check, promoted to the top of the page. */}
         {c && (
           <Panel
+            tight
             title="Study health — the manipulation check"
             testid="researcher-coverage"
             desc="For how many participant×topic pairs can we tell whether the activity came before the post-check? A pair we can't determine can't be used in the FLIP-vs-CONTROL comparison."
@@ -575,8 +601,8 @@ export default function ResearcherPage() {
                   <thead>
                     <tr className="u-faint" style={THEAD_ROW_STYLE}>
                       <th scope="col" className="p-3">Event</th>
-                      <th scope="col" className="p-3">Rows</th>
-                      <th scope="col" className="p-3">Recent</th>
+                      <th scope="col" className="p-3 u-r">Rows</th>
+                      <th scope="col" className="p-3 u-r">Recent</th>
                       <th scope="col" className="p-3">Status</th>
                       <th scope="col" className="p-3">Needed for</th>
                     </tr>
@@ -591,8 +617,8 @@ export default function ResearcherPage() {
                         >
                           {r.event}
                         </th>
-                        <td className="p-3 u-num">{r.n}</td>
-                        <td className="p-3 u-num">{r.recent}</td>
+                        <td className="p-3 u-num u-r">{r.n}</td>
+                        <td className="p-3 u-num u-r">{r.recent}</td>
                         <td className="p-3" style={{ color: "var(--state-late)", fontWeight: 600 }}>
                           {r.status}
                         </td>
@@ -635,7 +661,7 @@ export default function ResearcherPage() {
                     <thead>
                       <tr className="u-faint" style={THEAD_ROW_STYLE}>
                         <th scope="col" className="p-3">Topic</th>
-                        <th scope="col" className="p-3">Hits</th>
+                        <th scope="col" className="p-3 u-r">Hits</th>
                         <th scope="col" className="p-3">Status</th>
                         <th scope="col" className="p-3">Matched terms</th>
                       </tr>
@@ -663,7 +689,7 @@ export default function ResearcherPage() {
                             >
                               {t.topic}
                             </th>
-                            <td className="p-3 u-num" style={emphasis}>
+                            <td className="p-3 u-num u-r" style={emphasis}>
                               {t.total_hits}
                             </td>
                             <td className="p-3" style={statusStyle}>
@@ -681,9 +707,11 @@ export default function ResearcherPage() {
           </Panel>
         )}
 
+        {a && <Zone label="Cohort & coverage" title="Accounts, sections & arm balance" />}
+
         {/* Accounts + sink overview */}
         {a && mon && (
-          <Panel title="Accounts & sink">
+          <Panel tight title="Accounts & sink">
             <StatGrid cols={6} testid="researcher-overview">
               {(
                 [
@@ -730,35 +758,48 @@ export default function ResearcherPage() {
           </div>
         )}
 
-        {/* Per-section headcount, MSC included */}
-        {a && (
-          <Panel title="By section" desc="Accounts by section (MSc included).">
-            <DataTable testid="researcher-sections" caption="Accounts by section (MSc included)">
-              <thead>
-                <tr className="u-faint" style={THEAD_ROW_STYLE}>
-                  <th scope="col" className="p-3">Section</th>
-                  <th scope="col" className="p-3">Accounts</th>
-                  <th scope="col" className="p-3">Signed up</th>
-                  <th scope="col" className="p-3">Withdrawn</th>
-                  <th scope="col" className="p-3">Disabled</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sectionCodes.map((s) => (
-                  <tr key={s} style={TROW_STYLE}>
-                    <th scope="row" className="p-3 u-num" style={{ fontWeight: 600, textAlign: "left" }}>
-                      {s}
-                    </th>
-                    <td className="p-3 u-num">{a.by_section[s].total}</td>
-                    <td className="p-3 u-num">{a.by_section[s].claimed}</td>
-                    <td className="p-3 u-num">{a.by_section[s].withdrawn}</td>
-                    <td className="p-3 u-num">{a.by_section[s].disabled}</td>
+        {/* Per-section headcount + questionnaire completion, side by side */}
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {a && (
+            <Panel tight title="By section" desc="Accounts by section (MSc included).">
+              <DataTable testid="researcher-sections" caption="Accounts by section (MSc included)">
+                <thead>
+                  <tr className="u-faint" style={THEAD_ROW_STYLE}>
+                    <th scope="col" className="p-3">Section</th>
+                    <th scope="col" className="p-3 u-r">Accounts</th>
+                    <th scope="col" className="p-3 u-r">Signed up</th>
+                    <th scope="col" className="p-3 u-r">Withdrawn</th>
+                    <th scope="col" className="p-3 u-r">Disabled</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {sectionCodes.map((s) => (
+                    <tr key={s} style={TROW_STYLE}>
+                      <th scope="row" className="p-3 u-num" style={{ fontWeight: 600, textAlign: "left" }}>
+                        {s}
+                      </th>
+                      <td className="p-3 u-num u-r">{a.by_section[s].total}</td>
+                      <td className="p-3 u-num u-r">{a.by_section[s].claimed}</td>
+                      <td className="p-3 u-num u-r">{a.by_section[s].withdrawn}</td>
+                      <td className="p-3 u-num u-r">{a.by_section[s].disabled}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </DataTable>
+            </Panel>
+          )}
+
+          {/* Questionnaire completion */}
+          {qKeys.length > 0 && (
+            <Panel tight title="Questionnaires" desc="People who finished each instrument.">
+              <StatGrid cols={3} testid="researcher-questionnaires">
+                {qKeys.map((k) => (
+                  <StatCard key={k} label={k.replace(/^questionnaire_/, "")} value={mon!.questionnaires[k]} />
                 ))}
-              </tbody>
-            </DataTable>
-          </Panel>
-        )}
+              </StatGrid>
+            </Panel>
+          )}
+        </div>
 
         {/* Per-topic arm balance */}
         {mon && mon.arms.length > 0 && (
@@ -777,12 +818,12 @@ export default function ResearcherPage() {
             <DataTable testid="researcher-arms" caption="Per-topic arm balance" minWidth={560}>
               <thead>
                 <tr className="u-faint" style={THEAD_ROW_STYLE}>
-                  <th scope="col" className="p-3">#</th>
+                  <th scope="col" className="p-3 u-r">#</th>
                   <th scope="col" className="p-3">Topic</th>
-                  <th scope="col" className="p-3">FLIP</th>
-                  <th scope="col" className="p-3">CONTROL</th>
-                  <th scope="col" className="p-3">Determinable</th>
-                  <th scope="col" className="p-3">Complied</th>
+                  <th scope="col" className="p-3 u-r">FLIP</th>
+                  <th scope="col" className="p-3 u-r">CONTROL</th>
+                  <th scope="col" className="p-3 u-r">Determinable</th>
+                  <th scope="col" className="p-3 u-r">Complied</th>
                 </tr>
               </thead>
               <tbody>
@@ -795,12 +836,12 @@ export default function ResearcherPage() {
                     : undefined
                   return (
                     <tr key={t.topic_id} style={TROW_STYLE}>
-                      <td className="p-3 u-num">{t.order}</td>
+                      <td className="p-3 u-num u-r">{t.order}</td>
                       <td className="p-3">{t.topic_id}</td>
-                      <td className="p-3 u-num" style={armStyle}>{t.flip}</td>
-                      <td className="p-3 u-num" style={armStyle}>{t.control}</td>
-                      <td className="p-3 u-num">{t.determinable}</td>
-                      <td className="p-3 u-num">{t.complied}</td>
+                      <td className="p-3 u-num u-r" style={armStyle}>{t.flip}</td>
+                      <td className="p-3 u-num u-r" style={armStyle}>{t.control}</td>
+                      <td className="p-3 u-num u-r">{t.determinable}</td>
+                      <td className="p-3 u-num u-r">{t.complied}</td>
                     </tr>
                   )
                 })}
@@ -808,24 +849,13 @@ export default function ResearcherPage() {
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--rule-strong)", fontWeight: 600 }}>
                   <td className="p-3" colSpan={2}>All topics</td>
-                  <td className="p-3 u-num">{armTotals.flip}</td>
-                  <td className="p-3 u-num">{armTotals.control}</td>
-                  <td className="p-3 u-num">{armTotals.determinable}</td>
-                  <td className="p-3 u-num">{armTotals.complied}</td>
+                  <td className="p-3 u-num u-r">{armTotals.flip}</td>
+                  <td className="p-3 u-num u-r">{armTotals.control}</td>
+                  <td className="p-3 u-num u-r">{armTotals.determinable}</td>
+                  <td className="p-3 u-num u-r">{armTotals.complied}</td>
                 </tr>
               </tfoot>
             </DataTable>
-          </Panel>
-        )}
-
-        {/* Questionnaire completion */}
-        {qKeys.length > 0 && (
-          <Panel title="Questionnaires" desc="People who finished each instrument.">
-            <StatGrid cols={5} testid="researcher-questionnaires">
-              {qKeys.map((k) => (
-                <StatCard key={k} label={k.replace(/^questionnaire_/, "")} value={mon!.questionnaires[k]} />
-              ))}
-            </StatGrid>
           </Panel>
         )}
 
@@ -841,8 +871,8 @@ export default function ResearcherPage() {
               <thead>
                 <tr className="u-faint" style={THEAD_ROW_STYLE}>
                   <th scope="col" className="p-3">Event type</th>
-                  <th scope="col" className="p-3">Rows</th>
-                  <th scope="col" className="p-3">Participants</th>
+                  <th scope="col" className="p-3 u-r">Rows</th>
+                  <th scope="col" className="p-3 u-r">Participants</th>
                   <th scope="col" className="p-3">Last seen</th>
                 </tr>
               </thead>
@@ -852,8 +882,8 @@ export default function ResearcherPage() {
                     <th scope="row" className="p-3" style={{ fontWeight: 600, textAlign: "left" }}>
                       {r.event_type}
                     </th>
-                    <td className="p-3 u-num">{r.n}</td>
-                    <td className="p-3 u-num">{r.participants}</td>
+                    <td className="p-3 u-num u-r">{r.n}</td>
+                    <td className="p-3 u-num u-r">{r.participants}</td>
                     <td className="p-3 u-faint">{fmtTs(r.last_seen)}</td>
                   </tr>
                 ))}
@@ -862,12 +892,17 @@ export default function ResearcherPage() {
           </Panel>
         )}
 
-        {/* Export — a non-read-only action, in its own zone */}
-        <Panel
-          title="Export"
-          tone="sensitive"
-          desc="Pseudonymised. Real student IDs never leave the box, and withdrawn participants are excluded. Every download is logged."
-        >
+        <Zone label="Data actions" title="Export & erasure" />
+
+        {/* The two non-read-only actions, side by side in their own sensitive zone. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Export — a non-read-only action */}
+          <Panel
+            tight
+            title="Export"
+            tone="sensitive"
+            desc="Pseudonymised. Real student IDs never leave the box, and withdrawn participants are excluded. Every download is logged."
+          >
           <div className="flex gap-2 flex-wrap">
             <a
               href={researcher.exportUrl("csv")}
@@ -888,10 +923,11 @@ export default function ResearcherPage() {
           </div>
         </Panel>
 
-        {/* Participant forget — the other non-read-only action */}
-        <Panel
-          title="Erase a participant's data"
-          tone="sensitive"
+          {/* Participant forget — the other non-read-only action */}
+          <Panel
+            tight
+            title="Erase a participant's data"
+            tone="sensitive"
           desc={
             <>
               The consent form promises a participant can have their responses discarded. This
@@ -947,7 +983,8 @@ export default function ResearcherPage() {
               </div>
             </div>
           )}
-        </Panel>
+          </Panel>
+        </div>
       </div>
     </main>
   )

@@ -12,6 +12,7 @@ export function Panel({
   testid,
   className,
   tone = "default",
+  tight = false,
 }: {
   title?: string
   desc?: ReactNode
@@ -22,6 +23,9 @@ export function Panel({
   // "sensitive" gives the section a bordered card with a warm left rule — for the
   // export and erase-a-participant zones, which are not read-only.
   tone?: "default" | "sensitive"
+  // Drop the default top margin — for a panel that sits directly under a zone
+  // header or inside a 2-up grid, where the surrounding layout owns the spacing.
+  tight?: boolean
 }) {
   const body =
     tone === "sensitive" ? (
@@ -35,21 +39,21 @@ export function Panel({
       children
     )
   return (
-    <section className={`mt-10 ${className ?? ""}`} data-testid={testid}>
+    <section className={`${tight ? "" : "mt-10"} ${className ?? ""}`} data-testid={testid}>
       {(title || right) && (
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="u-panel-head flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
-            {title && <p className="u-eyebrow">{title}</p>}
+            {title && <h2 className="u-panel-title">{title}</h2>}
             {desc && (
-              <p className="u-faint mt-1" style={{ maxWidth: "62ch" }}>
+              <p className="u-faint mt-1.5" style={{ maxWidth: "66ch" }}>
                 {desc}
               </p>
             )}
           </div>
-          {right && <div className="flex items-center gap-2 flex-wrap">{right}</div>}
+          {right && <div className="flex items-center gap-2 flex-wrap shrink-0">{right}</div>}
         </div>
       )}
-      <div className={title || right ? "mt-3" : ""}>{body}</div>
+      <div className={title || right ? "mt-4" : ""}>{body}</div>
     </section>
   )
 }

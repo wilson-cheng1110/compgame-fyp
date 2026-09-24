@@ -15,22 +15,24 @@ export function DataTable({
   children: ReactNode
 }) {
   return (
-    <div className="u-card" style={{ padding: 0, overflowX: "auto" }}>
-      <table
-        className="w-full text-left"
-        data-testid={testid}
-        style={{ borderCollapse: "collapse", minWidth }}
-      >
-        {caption && (
-          <caption
-            className="u-faint"
-            style={{ captionSide: "top", textAlign: "left", padding: "0.6rem 0.85rem" }}
-          >
-            {caption}
-          </caption>
-        )}
-        {children}
-      </table>
+    <div className="u-card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="u-scroll-x" style={{ borderRadius: "var(--radius)" }}>
+        <table
+          className="u-datatable w-full text-left"
+          data-testid={testid}
+          style={{ borderCollapse: "collapse", minWidth }}
+        >
+          {caption && (
+            <caption
+              className="u-faint"
+              style={{ captionSide: "top", textAlign: "left", padding: "0.7rem 0.9rem 0.4rem" }}
+            >
+              {caption}
+            </caption>
+          )}
+          {children}
+        </table>
+      </div>
     </div>
   )
 }
