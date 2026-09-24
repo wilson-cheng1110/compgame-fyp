@@ -192,6 +192,8 @@ check("the distribution is a value->count histogram, ascending by value",
 check("the junk 99 shows in the tail (mean > median, IQR tight)",
       _agefull["distribution"][-1]["value"] == 99 and _agefull["mean"] > _agefull["median"],
       _agefull)
+check("mean_trimmed drops the >80 junk (18,20,20,22,22 -> 20.4); implausible counts the 99",
+      _agefull["mean_trimmed"] == 20.4 and _agefull["implausible"] == 1, _agefull)
 
 # paas per-topic -> splits by the arm assigned for THIS topic.
 evm(flip_sid, "questionnaire_paas", T, {"answers": {"P1": 8}})

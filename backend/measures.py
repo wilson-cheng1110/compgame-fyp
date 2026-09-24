@@ -694,7 +694,8 @@ def demographics_summary(db_path=None) -> dict:
     papers dashboard. Per single item: the count against each labelled option (GENDER's
     'Prefer not to say' is one such option, so its decline rate is a real bar); AGE (a
     bounded text item) reports answered/declined + min/max/median/mean over the typed
-    integers, PLUS a value->count distribution and the quartiles (q1/q3/IQR) so a junk
+    integers -- plus a mean_trimmed (the >80 junk tail excluded) and an implausible count --
+    PLUS a value->count distribution and the quartiles (q1/q3/IQR) so a junk
     upper tail (a stray '99'/'100') is visible rather than hidden inside the mean. Labels
     come from the bank so the panel never re-hardcodes them."""
     inst = _instrument("demographics")
@@ -737,6 +738,12 @@ def demographics_summary(db_path=None) -> dict:
             dist = defaultdict(int)
             for v in nums:
                 dist[v] += 1
+            # Student-cohort ceiling: values above it (a stray 85/100) are data-entry noise.
+            # They STAY in min/max/mean + the distribution -- this module's design is to EXPOSE
+            # the junk, never delete a participant's answer -- but are excluded from mean_trimmed
+            # so the headline average isn't dragged by a mistype; the excluded count is surfaced.
+            PLAUSIBLE_MAX_AGE = 80
+            plausible = [v for v in nums if v <= PLAUSIBLE_MAX_AGE]
             out_items.append({
                 "id": iid, "text": it["text"], "kind": "age",
                 "answered": len(nums), "declined": n - len(nums),
@@ -744,6 +751,8 @@ def demographics_summary(db_path=None) -> dict:
                 "max": nums[-1] if nums else None,
                 "median": nums[len(nums) // 2] if nums else None,
                 "mean": round(sum(nums) / len(nums), 1) if nums else None,
+                "mean_trimmed": round(sum(plausible) / len(plausible), 1) if plausible else None,
+                "implausible": len(nums) - len(plausible),
                 "q1": q1, "q3": q3,
                 "iqr": (round(q3 - q1, 1) if (q1 is not None and q3 is not None) else None),
                 # value -> count, ascending by value; the junk tail is now inspectable.
