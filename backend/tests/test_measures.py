@@ -550,9 +550,9 @@ check("Stroop: consistent/inconsistent mean RT + the congruency delta (800-500=3
       gp["stroop"]["flip"]["consistent_ms"] == 500.0
       and gp["stroop"]["flip"]["inconsistent_ms"] == 800.0
       and gp["stroop"]["flip"]["congruency_delta_ms"] == 300.0, gp["stroop"]["flip"])
-check("Hick: mean RT bucketed by n_choices (n=4 -> 600ms from the comparison shape)",
-      any(b["n_choices"] == 4 and b["mean_rt_ms"] == 600.0
-          for b in gp["hick"]["flip"]["by_n_choices"]), gp["hick"]["flip"])
+check("Hick: comparison RT keyed by TOTAL alternatives a+b, one bucket per trial (no n_a/n_b mirror)",
+      {b["n_choices"]: b["mean_rt_ms"] for b in gp["hick"]["flip"]["by_n_choices"]}
+      == {16: 600.0, 12: 400.0}, gp["hick"]["flip"])
 check("Fitts: mean MT by condition (distance 400, size 500)",
       {b["condition"]: b["mean_mt_ms"] for b in gp["fitts"]["flip"]["by_condition"]}
       == {"distance": 400.0, "size": 500.0}, gp["fitts"]["flip"])

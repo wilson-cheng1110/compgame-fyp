@@ -1290,10 +1290,11 @@ def game_psychophysics_summary(db_path=None) -> dict:
                    interference effect). Reads game_result.consistent_avg_ms / inconsistent_avg_ms
                    (stroop-understanding game-client.tsx), falling back to averaging trials[].rt_ms
                    by block.
-      * Hick    -- mean choice RT (ms) by number of choices. Reads game_result.trials[].rt_ms; the
-                   choice count comes from a single n_choices/n field when present, else from the
-                   comparison game's n_choices_a / n_choices_b (the RT of comparing two menus is
-                   recorded against each option-count -- coverage colour, not a precise fit).
+      * Hick    -- mean choice RT (ms) by number of alternatives. Reads game_result.trials[].rt_ms;
+                   a single-n trial keys by n_choices/n. The comparison game (hicks-law-understanding)
+                   times ONE binary A-vs-B decision weighing two menus of size a and b, so its single
+                   RT keys by the TOTAL alternatives shown (a + b) -- one bucket per trial, not the
+                   old mirror that recorded the same RT against both n_a and n_b.
       * Fitts   -- mean movement time (ms) by condition (distance / size). game_result.distance /
                    size are {target -> catch_ms} maps (the two Fitts manipulations, amplitude and
                    width); there is no numeric ID in the payload, so condition is the ID bucket.
@@ -1368,15 +1369,26 @@ def game_psychophysics_summary(db_path=None) -> dict:
                 rt = _num(t.get("rt_ms"))
                 if rt is None:
                     continue
-                single = _int(t.get("n_choices"))
-                if single is None:
-                    single = _int(t.get("n"))
-                ns = [single] if single is not None else [
-                    n for n in (_int(t.get("n_choices_a")), _int(t.get("n_choices_b")))
-                    if n is not None]
-                for n in ns:
-                    b["by_n"][n].append(rt)
-                    counted = True
+                n = _int(t.get("n_choices"))
+                if n is None:
+                    n = _int(t.get("n"))
+                if n is None:
+                    # hicks-law-understanding is a COMPARISON game: one timed binary A-vs-B
+                    # decision weighing two menus of size a and b (no single n_choices). Key the
+                    # single RT by the TOTAL alternatives shown (a + b) so it lands in exactly ONE
+                    # bucket. The old code appended the same rt to by_n[a] AND by_n[b], mirroring
+                    # one RT onto two menu-size buckets so n_a and n_b came out identical.
+                    na, nb = _int(t.get("n_choices_a")), _int(t.get("n_choices_b"))
+                    if na is not None and nb is not None:
+                        n = na + nb
+                    elif na is not None:
+                        n = na
+                    elif nb is not None:
+                        n = nb
+                if n is None:
+                    continue
+                b["by_n"][n].append(rt)
+                counted = True
             if counted:
                 b["who"].add(pid_)
 
@@ -1438,7 +1450,7 @@ def game_psychophysics_summary(db_path=None) -> dict:
         "weber": {"flip": _weber_arm(schedule.FLIP), "control": _weber_arm(schedule.CONTROL)},
         "test_traffic_excluded": dropped,
         "note": "Per-paradigm DV split by assigned arm: Stroop consistent/inconsistent RT + "
-                "congruency delta, Hick RT by n_choices, Fitts MT by condition (distance/size), "
+                "congruency delta, Hick RT by total alternatives shown, Fitts MT by condition (distance/size), "
                 "Weber JND (% of base). Empty when TELEMETRY_ENABLED was off (zero game_result "
                 "rows). Aggregate-only.",
     }
