@@ -26,6 +26,7 @@ Usage:
 
 import os
 import glob
+import shutil
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -129,6 +130,14 @@ def main():
     # store first, then add_documents() in conservative <=128 batches. Same
     # collection name (default "langchain") / persist dir / metadata as before,
     # so rag_api.py reads it unchanged.
+    # A rebuild must REPLACE, not append. Chroma(persist_directory=DB_DIR) OPENS an existing
+    # store, and add_documents() then stacks a second copy of every chunk onto it -- a re-run
+    # silently doubled the collection (1407 -> 2834, every topic's hit count 2x). Wipe the
+    # persist dir first so the build is idempotent and the store holds exactly len(splits).
+    if os.path.isdir(DB_DIR):
+        shutil.rmtree(DB_DIR)
+        print(f"Cleared existing store at {DB_DIR} (rebuild replaces, never appends).")
+
     EMBED_BATCH = 100
     vectorstore = Chroma(
         embedding_function=OllamaEmbeddings(model=OLLAMA_EMBEDDING),
