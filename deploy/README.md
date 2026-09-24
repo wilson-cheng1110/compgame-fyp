@@ -93,6 +93,25 @@ tunnel all work together, and it costs eleven minutes:
 $env:E2E_APP="https://<hostname>"; $env:E2E_API="https://<hostname>"; node frontend\e2e\run.mjs
 ```
 
+## Updating a running box
+
+One command does the whole redeploy and re-verifies it -- no more manual
+pause-watchdog / pull / `Set-ExecutionPolicy` / rebuild / restart dance:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\update.ps1
+```
+
+It pauses `COMPGame-Watchdog`, discards the box's dirty prebuilt vector store,
+fast-forward pulls `origin/master` (and refuses anything that is not a clean
+fast-forward), stops the server, rebuilds the frontend via `npm.cmd` (so the default
+policy's block on `npm.ps1` never bites), restarts through `start.ps1`, runs an
+end-to-end smoke through port 3000 (the `/api` proxy, not just "a page returns 200"),
+then resumes the watchdog -- in a `finally`, so a mid-run failure still restores it. It
+stops the server BEFORE rebuilding, so a rebuild never 400s live assets under a running
+server, and a failed build leaves nothing broken served. `-SkipBuild` for a
+backend-only change; `-NoPull` if you already pulled by hand.
+
 ## When something is wrong
 
 ```
