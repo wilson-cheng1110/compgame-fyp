@@ -102,15 +102,14 @@ pause-watchdog / pull / `Set-ExecutionPolicy` / rebuild / restart dance:
 powershell -ExecutionPolicy Bypass -File deploy\update.ps1
 ```
 
-It pauses `COMPGame-Watchdog`, discards the box's dirty prebuilt vector store,
-fast-forward pulls `origin/master` (and refuses anything that is not a clean
-fast-forward), stops the server, rebuilds the frontend via `npm.cmd` (so the default
-policy's block on `npm.ps1` never bites), restarts through `start.ps1`, runs an
-end-to-end smoke through port 3000 (the `/api` proxy, not just "a page returns 200"),
-then resumes the watchdog -- in a `finally`, so a mid-run failure still restores it. It
-stops the server BEFORE rebuilding, so a rebuild never 400s live assets under a running
-server, and a failed build leaves nothing broken served. `-SkipBuild` for a
-backend-only change; `-NoPull` if you already pulled by hand.
+It runs the familiar sequence for you: discard the box's dirty vector store, `git pull`
+(fast-forward only), `start.ps1 -Stop`, `setup.ps1` (rebuild + the go-live gates), then
+`start.ps1`. It pauses `COMPGame-Watchdog` around the whole thing and resumes it in a
+`finally`, so a mid-run failure still restores it. The server is stopped BEFORE `setup`
+rebuilds, so a rebuild never 400s live assets under a running server; if a gate is red
+or the build fails, `setup.ps1` exits nonzero and it does NOT start (a red gate should
+never serve students) -- fix it and re-run. Verification is the flow itself: `setup`'s
+gates plus `start`'s API/web/proxy health checks. `-NoPull` if you already pulled by hand.
 
 ## When something is wrong
 

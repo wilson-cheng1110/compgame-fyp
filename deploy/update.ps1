@@ -1,46 +1,39 @@
 <#
-    One command to update the running study box and re-verify it. Replaces the
-    manual dance (pause watchdog / discard store / pull / rebuild / restart /
-    resume / smoke), each step of which was easy to forget or get wrong.
+    One command to update + re-verify a running study box, in the familiar order,
+    reusing the existing scripts:
+
+        discard the dirty vector store  ->  git pull  ->  start.ps1 -Stop
+        ->  setup.ps1 (rebuild + go-live gates)  ->  start.ps1
 
         powershell -ExecutionPolicy Bypass -File deploy\update.ps1
 
-    Flags:
-        -SkipBuild   backend-only change: don't rebuild the frontend
-        -NoPull      already pulled by hand: just rebuild + restart + verify
+    -NoPull : skip the git pull (you already pulled by hand).
 
-    Safety:
-      * Refuses anything but a clean fast-forward of origin/master (a half-pulled
-        merge conflict mid-deploy is how a box ends up half-updated).
-      * Stops the server BEFORE rebuilding. Rebuilding .next under a running
-        'next start' makes every /_next/static/* asset 400 until a restart, so the
-        site would LOOK alive and serve broken pages. Brief planned downtime instead.
-      * If the build fails the server stays stopped and nothing new is served --
-        fix and re-run; it never leaves a half-built .next live.
-      * Pauses the COMPGame-Watchdog so it can't restart a mid-update server, and
-        RESUMES it in a finally block even if the update throws.
-      * End-to-end smoke goes through port 3000 (the real origin) and checks the
-        /api proxy, not just that a page returns 200.
+    It pauses COMPGame-Watchdog around the whole thing and RESUMES it in a finally
+    (so a mid-run failure still restores it). It stops the server BEFORE setup rebuilds
+    the frontend, because rebuilding .next under a running 'next start' 400s every
+    static asset until a restart. If a setup gate is red or the build fails, setup.ps1
+    exits nonzero and this does NOT start -- the server is left stopped (a red gate
+    should never serve students); fix it and re-run. setup.ps1 runs the full backend
+    suite as a gate: if that shows the known date-relative test_schedule failures on
+    this box, setup will refuse -- that is setup.ps1's existing behaviour, not new.
 
-    ASCII only + run under -ExecutionPolicy Bypass. It calls npm via npm.cmd so the
-    default policy's block on npm.ps1 never bites (no Set-ExecutionPolicy needed).
+    Verification IS the flow: setup.ps1's gates + start.ps1's API/web/proxy health
+    checks. ASCII only; run under -ExecutionPolicy Bypass (it passes the same to the
+    child scripts, so no Set-ExecutionPolicy dance and npm.ps1 is never blocked).
 #>
 [CmdletBinding()]
-param(
-    [switch]$SkipBuild,
-    [switch]$NoPull
-)
+param([switch]$NoPull)
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-$Frontend = Join-Path $Root "frontend"
 $Store = "backend/hci_chroma_db_local"
 $Watchdog = "COMPGame-Watchdog"
+$Setup = Join-Path $PSScriptRoot "setup.ps1"
 $Start = Join-Path $PSScriptRoot "start.ps1"
 
 function Have-Task($n) { [bool](Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) }
-function Run-Start($stop) {
-    $a = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $Start)
-    if ($stop) { $a += "-Stop" }
+function PS-Run($file, [string[]]$extra) {
+    $a = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $file) + $extra
     & powershell.exe @a
     return $LASTEXITCODE
 }
@@ -49,70 +42,29 @@ Push-Location $Root
 $paused = $false
 $failed = $false
 try {
-    # 1. Pause the watchdog (best-effort: may need an elevated shell to touch a
-    #    SYSTEM task; a 1-2 min build is under the 5 min watchdog interval anyway).
+    # Pause the watchdog so it cannot restart a mid-update server (best-effort: touching
+    # a SYSTEM task may need an elevated shell; a rebuild is under the 5 min interval anyway).
     if (Have-Task $Watchdog) {
         try { Disable-ScheduledTask -TaskName $Watchdog -ErrorAction Stop | Out-Null
               $paused = $true; Write-Host "watchdog paused" -ForegroundColor Cyan }
         catch { Write-Host "WARN: could not pause watchdog (run elevated to be safe): $($_.Exception.Message)" -ForegroundColor Yellow }
     }
 
-    # 2. Pull (fast-forward only).
     if (-not $NoPull) {
+        Write-Host "== git pull (discarding the dirty vector store first)" -ForegroundColor Cyan
         git checkout -- $Store 2>$null
-        git fetch origin 2>&1 | Out-Null
-        $local  = (git rev-parse HEAD).Trim()
-        $remote = (git rev-parse origin/master).Trim()
-        $base   = (git merge-base HEAD origin/master).Trim()
-        if ($local -eq $remote) {
-            Write-Host ("already up to date ({0})" -f $local.Substring(0, 7)) -ForegroundColor Green
-        } elseif ($base -ne $local) {
-            throw "local is NOT a fast-forward of origin/master -- resolve by hand (git status / git log)."
-        } else {
-            git merge --ff-only origin/master
-            if ($LASTEXITCODE -ne 0) { throw "git merge --ff-only failed." }
-            Write-Host ("pulled -> {0}" -f (git rev-parse --short HEAD).Trim()) -ForegroundColor Green
-        }
+        git pull --ff-only
+        if ($LASTEXITCODE -ne 0) { throw "git pull was not a clean fast-forward -- resolve by hand (git status), then re-run." }
     }
 
-    # 3. Stop, then build (never rebuild under a running server), then start.
-    Write-Host "stopping server for a clean rebuild" -ForegroundColor Cyan
-    Run-Start $true | Out-Null
+    Write-Host "== stop" -ForegroundColor Cyan
+    PS-Run $Start @("-Stop") | Out-Null
 
-    if (-not $SkipBuild) {
-        Write-Host "building frontend (npm.cmd -- no ExecutionPolicy dance)..." -ForegroundColor Cyan
-        Push-Location $Frontend
-        & cmd.exe /c "npm run build"
-        $code = $LASTEXITCODE
-        Pop-Location
-        if ($code -ne 0) { throw "frontend build FAILED (exit $code). Server is stopped; fix and re-run -- nothing broken was served." }
-    }
+    Write-Host "== setup (rebuild + go-live gates)" -ForegroundColor Cyan
+    if ((PS-Run $Setup @()) -ne 0) { throw "setup.ps1 failed (a gate is red or the build failed) -- server left stopped. Fix and re-run." }
 
-    Write-Host "starting server" -ForegroundColor Cyan
-    if ((Run-Start $false) -ne 0) { throw "start.ps1 FAILED -- see deploy\logs\ (api.err.log / web.err.log)." }
-
-    # 4. End-to-end smoke through the real origin (port 3000). The /api proxy is the
-    #    load-bearing bit: if it does not answer here, the browser's relative calls
-    #    404 and the app looks alive while doing nothing.
-    Write-Host "verifying end-to-end..." -ForegroundColor Cyan
-    $ok = $true
-    $checks = [ordered]@{
-        "login" = "http://127.0.0.1:3000/login"
-        "proxy" = "http://127.0.0.1:3000/api/health"
-    }
-    foreach ($name in $checks.Keys) {
-        try {
-            $r = Invoke-WebRequest $checks[$name] -UseBasicParsing -TimeoutSec 8
-            Write-Host ("  {0,-6} {1}  {2}" -f $name, $r.StatusCode, $checks[$name]) -ForegroundColor Green
-        } catch {
-            Write-Host ("  {0,-6} FAIL   {1}  ({2})" -f $name, $checks[$name], $_.Exception.Message) -ForegroundColor Red
-            $ok = $false
-        }
-    }
-    if (-not (Test-Path (Join-Path $Frontend ".next\BUILD_ID"))) {
-        Write-Host "  no .next\BUILD_ID -- the build did not land" -ForegroundColor Red; $ok = $false
-    }
-    if (-not $ok) { throw "post-deploy smoke FAILED -- do NOT treat this as deployed." }
+    Write-Host "== start" -ForegroundColor Cyan
+    if ((PS-Run $Start @()) -ne 0) { throw "start.ps1 failed -- see deploy\logs\ (api.err.log / web.err.log)." }
 
     Write-Host ""
     Write-Host ("update complete + verified at {0}.  http://localhost:3000" -f (git rev-parse --short HEAD).Trim()) -ForegroundColor Green
@@ -125,7 +77,7 @@ finally {
     if ($paused -and (Have-Task $Watchdog)) {
         try { Enable-ScheduledTask -TaskName $Watchdog -ErrorAction Stop | Out-Null
               Write-Host "watchdog resumed" -ForegroundColor Cyan }
-        catch { Write-Host "WARN: could not resume watchdog -- re-enable it by hand: Enable-ScheduledTask -TaskName $Watchdog" -ForegroundColor Yellow }
+        catch { Write-Host "WARN: could not resume watchdog -- re-enable by hand: Enable-ScheduledTask -TaskName $Watchdog" -ForegroundColor Yellow }
     }
     Pop-Location
 }
