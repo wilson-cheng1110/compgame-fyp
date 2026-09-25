@@ -493,13 +493,14 @@ check("corpus.topics rows carry topic/total_hits/status/hits",
       isinstance(_corp["topics"], list) and all(
           {"topic", "total_hits", "status", "hits"} <= set(r) for r in _corp["topics"]),
       _corp["topics"][:2])
-# The committed 2023 vector store grounds neither `norman` nor `hicks-law` (CLAUDE.md); the
-# check must still flag those as zero-coverage rather than silently pass.
+# The committed vector store now grounds every scheduled topic, including norman /
+# hicks-law / webers-law -- rebuilt 2026-09 from backend/corpus_notes/* via rebuild_db.py
+# (they were the 2023-deck zero-coverage gaps). The check confirms that coverage now holds.
 check("corpus reads the committed vector store (db_exists, chunks>0)",
       _corp["db_exists"] is True and _corp["chunks"] > 0, _corp.get("chunks"))
-check("corpus flags the known zero-coverage topics (norman, hicks-law)",
-      "norman" in _corp["uncovered"] and "hicks-law" in _corp["uncovered"], _corp["uncovered"])
-check("corpus.ok is False while a topic is uncovered", _corp["ok"] is False, _corp["ok"])
+check("corpus now covers norman and hicks-law (the former 2023-deck gaps)",
+      "norman" not in _corp["uncovered"] and "hicks-law" not in _corp["uncovered"], _corp["uncovered"])
+check("corpus.ok is True once every scheduled topic is covered", _corp["ok"] is True, _corp["ok"])
 # THE HARD INVARIANT: aggregate-only, never a raw SID -- numeric AND check-letter forms, plus
 # the non-roster and enrolled SIDs, absent from the WHOLE health payload.
 for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z", "24TEACH01A", "24RSRCHR1A"):
