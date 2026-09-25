@@ -624,6 +624,37 @@ export default function DashboardPage() {
                   </details>
                 )
               })}
+
+              {/* The final round is part of the journey, so it belongs IN the list --
+                  foreshadowed as a locked row now, actionable once its window opens
+                  (after the section's last lecture, ~late Nov). Only when the study
+                  instruments are on (longUnits); with them off there is no battery. */}
+              {longUnits && (
+                <details
+                  className="u-group"
+                  open={endOfStudyOpen === true && endOfStudyDone !== true}
+                >
+                  <summary className="u-group-head">
+                    <span style={{ fontWeight: 600 }}>Final quiz</span>
+                    <span className="u-faint" style={{ marginLeft: "auto" }}>
+                      {endOfStudyDone === true
+                        ? "All done"
+                        : endOfStudyOpen
+                          ? "Open now"
+                          : "Opens after your last lecture"}
+                    </span>
+                  </summary>
+                  <div className="u-group-body">
+                    <p className="u-faint" style={{ opacity: 0.85 }}>
+                      {endOfStudyDone === true
+                        ? "Thanks — that is the whole study finished."
+                        : endOfStudyOpen
+                          ? "A short, ungraded round revisiting every topic you finished — it is on your dashboard now and closes out the study."
+                          : "Once your last lecture has passed, around late November, a short ungraded round revisits every topic you finished. Same format as a topic check — it wraps up the study."}
+                    </p>
+                  </div>
+                </details>
+              )}
             </div>
           </div>
 

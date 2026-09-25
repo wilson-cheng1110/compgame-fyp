@@ -97,6 +97,13 @@ export default function SessionMap({
           None of it is graded. A topic stays open for five days, and if you miss
           that, it opens anyway — late just means late.
         </p>
+        {longUnits && (
+          <p className="u-faint mt-1.5">
+            Right at the end — after your last lecture, around late November — there
+            is one final round that revisits every topic you finished. Same short,
+            ungraded format; it closes out the study.
+          </p>
+        )}
         <p className="u-faint mt-1.5">
           The tutor in the bottom right can help at any point, including during a
           game.
