@@ -142,6 +142,11 @@ app.include_router(questionnaire_router)
 # before then since every route refuses with not_open until the window arrives.
 from retention import router as retention_router  # noqa: E402
 app.include_router(retention_router)
+# The battery's constructed-response half: the application short-answer probe, its OWN
+# router (retention_probe.py), same window gate, same not_open-until-Nov safety. Serves
+# the prompt and records the answer only -- grading is offline/blind like topic_probe.
+from retention_probe import router as retention_probe_router  # noqa: E402
+app.include_router(retention_probe_router)
 # Grading is offline by design (docs/revamp.md Part 8.2); this router exists so the
 # batch and the occasional spot check can reach the model. It fails CLOSED -- with
 # GRADE_TOKEN unset every route 503s, so mounting it does not expose anything.

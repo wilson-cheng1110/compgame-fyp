@@ -142,10 +142,12 @@ def init_db() -> None:
             # change would silently keep the stale index and never gain the new
             # coverage -- and the go-live plan initialises the deployment box's DB
             # during a pre-launch test, exactly when that could bite, with no error.
-            # Bumping the NAME (_v2 -> _v3) sidesteps it: a fresh DB gets only v3; an
-            # older DB keeps its idx_events_once / idx_events_once_v2 (still enforcing
-            # the events they already covered, harmless) AND gains v3, so
-            # topic_retention becomes covered everywhere without a data migration.
+            # Bumping the NAME (_v2 -> _v3 -> _v4) sidesteps it: a fresh DB gets only
+            # the newest; an older DB keeps its idx_events_once / _v2 / _v3 (still
+            # enforcing the events they already covered, harmless) AND gains the newest,
+            # so a newly-added once-only event becomes covered everywhere without a data
+            # migration. (_v4 added 2026-09-26: topic_retention_probe, the end-of-study
+            # application short-answer -- retention_probe.py.)
             # Verified across fresh / stale / pre-duplicate DBs before shipping.
             #
             # GUARDED so it can never brick startup. The only way this UNIQUE create can
@@ -157,12 +159,12 @@ def init_db() -> None:
             try:
                 conn.execute(
                     """
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_events_once_v3
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_events_once_v4
                     ON events(participant_id, event_type, COALESCE(topic_id, ''))
                     WHERE event_type IN (
                         'topic_pretest', 'topic_posttest', 'topic_probe', 'topic_probe_post',
                         'pre_test_complete', 'consent_recorded', 'consent_withdrawn',
-                        'topic_complete', 'topic_retention'
+                        'topic_complete', 'topic_retention', 'topic_retention_probe'
                     ) OR event_type LIKE 'questionnaire_%'
                     """
                 )
