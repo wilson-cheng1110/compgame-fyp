@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   retention,
+  retentionProbe,
   questionnaires,
   type JourneyTopic,
   type CheckItem,
@@ -11,11 +12,17 @@ import {
 } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
 
-// The end-of-study battery: for every topic the student COMPLETED, a Form-C
-// retention re-test (own server-shuffled anti-collusion order — backend/retention.py)
-// followed by the 3-item affect_recall instrument, topic by topic. Shown once, gated
-// on `journey.end_of_study_open` (the dashboard decides WHEN; this component only
-// walks the topics it is given and owns its own step state).
+// The end-of-study battery: for every topic the student COMPLETED, three steps,
+// topic by topic —
+//   1. a Form-C retention MC re-test (own server-shuffled anti-collusion order —
+//      backend/retention.py), the recognition floor;
+//   2. an application SHORT-ANSWER probe (backend/retention_probe.py) — the
+//      constructed-response transfer DV, the discriminating half (recognition is
+//      easy; APPLYING the law is the hard part). Capture-only, like the live probe:
+//      prompt in, no grade back (offline blind grading);
+//   3. the 3-item affect_recall instrument.
+// Shown once, gated on `journey.end_of_study_open` (the dashboard decides WHEN; this
+// component only walks the topics it is given and owns its own step state).
 //
 // UX (docs/end-of-study-battery-plan.md, "dogfood HCI" — this IS an HCI-teaching
 // platform, so the instrument itself has to model good practice):
@@ -26,17 +33,19 @@ import { TOPICS } from "@/lib/topic-definitions"
 //   3. "Topic X of N" + a progress bar (Nielsen #1, visibility of system status).
 //   4. Topic name + icon, not just an id (Nielsen #6, recognition not recall).
 //   5. Continue/Submit disabled until every required item on screen is answered.
-//   6. Resumable: a topic whose retention was already recorded (a prior session that
-//      dropped mid-battery) is detected via the server's own 409 and skipped straight
-//      to that topic's affect step — no re-answering a graded quiz. The 3-item affect
-//      step re-submits idempotently (the server 409s a duplicate and this treats that
-//      as success, the same pattern topic-questionnaire.tsx already uses for PAAS) —
-//      there is no separate per-topic "already answered" signal to check ahead of
-//      time for a 3-item Likert, so in the rare case of a reload landing exactly
-//      between the two steps, the affect items may be shown again; answering them
+//   6. Resumable, step by step, off each router's own 409: a prior session that
+//      dropped mid-battery is walked forward without re-answering anything already
+//      recorded. Retention already in → land on the probe; probe already in → land
+//      on affect (each step's loader detects its own "already_submitted" and skips
+//      ahead — no re-answering a graded quiz or a spent one-shot short answer). The
+//      3-item affect step re-submits idempotently (the server 409s a duplicate and
+//      this treats that as success, the same pattern topic-questionnaire.tsx already
+//      uses for PAAS) — there is no separate per-topic "already answered" signal to
+//      check ahead of time for a 3-item Likert, so in the rare case of a reload
+//      landing exactly on it, the affect items may be shown again; answering them
 //      again costs nothing (the duplicate is silently discarded server-side).
 
-type Phase = "retention" | "affect"
+type Phase = "retention" | "probe" | "affect"
 
 export default function EndOfStudyBattery({
   topics,
@@ -56,6 +65,12 @@ export default function EndOfStudyBattery({
   const [retResult, setRetResult] = useState<CheckResult | null>(null)
   const [retBusy, setRetBusy] = useState(false)
   const [retError, setRetError] = useState("")
+
+  const [probePrompt, setProbePrompt] = useState<string | null>(null)
+  const [probeAnswer, setProbeAnswer] = useState("")
+  const [probeBusy, setProbeBusy] = useState(false)
+  const [probeError, setProbeError] = useState("")
+  const probeStartedAt = useRef(Date.now())
 
   const [affectInst, setAffectInst] = useState<QuestionnaireInstrument | null>(null)
   const [affectAnswers, setAffectAnswers] = useState<Record<string, number>>({})
@@ -77,8 +92,10 @@ export default function EndOfStudyBattery({
     setRetError("")
     retention.get(current.topic_id).then((res) => {
       if (!alive) return
+      // Already recorded (a dropped prior session) → the MC is done; walk forward
+      // to the application probe rather than re-showing a graded quiz.
       if (res.error === "already_submitted") {
-        setPhase("affect")
+        setPhase("probe")
         return
       }
       if (!res.ok || !res.data) {
@@ -86,6 +103,34 @@ export default function EndOfStudyBattery({
         return
       }
       setRetItems(res.data.items)
+    })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, done, current?.topic_id, phase])
+
+  // Load the current topic's application-probe prompt when we land on it. A 409 here
+  // means this topic's short answer is already recorded (a dropped prior session) —
+  // skip straight to the affect step rather than re-showing a spent one-shot prompt.
+  useEffect(() => {
+    if (!open || done || !current || phase !== "probe") return
+    let alive = true
+    setProbePrompt(null)
+    setProbeAnswer("")
+    setProbeError("")
+    retentionProbe.get(current.topic_id).then((res) => {
+      if (!alive) return
+      if (res.error === "already_submitted") {
+        setPhase("affect")
+        return
+      }
+      if (!res.ok || !res.data) {
+        setProbeError(res.message ?? "Couldn't load the question.")
+        return
+      }
+      setProbePrompt(res.data.prompt)
+      probeStartedAt.current = Date.now()
     })
     return () => {
       alive = false
@@ -127,8 +172,9 @@ export default function EndOfStudyBattery({
         <div>
           <p style={{ fontWeight: 600 }}>One last thing: a quick look back</p>
           <p className="u-faint mt-0.5">
-            For each topic you finished — a short recap quiz, and three quick questions
-            about how it went. About a minute per topic.
+            For each topic you finished — a short recap quiz, one short-answer
+            question, and three quick questions about how it went. A couple of minutes
+            per topic.
           </p>
         </div>
         <button
@@ -157,7 +203,7 @@ export default function EndOfStudyBattery({
     setRetBusy(false)
     // Lost a race or a resubmit from a second tab — the row is already in.
     if (res.error === "already_submitted") {
-      setPhase("affect")
+      setPhase("probe")
       return
     }
     if (!res.ok || !res.data) {
@@ -165,6 +211,30 @@ export default function EndOfStudyBattery({
       return
     }
     setRetResult(res.data)
+  }
+
+  // Same empty-guard as the live topic-probe.tsx: no MINIMUM length (a two-word
+  // answer is a real datum), but Submit is dead until there's a character, because
+  // the one-submission rule means an accidental empty click spends the only chance.
+  const probeWords = probeAnswer.trim() ? probeAnswer.trim().split(/\s+/).length : 0
+
+  const submitProbe = async () => {
+    if (!probePrompt || probeBusy || probeWords === 0) return
+    setProbeBusy(true)
+    setProbeError("")
+    const res = await retentionProbe.submit(
+      current.topic_id,
+      probeAnswer,
+      Date.now() - probeStartedAt.current,
+    )
+    setProbeBusy(false)
+    // NO grade ever comes back (offline blind grading, like the live probe). Success —
+    // or a 409 from a race / second tab where the row is already in — just advances.
+    if (!res.ok && res.status !== 409 && res.error !== "already_submitted") {
+      setProbeError(res.message ?? "Couldn't save that. Try again.")
+      return
+    }
+    setPhase("affect")
   }
 
   const setAffect = (id: string, value: number) =>
@@ -325,7 +395,7 @@ export default function EndOfStudyBattery({
                     {retResult.correct}/{retResult.total}
                   </p>
                   <button
-                    onClick={() => setPhase("affect")}
+                    onClick={() => setPhase("probe")}
                     data-testid="retention-continue"
                     className="u-btn u-btn-primary mt-4"
                   >
@@ -333,6 +403,64 @@ export default function EndOfStudyBattery({
                   </button>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {phase === "probe" && (
+        <div className="mt-5" data-testid="end-of-study-probe">
+          <p className="u-stem u-muted">
+            In your own words — a short answer this time, not multiple choice.
+          </p>
+
+          {probeError && (
+            <p className="u-stem mt-3" style={{ color: "var(--state-late)" }}>
+              {probeError}
+            </p>
+          )}
+          {!probePrompt && !probeError && <p className="u-muted mt-4">Loading…</p>}
+
+          {probePrompt && (
+            <div className="mt-4 space-y-4">
+              <p className="u-stem" data-testid="retention-probe-prompt">
+                {probePrompt}
+              </p>
+              <textarea
+                value={probeAnswer}
+                onChange={(e) => setProbeAnswer(e.target.value)}
+                rows={7}
+                maxLength={4000}
+                data-testid="retention-probe-answer"
+                placeholder="Two or three sentences is plenty. Everyday words are fine — you don't need the textbook term."
+                className="u-field resize-y"
+              />
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <p className="u-faint">
+                  {probeWords === 0
+                    ? "Not marked for spelling or grammar."
+                    : `${probeWords} word${probeWords === 1 ? "" : "s"}`}
+                </p>
+                <button
+                  onClick={submitProbe}
+                  disabled={probeBusy || probeWords === 0}
+                  data-testid="retention-probe-submit"
+                  className="u-btn u-btn-primary u-btn-lg u-btn-block"
+                >
+                  {probeBusy
+                    ? "Saving…"
+                    : probeWords === 0
+                      ? "Write something to continue"
+                      : "Continue →"}
+                </button>
+              </div>
+              <p
+                className="u-faint u-hr pt-3"
+                style={{ borderTop: "1px solid var(--rule)" }}
+              >
+                One submission. This isn&apos;t marked for a grade — it just helps show
+                what stuck.
+              </p>
             </div>
           )}
         </div>

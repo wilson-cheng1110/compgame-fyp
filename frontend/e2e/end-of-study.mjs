@@ -1,5 +1,6 @@
-// THE END-OF-STUDY BATTERY — retention Form C + per-topic affect recall.
-// backend/retention.py + components/end-of-study-battery.tsx.
+// THE END-OF-STUDY BATTERY — retention Form C + application short-answer probe +
+// per-topic affect recall. backend/retention.py + backend/retention_probe.py +
+// components/end-of-study-battery.tsx.
 //
 // EXTRA SETUP this suite needs, beyond the usual three (README §Run it):
 //
@@ -20,10 +21,11 @@
 //      found this degrades gracefully: the "window closed" test is skipped with a
 //      note rather than failing the whole suite over an environment mismatch.
 //
-// What this proves that `backend/tests/test_retention.py` cannot: the whole flow
-// survives a real browser (React state, the two-phase per-topic wizard, the
-// resumability skip), and the retention item payload — inspected over the actual
-// network response, not through Python — carries no answer key.
+// What this proves that the Python tests cannot: the whole flow survives a real
+// browser (React state, the THREE-phase per-topic wizard — MC → short-answer probe →
+// affect — and the resumability skip), and neither the retention item payload nor the
+// application-probe payload — inspected over the actual network response, not through
+// Python — carries its answer key (the MC's `correct`, the probe's model_answer/rubric).
 
 import fs from "node:fs"
 import {
@@ -153,7 +155,25 @@ test("the end-of-study battery: served without the answer key, graded, recorded,
 
   await page.locator('[data-testid="retention-continue"]').click()
   await page.waitForTimeout(600)
-  t.check("the affect-recall step renders next, on the SAME topic",
+  t.check("the application short-answer probe renders next, on the SAME topic",
+    (await page.locator('[data-testid="end-of-study-probe"]').count()) === 1)
+
+  // Inspect the probe payload over the REAL network response — the prompt is served,
+  // the model answer / rubric never are (the prose-item equivalent of the MC key).
+  const probe = await apiFromPage(page, `/api/retention/probe/${topicId}`)
+  t.check("the probe GET is 200 (topic complete, window open, not yet submitted)",
+    probe.status === 200, probe.status)
+  t.check("the probe prompt is served",
+    typeof probe.body?.prompt === "string" && probe.body.prompt.length > 40, probe.body)
+  const pblob = JSON.stringify(probe.body ?? {})
+  t.check("no model_answer / rubric anywhere in the probe payload — the key never ships",
+    !pblob.includes("model_answer") && !pblob.includes("rubric"), pblob.slice(0, 300))
+
+  await page.locator('[data-testid="retention-probe-answer"]').fill(
+    "Chunk the interface into a few labelled groups so it stays within working-memory limits.")
+  await page.locator('[data-testid="retention-probe-submit"]').click()
+  await page.waitForTimeout(1000)
+  t.check("the affect-recall step renders after the probe, on the SAME topic",
     (await page.locator('[data-testid="end-of-study-affect"]').count()) === 1)
   const affectItems = page.locator('[data-testid="affect-item"]')
   const groups = await affectItems.count()
@@ -179,6 +199,10 @@ test("the end-of-study battery: served without the answer key, graded, recorded,
   const again = await apiFromPage(page, `/api/retention/${topicId}`)
   t.check("re-fetching the SAME topic's retention is refused (409) — one submission",
     again.status === 409, again.status)
+
+  const probeAgain = await apiFromPage(page, `/api/retention/probe/${topicId}`)
+  t.check("re-fetching the SAME topic's application probe is refused (409) — one submission",
+    probeAgain.status === 409, probeAgain.status)
 
   const qstatus = await apiFromPage(page, "/api/questionnaire/_status")
   t.check("affect_recall shows as a submitted instrument",
@@ -213,6 +237,10 @@ test("the battery is ABSENT when the end-of-study window is closed", async (page
   const ret = await apiFromPage(page, `/api/retention/${topicId}`)
   t.check("the retention API refuses (403 not_open) while the window is closed",
     ret.status === 403 && ret.body?.error === "not_open", ret.body)
+
+  const probe = await apiFromPage(page, `/api/retention/probe/${topicId}`)
+  t.check("the application-probe API also refuses (403 not_open) while the window is closed",
+    probe.status === 403 && probe.body?.error === "not_open", probe.body)
 
   await go(page, "/dashboard")
   await ready(page, 1500)

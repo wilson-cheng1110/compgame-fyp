@@ -719,3 +719,29 @@ export const retention = {
    *  refused with `{error: "incomplete", missing: [...]}`) . */
   complete: () => api.post<{ ok: true }>("/api/retention/_complete"),
 }
+
+// ── the end-of-study battery: application short-answer probe ───────────────────
+//
+// The CONSTRUCTED-RESPONSE half of the battery — backend/retention_probe.py,
+// `/api/retention/probe/{topic}` (a two-segment path the single-segment
+// `/api/retention/{topic}` above can never swallow). The MC re-test measures
+// recognition; this measures whether the student can APPLY the idea in prose (the
+// discriminating delayed-transfer DV). CAPTURE-ONLY, exactly like the live
+// `topics.getProbe/submitProbe`: only the prompt crosses the wire (never a model
+// answer or rubric), and the POST returns NO grade — grading is offline and blind.
+
+export interface RetentionProbePayload {
+  topic_id: string
+  form: "C"
+  prompt: string
+}
+
+export const retentionProbe = {
+  get: (topicId: string) =>
+    api.get<RetentionProbePayload>(`/api/retention/probe/${topicId}`),
+  submit: (topicId: string, answer: string, durationMs?: number) =>
+    api.post<{ ok: true; recorded: true }>(`/api/retention/probe/${topicId}`, {
+      answer,
+      duration_ms: durationMs,
+    }),
+}
