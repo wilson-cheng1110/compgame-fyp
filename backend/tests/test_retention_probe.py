@@ -165,6 +165,49 @@ check("nothing recorded for the empty submission",
       not any(e["event_type"] == "topic_retention_probe" and e["topic_id"] == "problem-solving"
               for e in research_store.fetch_for_participant("24012345")))
 
+
+# ── offline blind grading of the application probe (Ollama-free path only) ───────
+
+print("\n-- rubric_points_for: the 0-2 rubric parses into {letter: text}, never served --")
+pts = RP.rubric_points_for("memory")
+check("three key points parsed for memory", len(pts) == 3 and set(pts) == {"a", "b", "c"}, pts)
+check("a point with a parenthetical '(e.g. 4x4)' is not mis-split into a new point",
+      "chunk" in pts["b"].lower() and "4" in pts["b"], pts.get("b"))
+check("rubric_points_for is empty for an unknown topic", RP.rubric_points_for("nope") == {})
+# the rubric text must not have leaked into the served prompt earlier
+check("a distinctive rubric phrase is NOT in the served prompt",
+      "labelled chunks" not in prompt, prompt)
+
+print("\n-- grade.build_prompt honours an explicit application rubric (topic_probe path unchanged) --")
+import grade, grade_batch
+app_prompt = RP.prompt_for("memory")
+gp = grade.build_prompt("memory", "chunk the digits into 4x4 and group the menu", app_prompt, pts)
+check("the built prompt carries the APPLICATION prompt, not grading-rubric.md's probe",
+      app_prompt[:30] in gp, gp[:200])
+check("the built prompt carries the application rubric keys",
+      "a: " in gp and pts["a"][:15] in gp, gp)
+# regression guard: with no points override, the live probe still reads grading-rubric.md
+live = grade.build_prompt("memory", "some answer")
+check("no-override build_prompt is unchanged (still uses grading-rubric.md for memory)",
+      (grade.probe_for("memory") or "") in live or "probe not recorded" in live, live[:120])
+
+print("\n-- grade_batch: the application pass is a SEPARATE collection --")
+app_recs = grade_batch.collect(events=grade_batch.APPLICATION_EVENTS)
+check("collect(APPLICATION_EVENTS) picks up the topic_retention_probe row",
+      any(r["topic_id"] == "memory" and "digits" in r["answer"] for r in app_recs), app_recs)
+check("the DEFAULT live-probe collect() does NOT pick up the application row",
+      not any(r["event_type"] == "topic_retention_probe" for r in grade_batch.collect()))
+pr, po = grade_batch._application_rubric("memory")
+check("_application_rubric returns the app prompt + parsed points",
+      pr == app_prompt and po == pts, (pr, po))
+
+print("\n-- grade_batch dry-run over the application pass (no Ollama) --")
+joined = grade_batch.run_batch(app_recs, seed="t", dry=True,
+                               rubric_source=grade_batch._application_rubric)
+mem = next((j for j in joined if j["topic_id"] == "memory"), None)
+check("the gradeable application answer WOULD go to the model (dry run)",
+      mem is not None and mem["grade"].get("would_call_llm") is True, mem)
+
 schedule.end_of_study_open = _real_eos_open
 check("restoring the real end_of_study_open refuses again (real window is Nov 2026)",
       student.get("/api/retention/probe/memory").status_code in (403, 409))

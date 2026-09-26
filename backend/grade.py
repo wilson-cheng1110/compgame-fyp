@@ -150,18 +150,26 @@ Reply with ONLY this JSON object and nothing else:
 {"level": "full"|"partial"|"none"|null, "evidence": "<verbatim span from the answer>", "rubric_hit": ["<key>", ...]}"""
 
 
-def build_prompt(topic_id: str, answer: str, probe: str | None = None) -> str:
+def build_prompt(topic_id: str, answer: str, probe: str | None = None,
+                 points: dict | None = None) -> str:
     """The complete grader prompt.
 
     Carries the question, the rubric points, and the answer. Carries NO participant
     id, NO pre/post label, NO score, and NO other answer by the same student --
     there is no parameter here through which any of them could arrive.
+
+    `probe` and `points` may be supplied EXPLICITLY to grade an answer against a
+    rubric that does not live in docs/grading-rubric.md -- the end-of-study
+    application probe (retention-application-bank.md, 0-2 mapped to none/partial/full)
+    passes both. Left as None, they fall back to docs/grading-rubric.md exactly as
+    before, so the live topic_probe path is unchanged.
     """
     r = rubric_for(topic_id)
     probe = probe or r["probe"] or "(probe not recorded)"
+    pts = points if points is not None else r["points"]
 
-    if r["points"]:
-        keys = "\n".join(f"  {k}: {d}" for k, d in r["points"].items())
+    if pts:
+        keys = "\n".join(f"  {k}: {d}" for k, d in pts.items())
         rubric_block = (f"Rubric points for this question. Return the keys the answer "
                         f"actually hits, in rubric_hit:\n{keys}")
     else:
@@ -348,8 +356,12 @@ def _get_llm():
     return _llm
 
 
-def grade_answer(topic_id: str, answer: str, probe: str | None = None) -> dict:
-    """Grade one answer. Blocking -- callers on the event loop must use ops.run_gated."""
+def grade_answer(topic_id: str, answer: str, probe: str | None = None,
+                 points: dict | None = None) -> dict:
+    """Grade one answer. Blocking -- callers on the event loop must use ops.run_gated.
+
+    `probe`/`points` override docs/grading-rubric.md when supplied (the application
+    probe passes both); left None, the live topic_probe behaviour is unchanged."""
     probe = probe or probe_for(topic_id)
 
     ok, reason = is_gradeable(answer, probe)
@@ -357,7 +369,7 @@ def grade_answer(topic_id: str, answer: str, probe: str | None = None) -> dict:
         return {"level": None, "evidence": "", "rubric_hit": [],
                 "ungradeable_reason": reason, "parse_ok": True, "llm": False}
 
-    raw = _get_llm().invoke(build_prompt(topic_id, answer, probe))
+    raw = _get_llm().invoke(build_prompt(topic_id, answer, probe, points))
     content = getattr(raw, "content", raw)
     result = parse_grade(content if isinstance(content, str) else str(content), answer)
     result["ungradeable_reason"] = None if result["level"] else "model_returned_null"

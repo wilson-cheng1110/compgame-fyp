@@ -37,8 +37,24 @@ OUT_DIR = os.environ.get("GRADES_DIR", os.path.join(HERE, "..", "reports", "grad
 # correctness rubric would produce a grade that means nothing.
 SHORT_ANSWER_EVENTS = ("topic_probe", "topic_probe_post")
 
+# The end-of-study APPLICATION probe (retention_probe.py). Graded as its OWN pass, not
+# folded into the live-probe events above: it uses a DIFFERENT rubric source (the
+# application bank, docs/retention-application-bank.md) even for the same topic_id, so
+# a shared pass would grade an application answer against the live probe's rubric. A
+# separate pass makes the rubric choice unambiguous and leaves the topic_probe path
+# byte-for-byte unchanged.
+APPLICATION_EVENTS = ("topic_retention_probe",)
+
 # Where the text sits inside the event's free-form meta column.
 ANSWER_KEYS = ("answer", "response", "text", "short_answer")
+
+
+def _application_rubric(topic_id: str) -> tuple:
+    """(probe, points) for one application topic, from retention_probe. Imported
+    LAZILY so grade_batch still imports on a box that never loads the retention stack.
+    The 0-2 rubric maps onto the grader's none/partial/full (see rubric_points_for)."""
+    import retention_probe
+    return retention_probe.prompt_for(topic_id), retention_probe.rubric_points_for(topic_id)
 
 
 def _extract(row: dict) -> str | None:
@@ -57,16 +73,19 @@ def _extract(row: dict) -> str | None:
     return None
 
 
-def collect(topic: str | None = None) -> list[dict]:
+def collect(topic: str | None = None, events: tuple = SHORT_ANSWER_EVENTS) -> list[dict]:
     """Pull gradeable short answers out of the sink, carrying the labels along.
 
     The labels ride here and are stripped by `grade.blind()` one step later -- they
     are needed to re-join afterwards, and they must not be in scope when the prompt
     is built. Keeping the strip in one place beats trusting every call site.
+
+    `events` selects which event types count as a short answer -- the live-probe
+    default, or APPLICATION_EVENTS for the end-of-study application pass.
     """
     out = []
     for row in research_store.fetch_all():
-        if row.get("event_type") not in SHORT_ANSWER_EVENTS:
+        if row.get("event_type") not in events:
             continue
         if topic and row.get("topic_id") != topic:
             continue
@@ -108,20 +127,31 @@ def already_graded() -> set:
     return done
 
 
-def run_batch(records: list[dict], seed: str, dry: bool) -> list[dict]:
+def run_batch(records: list[dict], seed: str, dry: bool, rubric_source=None) -> list[dict]:
+    """`rubric_source(topic_id) -> (probe, points)` overrides the rubric per record --
+    the application pass passes the application bank's prompt+points. Left None, the
+    grader reads docs/grading-rubric.md exactly as before (the live-probe path)."""
     blinded, mapping = grade.blind(records, seed=seed)
     print(f"  {len(blinded)} answers, shuffled under seed {seed!r}")
 
     results = []
     for i, b in enumerate(blinded, 1):
+        probe, points = rubric_source(b["topic_id"]) if rubric_source else (None, None)
         if dry:
-            ok, reason = grade.is_gradeable(b["answer"], grade.probe_for(b["topic_id"]))
+            ok, reason = grade.is_gradeable(b["answer"], probe or grade.probe_for(b["topic_id"]))
             g = {"level": None, "evidence": "", "rubric_hit": [],
                  "ungradeable_reason": reason, "llm": False, "dry_run": True,
                  "would_call_llm": ok}
         else:
             try:
-                g = grade.grade_answer(b["topic_id"], b["answer"])
+                # Live-probe path stays a BARE positional call -- test_admin_api asserts
+                # the grader receives exactly (topic_id, answer) and no kwargs, the
+                # structural guard that no arm/label is ever threaded into it. Only the
+                # application pass (rubric_source set) passes the explicit rubric.
+                if rubric_source:
+                    g = grade.grade_answer(b["topic_id"], b["answer"], probe=probe, points=points)
+                else:
+                    g = grade.grade_answer(b["topic_id"], b["answer"])
             except Exception as e:                      # one bad answer must not kill the run
                 g = {"level": None, "evidence": "", "rubric_hit": [],
                      "ungradeable_reason": f"error:{type(e).__name__}", "llm": True}
@@ -178,7 +208,7 @@ def summarise(joined: list[dict]) -> dict:
 
 
 def run(topic: str | None = None, seed: str = "compgame",
-        dry: bool = False, resume: bool = False) -> dict:
+        dry: bool = False, resume: bool = False, application: bool = False) -> dict:
     """The blind grading pass as an importable call -- the SAME collect -> grade.blind
     -> run_batch -> summarise -> write path `main()` runs from the CLI, so an admin
     trigger and a 3am shell launch execute identical grading.
@@ -194,23 +224,36 @@ def run(topic: str | None = None, seed: str = "compgame",
     report is written to OUT_DIR exactly as the CLI writes it.
     """
     os.makedirs(OUT_DIR, exist_ok=True)
-    records = collect(topic)
+    events = APPLICATION_EVENTS if application else SHORT_ANSWER_EVENTS
+    rubric_source = _application_rubric if application else None
+    records = collect(topic, events=events)
     if resume:
         done = already_graded()
         records = [r for r in records if r["id"] not in done]
     if not records:
         return {"ok": True, "graded": 0, "path": None, "topics": []}
 
-    joined = run_batch(records, seed, dry)
+    joined = run_batch(records, seed, dry, rubric_source=rubric_source)
     by_topic = summarise(joined)
 
+    if application:
+        import retention_probe
+        rubric_path = os.path.abspath(retention_probe.BANK_PATH)
+    else:
+        rubric_path = os.path.abspath(grade.RUBRIC_PATH)
+
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    # 'application-' prefix keeps these reports from colliding with the live-probe pass;
+    # already_graded() reads every report and dedups by event id, and application event
+    # ids are disjoint from probe ids, so --resume stays correct across both passes.
+    prefix = "application-" if application else ""
     name = os.path.join(
-        OUT_DIR, f"{topic or 'all'}-{stamp}{'-dryrun' if dry else ''}.json")
+        OUT_DIR, f"{prefix}{topic or 'all'}-{stamp}{'-dryrun' if dry else ''}.json")
     with open(name, "w", encoding="utf-8") as fh:
         json.dump({"generated": stamp, "seed": seed, "dry_run": dry,
+                   "instrument": "application" if application else "probe",
                    "model": os.environ.get("OLLAMA_LLM", "gemma4:e4b"),
-                   "rubric_path": os.path.abspath(grade.RUBRIC_PATH),
+                   "rubric_path": rubric_path,
                    "summary": by_topic, "results": joined},
                   fh, indent=2, ensure_ascii=False)
     return {"ok": True, "graded": len(joined), "path": name,
@@ -225,6 +268,10 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--sample-for-human", type=int, metavar="N")
     ap.add_argument("--kappa", metavar="HUMAN_CSV")
+    ap.add_argument("--application", action="store_true",
+                    help="grade the end-of-study application probe "
+                         "(topic_retention_probe, docs/retention-application-bank.md) "
+                         "as its own pass, not the live topic_probe events")
     ap.add_argument("--out")
     args = ap.parse_args()
 
@@ -232,6 +279,18 @@ def main() -> int:
 
     if args.kappa:
         return _kappa(args.kappa)
+
+    if args.application:
+        res = run(topic=args.topic, seed=args.seed, dry=args.dry_run,
+                  resume=args.resume, application=True)
+        if not res["path"]:
+            print("  no application-probe answers in the sink"
+                  f"{' for ' + args.topic if args.topic else ''}"
+                  " (they arrive only in the Nov end-of-study window).")
+        else:
+            print(f"  application probe: graded {res['graded']} answer(s) across "
+                  f"{len(res['topics'])} topic(s) -> {res['path']}")
+        return 0
 
     records = collect(args.topic)
     if not records:

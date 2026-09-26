@@ -65,6 +65,11 @@ _MODEL_RE = re.compile(
     r"^\*\*Model answer\.\*\*\s*(.+?)(?=\n\*\*Rubric key points\.\*\*)", re.M | re.S)
 _RUBRIC_RE = re.compile(
     r"^\*\*Rubric key points\.\*\*\s*(.+?)(?=\n---|\n##\s|\Z)", re.M | re.S)
+# The rubric line reads "(a) ...; (b) ...; (c) ...". Split it into {letter: text} for
+# the offline grader (grade.build_prompt's `points`). `(?=;\s*\([a-z]\)|$)` stops each
+# point at the next "; (x)" or end -- a bare "(percentage)" / "(e.g. 4x4)" inside a
+# point is NOT "; (single-letter)", so it is not mistaken for a new point.
+_RUBRIC_POINT_RE = re.compile(r"\(([a-z])\)\s*(.+?)(?=;\s*\([a-z]\)|$)", re.S)
 
 
 def _load() -> dict:
@@ -113,6 +118,19 @@ def prompt_for(topic_id: str) -> str | None:
     the 'key' is the model answer/rubric rather than a correct letter."""
     bank = _load().get(topic_id)
     return bank["prompt"] if bank else None
+
+
+def rubric_points_for(topic_id: str) -> dict[str, str]:
+    """The 0-2 rubric key points as {letter: description}, for the OFFLINE grader only
+    (grade.build_prompt's `points`) -- never served to the client, same as the model
+    answer. Empty dict for an unbanked topic. The 0-2 scale maps onto the grader's
+    none/partial/full: 2 (applies + justifies, >=2 points) = full, 1 (names the law but
+    shallow) = partial, 0 (no application / wrong / restates) = none."""
+    bank = _load().get(topic_id)
+    if not bank:
+        return {}
+    rubric = bank["rubric"].rstrip(". ")
+    return {k: " ".join(v.split()) for k, v in _RUBRIC_POINT_RE.findall(rubric)}
 
 
 # ── the router ──────────────────────────────────────────────────────────────────────
