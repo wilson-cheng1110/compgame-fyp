@@ -64,6 +64,12 @@ def _run(topic: str | None, seed: str) -> None:
         # return value is a small, participant-free summary. We keep NONE of it here --
         # even that summary stays out of the exposed status, so status() cannot leak.
         grade_batch.run(topic=topic, seed=seed, dry=False)
+        # The SAME blind pass for the end-of-study APPLICATION probe (topic_retention_probe,
+        # its own bank + 0-2 transfer rubric). One admin trigger grades both instruments, so
+        # come the Nov window there is no separate button to remember. Until then there are
+        # zero application answers in the sink and this is a harmless no-op (graded=0). It is
+        # just as blind -- grade.blind() strips arm + id before any prompt, the same layer.
+        grade_batch.run(topic=topic, seed=seed, dry=False, application=True)
         result = {"state": "done", "started_at": started, "finished_at": _now()}
     except Exception as e:
         # Only the exception TYPE. A message could carry a filesystem path or a value.

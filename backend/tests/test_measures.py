@@ -347,6 +347,51 @@ check("CONTROL mean score reflects the CONTROL row", ret["control"]["mean_score"
 check("the interval covariate is computed (roughly 10 weeks from the post-check)",
       ret["with_interval"] == 2 and 9 <= ret["mean_weeks_since_post"] <= 11, ret)
 
+print("\n-- application_retention_summary: offline-graded 0-2 transfer probe by arm --")
+# The application probe is graded OFFLINE (grade_batch.run(application=True) writes
+# reports/grades/application-*.json); the sink is capture-only, so this measure reads the
+# REPORT, not the sink -- point it at a throwaway grades dir with one crafted report.
+# flip_sid answered 'full' (2), ctrl_sid answered 'partial' (1) plus one ungradeable answer.
+# Two decoys must be IGNORED: a live-PROBE report (instrument != 'application') and a DRY-RUN
+# application report -- if either leaked in, the arm means below would move.
+_app_grades_dir = os.path.join(tmp, "grades")
+os.makedirs(_app_grades_dir, exist_ok=True)
+def _write_report(name, obj):
+    with open(os.path.join(_app_grades_dir, name), "w", encoding="utf-8") as fh:
+        _json.dump(obj, fh)
+_write_report("application-memory-20261120T000000Z.json", {
+    "generated": "20261120T000000Z", "instrument": "application", "dry_run": False,
+    "results": [
+        {"id": 9001, "participant_id": flip_sid, "topic_id": T, "answer": "...",
+         "grade": {"level": "full", "evidence": "", "rubric_hit": []}},
+        {"id": 9002, "participant_id": ctrl_sid, "topic_id": T, "answer": "...",
+         "grade": {"level": "partial"}},
+        {"id": 9003, "participant_id": ctrl_sid, "topic_id": T, "answer": "...",
+         "grade": {"level": None, "ungradeable_reason": "too_short"}}]})
+# Decoy 1: a LIVE-probe report (instrument 'probe') carrying ctrl_sid 'full' -- if read it
+# would push CONTROL's mean to 1.5 and n to 3. Must be ignored.
+_write_report("all-20261120T000001Z.json", {
+    "generated": "20261120T000001Z", "instrument": "probe", "dry_run": False,
+    "results": [{"id": 8001, "participant_id": ctrl_sid, "topic_id": T, "answer": "...",
+                 "grade": {"level": "full"}}]})
+# Decoy 2: a DRY-RUN application report carrying flip_sid 'partial' -- if read it would push
+# FLIP's mean to 1.5. Must be ignored (dry_run True).
+_write_report("application-memory-20261120T000002Z-dryrun.json", {
+    "generated": "20261120T000002Z", "instrument": "application", "dry_run": True,
+    "results": [{"id": 7001, "participant_id": flip_sid, "topic_id": T, "answer": "...",
+                 "grade": {"level": "partial", "dry_run": True}}]})
+
+_app = measures.application_retention_summary(DB, grades_dir=_app_grades_dir)
+check("application: FLIP mean is the 'full' answer (2), decoys ignored", _app["flip"]["mean_score"] == 2.0, _app["flip"])
+check("application: CONTROL mean is the 'partial' answer (1), the probe decoy ignored", _app["control"]["mean_score"] == 1.0, _app["control"])
+check("application: n counts only graded answers (full+partial), not the ungradeable one", _app["n"] == 2, _app)
+check("application: the ungradeable answer is counted apart, never as a 0", _app["ungradeable"] == 1, _app)
+check("application: only the one real application report was read (both decoys skipped)", _app["reports_read"] == 1, _app)
+check("application: scale is 0-2", _app["scale_max"] == 2, _app)
+# An empty/absent grades dir -> a clean zero (the pre-Nov state), never an error.
+check("application: no reports -> n=0, pending (no error)",
+      measures.application_retention_summary(DB, grades_dir=os.path.join(tmp, "nope"))["n"] == 0)
+
 print("\n-- affect_recall_summary: AR1-3 means by arm and by topic --")
 evm(flip_sid, "questionnaire_affect_recall", T, {"answers": {"AR1": 5, "AR2": 4, "AR3": 2}})
 evm(ctrl_sid, "questionnaire_affect_recall", T, {"answers": {"AR1": 3, "AR2": 3, "AR3": 3}})
@@ -594,6 +639,9 @@ print("\n-- NO SID LEAK: every slice returns counts, never a participant id --")
 _blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_by_arm(DB),
                      measures.reflection_summary(DB), measures.game_result_summary(DB),
                      measures.retention_summary(DB), measures.affect_recall_summary(DB),
+                     # the offline-graded application probe reads a REPORT holding real SIDs;
+                     # the summary must still return counts only (aggregate-only invariant)
+                     measures.application_retention_summary(DB, grades_dir=_app_grades_dir),
                      measures.gain_detail(DB), measures.sink_census(DB),
                      measures.sink_reconcile(DB),
                      # the three new DV-completer slices — same aggregate-only invariant

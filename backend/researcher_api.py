@@ -391,19 +391,40 @@ def _paper_slice(pid: str) -> dict:
                 {"label": "Mean weeks since post-check", "value": ret["mean_weeks_since_post"] or "—",
                  "sub": f"{ret['with_interval']} with a known interval"},
             ]
+
+        # The DELAYED APPLICATION-TRANSFER block (docs/end-of-study-battery-plan.md, memory
+        # feedback-mc-recognition-not-application): the constructed-response probe graded
+        # offline/blind (grade_batch --application) on the 0–2 transfer rubric, split by the
+        # arm assigned for that topic. MC Form C above is the recognition floor; this is where
+        # APPLYING the law shows. Pending until the Nov window collects answers and the offline
+        # pass runs, so app["n"]==0 -> the rows simply don't render (no false "0" reading).
+        app = measures.application_retention_summary()
+        if app["n"]:
+            stats += [
+                {"label": "Application probe — FLIP",
+                 "value": app["flip"]["mean_score"] if app["flip"]["mean_score"] is not None else "—",
+                 "sub": f"n={app['flip']['n']} · 0–2 transfer"},
+                {"label": "Application probe — CONTROL",
+                 "value": app["control"]["mean_score"] if app["control"]["mean_score"] is not None else "—",
+                 "sub": f"n={app['control']['n']} · 0–2 transfer"},
+            ]
+
+        note = ("Interim read; retention re-test is the delayed DV — see the retention rows "
+                "above for where the flip effect is predicted to show up (productive-"
+                "failure theory: FLIP should decay slower)." if ret["n"] else
+                "Interim read over determinable pairs; the full pre-registered N needs the "
+                "remaining topics to release. Retention re-test (delayed DV) is pending — "
+                "the end-of-study battery runs ~2026-11-23..26.")
+        if app["n"]:
+            note += (" Application-transfer probe graded offline on the 0–2 rubric "
+                     f"(FLIP {app['flip']['mean_score']} / CONTROL {app['control']['mean_score']}) "
+                     "— the constructed-response DV the MC recognition floor can't show.")
         return env("Normalised gain ⟨g⟩ from the MC pre/post concept inventory, by assigned "
-                   "arm — the primary H1 DV — plus the DELAYED Form-C retention score once the "
-                   "end-of-study battery has run. The short-answer probe is the secondary "
-                   "offline pass. The table breaks it out per topic per arm, with ceiling "
-                   "shares and differential attrition.",
-                   "live", stats,
-                   ("Interim read; retention re-test is the delayed DV — see the retention rows "
-                    "above for where the flip effect is predicted to show up (productive-"
-                    "failure theory: FLIP should decay slower)." if ret["n"] else
-                    "Interim read over determinable pairs; the full pre-registered N needs the "
-                    "remaining topics to release. Retention re-test (delayed DV) is pending — "
-                    "the end-of-study battery runs ~2026-11-23..26."),
-                   table=table)
+                   "arm — the primary H1 DV — plus the DELAYED Form-C retention score and the "
+                   "constructed-response application probe once the end-of-study battery has "
+                   "run. The table breaks the gain out per topic per arm, with ceiling shares "
+                   "and differential attrition.",
+                   "live", stats, note, table=table)
 
     if pid == "02-motivation-experience":
         q = measures.questionnaire_by_arm()

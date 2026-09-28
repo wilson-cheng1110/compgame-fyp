@@ -1084,6 +1084,104 @@ def retention_summary(db_path=None) -> dict:
     }
 
 
+# Score map for the offline application probe's 0-2 rubric (retention_probe.rubric_points_for:
+# 2=full / 1=partial / 0=none). Defined LOCALLY, never imported from grade.py -- this module
+# is the Ollama-free monitor path and must not pull the grading/LLM stack in for one dict.
+_APPLICATION_SCORE = {"full": 2, "partial": 1, "none": 0}
+
+
+def _grades_dir(grades_dir=None) -> str:
+    """Where grade_batch.py writes its offline reports: GRADES_DIR else reports/grades --
+    resolved the same way grade_batch.OUT_DIR and researcher_api.GRADES_DIR resolve it."""
+    if grades_dir:
+        return grades_dir
+    return os.environ.get(
+        "GRADES_DIR",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reports", "grades"))
+
+
+def application_retention_summary(db_path=None, grades_dir=None) -> dict:
+    """Paper 01's DELAYED APPLICATION-TRANSFER stat block -- the discriminating retention
+    DV the MC Form-C re-test's recognition floor cannot show (memory
+    feedback-mc-recognition-not-application). The end-of-study application short-answer
+    probe (`topic_retention_probe`) is graded OFFLINE and BLIND by
+    grade_batch.run(application=True), which writes reports/grades/application-*.json.
+    The sink is capture-only (no score there), so this reads those graded REPORTS and
+    splits the 0/1/2 (none/partial/full) levels by ASSIGNED arm.
+
+    The grading stays blind: grade.blind() stripped the arm and participant id before any
+    prompt was built, so the grader never saw the arm. The arm is re-attached HERE,
+    downstream, from participant_id + the release order -- exactly as retention_summary
+    does for the MC re-test. Aggregate-only, no SID (test_measures.py asserts it).
+
+    Reads only reports the offline pass stamped `instrument == "application"` and did NOT
+    dry-run, so the live-probe reports in the same directory (a different rubric) can never
+    be mixed in. Results dedup by event id, so a --resume workflow's several partial
+    reports aggregate correctly (a later report's grade wins a duplicate id)."""
+    gdir = _grades_dir(grades_dir)
+    by_id: dict = {}
+    reports_read = 0
+    try:
+        names = sorted(os.listdir(gdir))   # ascending stamp order: a later report wins a dup id
+    except OSError:
+        names = []
+    for fname in names:
+        if not fname.endswith(".json") or fname == "kappa.json":
+            continue
+        try:
+            with open(os.path.join(gdir, fname), encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (json.JSONDecodeError, OSError, ValueError):
+            continue
+        if data.get("instrument") != "application" or data.get("dry_run"):
+            continue
+        reports_read += 1
+        for r in data.get("results", []):
+            rid = r.get("id")
+            if rid is not None:
+                by_id[rid] = r
+
+    idx = topic_index()
+    frozen = _frozen_arms(db_path)
+    rows = [
+        {"participant_id": r.get("participant_id"), "topic_id": r.get("topic_id"),
+         "level": (r.get("grade") or {}).get("level"),
+         "arm": _resolved_arm(r.get("participant_id"), r.get("topic_id"),
+                              idx.get(r.get("topic_id")), frozen)}
+        for r in by_id.values()
+    ]
+    rows, dropped = enrolled_only(rows)
+
+    by_arm = {schedule.FLIP: [], schedule.CONTROL: []}
+    ungradeable = 0
+    for r in rows:
+        score = _APPLICATION_SCORE.get(r["level"])
+        if score is None:          # ungradeable / not-yet-graded -- a missing datum, not a 0
+            ungradeable += 1
+            continue
+        if r["arm"] in by_arm:
+            by_arm[r["arm"]].append(score)
+
+    def _mean(xs):
+        return round(sum(xs) / len(xs), 2) if xs else None
+
+    graded = len(by_arm[schedule.FLIP]) + len(by_arm[schedule.CONTROL])
+    return {
+        "scale_max": 2,
+        "n": graded,
+        "flip": {"n": len(by_arm[schedule.FLIP]), "mean_score": _mean(by_arm[schedule.FLIP])},
+        "control": {"n": len(by_arm[schedule.CONTROL]), "mean_score": _mean(by_arm[schedule.CONTROL])},
+        "ungradeable": ungradeable,
+        "reports_read": reports_read,
+        "test_traffic_excluded": dropped,
+        "note": "End-of-study application short-answer probe, graded offline/blind on the "
+                "0-2 (none/partial/full) transfer rubric, mean by assigned arm -- the "
+                "constructed-response DELAYED DV. MC Form C is the recognition floor; this "
+                "is where applying the law (not recognising it) shows. Pending until the "
+                "Nov window collects answers and the offline pass runs.",
+    }
+
+
 def affect_recall_summary(db_path=None) -> dict:
     """Paper 02's RETROSPECTIVE affect block: AR1 enjoyment / AR2 perceived learning /
     AR3 mental effort (`questionnaire_affect_recall`, per topic, taken at the end of
