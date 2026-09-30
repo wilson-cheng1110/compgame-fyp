@@ -17,7 +17,7 @@ SUITES = ["test_auth.py", "test_login_shim.py", "test_migrate_canon_sid.py", "te
           "test_researcher_api.py", "test_schedule.py", "test_checks.py", "test_topic_api.py",
           "test_research_api.py", "test_module_integrity.py", "test_grade.py", "test_measures.py",
           "test_questionnaires.py", "test_code_batch.py", "test_retention.py",
-          "test_retention_probe.py"]
+          "test_retention_probe.py", "test_reinstate.py"]
 
 total = failures = 0
 for suite in SUITES:

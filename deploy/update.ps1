@@ -8,6 +8,11 @@
         powershell -ExecutionPolicy Bypass -File deploy\update.ps1
 
     -NoPull : skip the git pull (you already pulled by hand).
+    -Reinstate <sid,...> : un-withdraw these accounts while the server is stopped
+        (backend\reinstate_account.py --apply, audited). ONLY on the PI's explicit
+        say-so -- withdrawal is a study exit. Idempotent; an unknown SID fails the
+        update before anything is rebuilt. Reset their passwords from /admin after.
+        -ReinstateNote sets the audit detail (default "PI-approved <today>").
 
     It pauses COMPGame-Watchdog around the whole thing and RESUMES it in a finally
     (so a mid-run failure still restores it). It stops the server BEFORE setup rebuilds
@@ -23,7 +28,7 @@
     child scripts, so no Set-ExecutionPolicy dance and npm.ps1 is never blocked).
 #>
 [CmdletBinding()]
-param([switch]$NoPull)
+param([switch]$NoPull, [string[]]$Reinstate = @(), [string]$ReinstateNote = "")
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Store = "backend/hci_chroma_db_local"
@@ -59,6 +64,19 @@ try {
 
     Write-Host "== stop" -ForegroundColor Cyan
     PS-Run $Start @("-Stop") | Out-Null
+
+    # -File hands "a,b" over as ONE string, so split commas ourselves.
+    $Reinstate = @($Reinstate -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    if ($Reinstate.Count) {
+        Write-Host "== reinstate (PI-approved): $($Reinstate -join ', ')" -ForegroundColor Cyan
+        $Py = Join-Path $Root "backend\.venv\Scripts\python.exe"
+        if (-not (Test-Path $Py)) { $Py = "python" }
+        if (-not $ReinstateNote) { $ReinstateNote = "PI-approved $(Get-Date -Format yyyy-MM-dd)" }
+        Push-Location (Join-Path $Root "backend")
+        try { & $Py reinstate_account.py @Reinstate --apply --note $ReinstateNote; $rc = $LASTEXITCODE }
+        finally { Pop-Location }
+        if ($rc -ne 0) { throw "reinstate_account.py failed (unknown SID?) -- server left stopped. Fix and re-run." }
+    }
 
     Write-Host "== setup (rebuild + go-live gates)" -ForegroundColor Cyan
     if ((PS-Run $Setup @()) -ne 0) { throw "setup.ps1 failed (a gate is red or the build failed) -- server left stopped. Fix and re-run." }
