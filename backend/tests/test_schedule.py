@@ -203,14 +203,26 @@ check("the other sections did not move",
 # Moving a lecture FORWARD can take a topic away from a student mid-unit. That is
 # the hazard the preview exists to surface, so it has to actually be surfaced.
 soon = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
-near = S.set_session_date(3, "A", soon, commit=False)
-check("pulling a lecture forward reports the topics it would unlock",
-      near["ok"] and any(a["from"] == "locked" and a["to"] != "locked"
-                         for a in near["affected"]), near.get("affected"))
-back = S.set_session_date(3, "A", "2027-01-05", commit=False)
-check("and pushing one out reports no topic losing ground it already had",
-      back["ok"] and all(a["from"] == "locked" for a in back["affected"]),
-      back.get("affected"))
+# Pick a lecture that is still LOCKED today. A hard-coded lecture number silently
+# turned into a past one as the term ran on (lecture 3 went "late" -> "open", not
+# "locked" -> "open") and the red suite then blocked every deploy via setup.ps1.
+# A topic opens `opens_days_before` its lecture, so "still locked" means further out.
+lead = S._load().get("window", {}).get("opens_days_before", 7)
+still_locked = (datetime.now() + timedelta(days=lead + 1)).strftime("%Y-%m-%d")
+upcoming = sorted((int(n), d["A"]) for n, d in S._load()["sessions"].items()
+                  if d.get("A", "") > still_locked)
+if upcoming:
+    lec = upcoming[0][0]
+    near = S.set_session_date(lec, "A", soon, commit=False)
+    check("pulling a lecture forward reports the topics it would unlock",
+          near["ok"] and any(a["from"] == "locked" and a["to"] != "locked"
+                             for a in near["affected"]), near.get("affected"))
+    back = S.set_session_date(lec, "A", "2027-01-05", commit=False)
+    check("and pushing one out reports no topic losing ground it already had",
+          back["ok"] and all(a["from"] == "locked" for a in back["affected"]),
+          back.get("affected"))
+else:
+    print("  skip pull-forward/push-out preview checks: no section-A lecture left in the future")
 
 S.CONFIG_PATH = real_path
 S._config = None; S._config_mtime = None
