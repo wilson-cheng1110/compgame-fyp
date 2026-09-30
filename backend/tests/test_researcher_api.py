@@ -19,6 +19,11 @@ os.environ.update({
     "PARTICIPANT_SECRET_PATH": os.path.join(d, ".secret"),
     "TOPIC_SCHEDULE_PATH": os.path.join(BE, "topic_schedule.json"),
     "COOKIE_SECURE": "0", "TELEMETRY_ENABLED": "0",
+    # Sandbox the OFFLINE report dirs too: on the study box reports/grades holds a REAL
+    # grade pass, which flipped the "paper 08 pending before any pass" check red and so
+    # blocked setup.ps1's gate. Nonexistent dirs = "no pass has run".
+    "GRADES_DIR": os.path.join(d, "no-grades-yet"),
+    "CODING_DIR": os.path.join(d, "no-coding-yet"),
 })
 for f in ("a.db", "r.db", ".secret"):
     p = os.path.join(d, f)
