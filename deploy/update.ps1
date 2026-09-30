@@ -39,7 +39,10 @@ $Start = Join-Path $PSScriptRoot "start.ps1"
 function Have-Task($n) { [bool](Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) }
 function PS-Run($file, [string[]]$extra) {
     $a = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $file) + $extra
-    & powershell.exe @a
+    # Out-Host: without it the child's output becomes this function's return value, so
+    # the caller compared an ARRAY of log lines to 0 -- truthy -> "failed" on success,
+    # and the gate lines were never shown.
+    & powershell.exe @a | Out-Host
     return $LASTEXITCODE
 }
 
