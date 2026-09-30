@@ -76,6 +76,9 @@ FYP_Submission/
                          #   these .pptx via /api/admin/reports/{decks,download} (was the .md brief).
     ops.py               # Concurrency gate (off the event loop), rate limit, health
     backup_sink.py       # Hourly sqlite online-backup of the sink + accounts
+    reinstate_account.py # Un-withdraw an account -- PI decision ONLY (withdrawal is a study
+                         #   exit; /admin deliberately has no button). Dry-run default, --apply,
+                         #   idempotent, audited. deploy\update.ps1 -Reinstate <sid> runs it.
     check_corpus_coverage.py # Is the vector store still current? exits 1 if not
     topic_schedule.json  # Release config. Dates VERIFIED 2026-08-27 vs the academic
                          #   calendar (teaching Mon 31 Aug - Sat 28 Nov 2026, 13 weeks).
