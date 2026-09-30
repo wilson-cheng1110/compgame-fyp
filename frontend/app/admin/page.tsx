@@ -189,11 +189,15 @@ export default function AdminPage() {
     )
   }
 
-  const filtered = q
+  // SIDs are stored canonical (8 digits, check-letter stripped -- auth_store._canon_sid),
+  // but a teacher copies them off a class list WITH the letter. Strip it here too, or
+  // "24113538D" matches nothing and the account looks unmanageable.
+  const needle = q.trim().replace(/^(\d{8})[a-z]$/i, "$1").toLowerCase()
+  const filtered = needle
     ? rows.filter(
         (r) =>
-          r.sid.toLowerCase().includes(q.toLowerCase()) ||
-          (r.username ?? "").toLowerCase().includes(q.toLowerCase()),
+          r.sid.toLowerCase().includes(needle) ||
+          (r.username ?? "").toLowerCase().includes(needle),
       )
     : rows
 
