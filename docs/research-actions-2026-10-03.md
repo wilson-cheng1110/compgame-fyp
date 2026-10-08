@@ -165,6 +165,27 @@ export).
 - Proposed (not done): add "left the page" as an H1 sensitivity analysis (excluded / covariate),
   disclosed as found at this interim; show the rates on paper 04's page.
 
+**Where the pre → post gain comes from (exploratory, 2026-10-09; H1 topics, pairs with telemetry).**
+Mean gain by whether the student left the page on each check:
+
+| Pre-check / post-check | CONTROL gain (n) | FLIP gain (n) |
+|---|---|---|
+| no help / no help | +5.4 (373) | +6.7 (386) |
+| no help / help | +25.5 (81) | +21.8 (58) |
+| help / no help | +1.3 (115) | +3.7 (126) |
+| help / help | +5.3 (240) | +3.9 (203) |
+
+- **CONTROL with no help on either check gains +5.4 with nothing between the two checks** — that is
+  the instrument (Form B easier than Form A, plus taking a second similar test), not learning.
+  Forms are never swapped, so form difficulty and the retest effect cannot be separated.
+- **The game adds ≈ +1.3** on top (FLIP +6.7 vs CONTROL +5.4 here; the model estimate is +1.35).
+- **External help moves individual gains far more than the game**: help on the post-check only
+  goes with ~+18 extra points; help on the pre-check only shrinks the measured gain to +1 to +4.
+  (These rows filter on post-check behaviour — descriptive only, not a causal estimate.)
+- **In-page help:** 30 of the 86 AI-tutor free-chat questions were asked DURING a check (between
+  its start and submit) — the tutor widget is available on the check page. Small in absolute terms
+  (30 of 4,186 checks) but it is a third of all free-chat use.
+
 **Does on-site behaviour reflect learning?** (`scripts/h1_interim/behaviour.py`; check items with
 telemetry since 2026-09-10; 24,048 item responses, 260 students, 87% mouse.) The literal "click
 faster after the Fitts game" is not testable: knowing a motor law does not change motor speed, and

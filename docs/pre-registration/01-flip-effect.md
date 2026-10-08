@@ -36,6 +36,14 @@ the confirmatory status is honest.
 > favour H1. Either outcome — FLIP helps, or it does not — is reported as a finding. Because of this
 > look, H1 is reported as **confirmatory with a disclosed interim analysis**, and the final estimate
 > is computed once, on the full immediate-check dataset, after the last topic closes.
+>
+> **Second disclosure — 2026-10-09.** A follow-up exploratory look found that participants who left
+> the check's page scored higher within-student (pre-check +7.0, post-check +5.5 points, controlling
+> time on page) — interpreted as **external help**, source not identified — and that FLIP
+> participants left the page less on the post-check (−6 points; no difference on the pre-check).
+> H1 re-estimated with a pre-check "left the page" covariate: **+1.35** (95% CI −0.13 to +2.84,
+> p = .07; same pairs without it +1.32). Pre-checks taken without leaving the page had a mean of
+> 78.9 vs 84.1 overall. This prompted sensitivity analysis (e) in §5; it does not change the primary.
 
 **2. What's the main question / hypothesis?**
 
@@ -84,7 +92,14 @@ whatever their direction; a CI that excludes effects above a few points is repor
 **Pre-specified sensitivity analyses (reported alongside, not substituted for, the primary):**
 (a) the same model on **completers only** (scorable pre and post); (b) **ceiling-aware**: logistic
 GEE on P(post = 100) ~ condition + pre + topic, clustered by participant; (c) the primary re-run
-**excluding rapid-response attempts** (§6); (d) ⟨g⟩ by condition, descriptive only (§3).
+**excluding rapid-response attempts** (§6); (d) ⟨g⟩ by condition, descriptive only (§3);
+(e) **external help on the pre-check**: the primary with a covariate for whether the participant
+left the check's page during the PRE-check (any item `tab_blur_count` > 0; per-item telemetry,
+recorded from 2026-09-10 — earlier pairs carry no flag and are reported separately), plus the
+primary restricted to pre-checks taken without leaving the page. Only the PRE-check flag is used:
+leaving the page during the POST-check happens after the manipulation and differs by condition
+(FLIP 6 points less often at the interim), so adjusting for it or filtering on it would condition
+on a post-treatment variable and is not done.
 
 **Confirmatory family & correction:** H1 is the single primary test. Should the affective bundle
 (pre-registration `02`) be filed as confirmatory alongside it, the primary tests across the two
