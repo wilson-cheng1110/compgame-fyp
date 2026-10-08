@@ -482,7 +482,9 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
 - *Superseded:* the "4 study topics split 2 FLIP / 2 CONTROL, Latin square" plan. Ledger of everything
   it overrides is `docs/revamp.md` Part 18.
 - **IV**: `played_understanding_first` (recorded per topic, already in the research sink).
-- **DV (primary)**: normalized gain ⟨g⟩ from a uniform conceptual pre/post (Form A/B). **Secondary**: in-game assessment score, duration, attempts. (Weber's in-game assessment is *perceptual*, not a knowledge quiz → a separate behavioral measure.)
+- **DV (primary)**: post-check score with pre-check as covariate, mixed model, intention-to-treat,
+  on a uniform conceptual pre/post (Form A/B). **Changed 2026-10-08** (`docs/pre-registration/01-flip-effect.md`,
+  interim look disclosed there): ⟨g⟩ is now DESCRIPTIVE only — ceiling-biased and unbounded below. **Secondary**: in-game assessment score, duration, attempts. (Weber's in-game assessment is *perceptual*, not a knowledge quiz → a separate behavioral measure.)
 - **Constructs + instruments (LOCKED 2026-06-22)**: four co-equal — performance (concept inventory Form A/B + Hake gain), motivation (IMI), interaction (CoI *reworded* "instructor"→"game + AI tutor"; non-validated adaptation, exploratory), satisfaction (ARCS-S, null-expected) + reflection (open + Likert) + Paas load bonus. Dropped on purpose: IMMS, standalone TAM, EGameFlow. H1–H4 framed exploratory, Holm–Bonferroni corrected. Full matrix in `docs/experiment-design.md` §3.
 
 ### Measurement staging — Stage 2 reached 2026-08-16
