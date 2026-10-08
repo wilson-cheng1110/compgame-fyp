@@ -110,10 +110,12 @@ Scope: a scan of all 13 Understanding games found bare internal links ONLY in ge
 are single-page; fitts carries the tag via `withUnit`), so ergonomics and experiment-design are
 safe. Fitts' 7 (also `understanding_complete` then no post) have a different, still-unknown cause.
 Also: gestalt's `understanding_complete` carries no `duration_ms`, so gestalt is absent from the
-dose analysis. **Fix decision is Wilson's:** gestalt's on-time window closed with lecture 5, so a
-fix helps late completers only; it is ~6 links carrying `?unit=` (the fitts `withUnit` pattern),
-no instrument change. Report the bug in papers 01/06 either way — a clean, documented instance of
-how a navigation defect produces differential attrition.
+dose analysis. **FIXED 2026-10-08 (Wilson's decision):** every gestalt link now carries the query
+string via `useUnitQuery()` (`lib/unit-link.tsx`); no instrument change. Verified in a production
+build: from `?unit=gestalt`, each of the 5 sub-games keeps the tag through to the menu, whose
+button still reads "Back to the unit"; free play still offers the assessment (22/22 checks). Rows
+recorded before the fix are unchanged — report the bug in papers 01/06 as a documented instance of
+a navigation defect producing differential attrition, with the fix date as the boundary.
 
 ## Follow-up plan
 

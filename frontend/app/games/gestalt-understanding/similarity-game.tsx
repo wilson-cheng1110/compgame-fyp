@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Home, Volume2, VolumeX } from "lucide-react"
 import Link from "next/link"
+import { useUnitQuery } from "@/lib/unit-link"
 
 const COLORS = ["#FFFF00", "#00FF00", "#00FFFF", "#FF00FF"]
 const GRID_SIZE = 4
@@ -10,6 +11,9 @@ const GRID_SIZE = 4
 type GridState = (string | null)[][]
 
 export default function SimilarityGame() {
+  // Keep ?unit= on the way back to the menu, or the menu's completion button acts as free
+  // play and skips the unit's post-check (lib/unit-link.tsx, useUnitQuery).
+  const unitQuery = useUnitQuery()
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [grid, setGrid] = useState<GridState>(
     Array(GRID_SIZE)
@@ -116,7 +120,7 @@ export default function SimilarityGame() {
       >
         {isSoundOn ? <Volume2 className="h-8 w-8 text-white" /> : <VolumeX className="h-8 w-8 text-white" />}
       </button>
-      <Link href="/games/gestalt-understanding" aria-label="Back to the Gestalt menu">
+      <Link href={`/games/gestalt-understanding${unitQuery}`} aria-label="Back to the Gestalt menu">
         <div className="bg-[#0066CC] p-2 rounded-md hover:bg-[#0055AA] transition-colors duration-200">
           <Home className="h-8 w-8 text-white" />
         </div>

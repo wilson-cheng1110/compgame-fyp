@@ -5,9 +5,13 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Home, Volume2, VolumeX } from "lucide-react"
 import Link from "next/link"
+import { useUnitQuery } from "@/lib/unit-link"
 import Image from "next/image"
 
 const SymmetryGame = () => {
+  // Keep ?unit= on the way back to the menu, or the menu's completion button acts as free
+  // play and skips the unit's post-check (lib/unit-link.tsx, useUnitQuery).
+  const unitQuery = useUnitQuery()
   const [line, setLine] = useState({ x1: 0, y1: 0, x2: 0, y2: 0 })
   const [isDrawing, setIsDrawing] = useState(false)
   const [isDotHovered, setIsDotHovered] = useState({ top: false, bottom: false })
@@ -145,7 +149,7 @@ const SymmetryGame = () => {
       >
         {isSoundOn ? <Volume2 className="h-8 w-8 text-white" /> : <VolumeX className="h-8 w-8 text-white" />}
       </button>
-      <Link href="/games/gestalt-understanding" aria-label="Back to the Gestalt menu">
+      <Link href={`/games/gestalt-understanding${unitQuery}`} aria-label="Back to the Gestalt menu">
         <div className="bg-[#0066CC] p-2 rounded-md hover:bg-[#0055AA] transition-colors duration-200">
           <Home className="h-8 w-8 text-white" />
         </div>

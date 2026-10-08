@@ -6,7 +6,7 @@ import { Pixelify_Sans, Press_Start_2P } from "next/font/google"
 import { Volume2, VolumeX, Home } from "lucide-react"
 import Link from "next/link"
 import { useProgress } from "@/lib/progress-context"
-import UnitAware from "@/lib/unit-link"
+import UnitAware, { useUnitQuery } from "@/lib/unit-link"
 
 // Load Press Start 2P font
 const pressStart2P = Press_Start_2P({
@@ -195,6 +195,7 @@ export default function GestaltUnderstandingWrapper() {
   const musicInitialized = useState(false)[0]
   const router = useRouter()
   const { markGameComplete } = useProgress()
+  const unitQuery = useUnitQuery()
   const [hoveredItem, setHoveredItem] = useState<number | null>(null)
 
   // Free play hands them on to the assessment. Inside a unit the UNIT owns that
@@ -241,13 +242,16 @@ export default function GestaltUnderstandingWrapper() {
     }
   }, [musicInitialized])
 
-  // Instead of using an iframe, let's directly render the game UI
+  // Instead of using an iframe, let's directly render the game UI.
+  // Every link carries ?unit= (unitQuery): a sub-game that loses it sends the student
+  // back to a menu whose completion button thinks it is free play -> straight to the
+  // assessment, past the unit's post-check. That was live until 2026-10-08.
   const principles = [
-    { id: 1, name: "Similarity", link: "/games/gestalt-understanding/app/similarity" },
-    { id: 2, name: "Proximity", link: "/games/gestalt-understanding/app/proximity" },
-    { id: 3, name: "Continuity", link: "/games/gestalt-understanding/app/continuity" },
-    { id: 4, name: "Symmetry", link: "/games/gestalt-understanding/app/symmetry" },
-    { id: 5, name: "Closure", link: "/games/gestalt-understanding/app/closure" },
+    { id: 1, name: "Similarity", link: `/games/gestalt-understanding/app/similarity${unitQuery}` },
+    { id: 2, name: "Proximity", link: `/games/gestalt-understanding/app/proximity${unitQuery}` },
+    { id: 3, name: "Continuity", link: `/games/gestalt-understanding/app/continuity${unitQuery}` },
+    { id: 4, name: "Symmetry", link: `/games/gestalt-understanding/app/symmetry${unitQuery}` },
+    { id: 5, name: "Closure", link: `/games/gestalt-understanding/app/closure${unitQuery}` },
   ]
 
   return (
@@ -272,7 +276,7 @@ export default function GestaltUnderstandingWrapper() {
               {/* Control buttons */}
               <div className="absolute bottom-6 left-6 right-6 flex justify-between">
                 <SoundToggle />
-                <Link href="/games/gestalt-understanding" aria-label="Back to the Gestalt menu">
+                <Link href={`/games/gestalt-understanding${unitQuery}`} aria-label="Back to the Gestalt menu">
                   <div className="bg-[#0066CC] p-2 rounded-md hover:bg-[#0055AA] transition-colors duration-200">
                     <Home className="h-8 w-8 text-white" />
                   </div>

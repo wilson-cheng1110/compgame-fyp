@@ -497,11 +497,13 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
   topic unit; everything logs through the existing sink. `docs/revamp.md` Parts 2 and 8.
 
 ## Known issues / TODOs
-- **Gestalt Understanding drops `?unit=` (found 2026-10-08, NOT fixed — Wilson's call, mid-study).**
-  The menu's principle links and each sub-game's "Back to the Gestalt menu" lose the tag, so the
-  completion button routes FLIP students to the assessment and SKIPS the post-check (18 of 19 gestalt
-  FLIP no-post rows). Only gestalt has the pattern. Evidence + fix shape:
-  `docs/research-actions-2026-10-03.md` ("Gestalt drop-out").
+- **Gestalt Understanding dropped `?unit=` — FIXED 2026-10-08 (Wilson approved the mid-study fix).**
+  The menu's principle links and each sub-game's "Back to the Gestalt menu" lost the tag, so the
+  completion button routed FLIP students to the assessment and SKIPPED the post-check (18 of 19 gestalt
+  FLIP no-post rows before the fix). Now every gestalt link carries the query via
+  `useUnitQuery()` (`lib/unit-link.tsx`) — use it for any future MULTI-PAGE activity. Data before the
+  fix stays as recorded; report it as bug-induced differential attrition
+  (`docs/research-actions-2026-10-03.md`, "Gestalt drop-out").
 - Avatar system: only 2 avatars, minimal personality — needs revamp
 - Game isolation: no shared narrative thread, no "journey" feel
 - RAG widget: floating chatbot feels bolted-on, not integrated into game flow

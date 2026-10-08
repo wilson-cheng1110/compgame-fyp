@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, type ReactNode } from "react"
+import { Suspense, useEffect, useState, type ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 
 // A game can be entered two ways, and everything that offers a way OUT of one has
@@ -25,6 +25,19 @@ import { useSearchParams } from "next/navigation"
 // PIECE that needs it -- rather than the page -- is why the games still prerender.
 // On the client `useSearchParams` never actually suspends, so the fallback is a
 // build-time artefact and the student never sees a flash of the wrong label.
+
+/** The current query string ("?unit=gestalt&step=3&of=7", or "" in free play), for a
+ *  multi-page activity to carry across its OWN internal links. Without it the second
+ *  page forgets it is inside a unit, and its completion button behaves as free play:
+ *  gestalt's did exactly that, sending FLIP students straight to the assessment and
+ *  past the post-check (18 of 19 gestalt FLIP no-post rows, 2026-10-08). Read after
+ *  mount, not via useSearchParams, so prerendered pages need no Suspense boundary;
+ *  the first paint's links are bare, then corrected before anyone can click. */
+export function useUnitQuery(): string {
+  const [q, setQ] = useState("")
+  useEffect(() => setQ(window.location.search), [])
+  return q
+}
 
 export function useUnitId(): string | null {
   const params = useSearchParams()
