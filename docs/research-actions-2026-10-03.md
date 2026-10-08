@@ -126,6 +126,24 @@ a navigation defect producing differential attrition, with the fix date as the b
 | 04 | < 5 s/item responding ≈ 17% of check submissions (dashboard's accuracy-based "rapid guess" says 3%) | `ec47247` NT10 rapid-guess rule fixed in pre-reg 01 / 01b |
 | 03/07 | Tutor "insight" (51%) is unrelated to arm or post score; asking for the answer weakly predicts lower post (p=.057) — the tutor's own "understood" flag is not a learning measure | none (report) |
 
+**Game vs no-game behaviour (paper 09, card #09)** — `measures.game_behavior_summary`, now on the
+paper-09 page (`5b38800`, `038957f`); script `scripts/h1_interim/game_behaviour.py`. Per session
+(game visit, or one whole check; ≥ 3 s), medians on the 10-08 export:
+
+| | Sessions | Pointer px/s | Direction changes/min | Longest idle share | Tab-switch rate |
+|---|---|---|---|---|---|
+| MC check | 4,008 | 60 | 15 | 0.00 | **40%** |
+| Understanding game | 1,463 | 112 | 33 | 0.32 | 13% |
+| Assessment game | 1,998 | 116 | 33 | 0.21 | 20% |
+
+- Games are ~2× as physically active as the checks (an earlier "15×" read divided one item's
+  movement by whole-check time — corrected).
+- **40% of check submissions involve leaving the tab** vs 13–20% of game sessions — possibly
+  looking answers up on an unproctored check; worth splitting pre vs post (paper 04).
+- Understanding game before (FLIP) vs after (CONTROL) the post-check, mixed models + topic +
+  student: direction changes −2.4/min (p = .064), pointer −7.7 px/s (p = .13), time +7% (p = .14),
+  idle share n.s. — a trend toward more deliberate play before the test, **not significant**.
+
 **Does on-site behaviour reflect learning?** (`scripts/h1_interim/behaviour.py`; check items with
 telemetry since 2026-09-10; 24,048 item responses, 260 students, 87% mouse.) The literal "click
 faster after the Fitts game" is not testable: knowing a motor law does not change motor speed, and

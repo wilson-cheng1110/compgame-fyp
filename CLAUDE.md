@@ -177,7 +177,9 @@ FYP_Submission/
       user-store.ts      # Zustand store (user, badges, login/signup/logout) — was store.ts
       badge-context.tsx  # React context for badge state
       progress-context.tsx # Per-topic progress + research-sink mirroring
-      game-telemetry.tsx # Behavioural telemetry ON game screens (#09 game-vs-no-game) +
+      game-telemetry.tsx # Behavioural telemetry ON game screens (#09 game-vs-no-game; read by
+                         #   measures.game_behavior_summary -> paper-09 page `extra_tables`,
+                         #   since 2026-10-08 -- unread before that) +
                          #   per-game trial `game_result` (#08 psychophysics: stroop RT,
                          #   hicks RT x n, fitts MT x ID, weber JND). Global <GameTelemetry/>
                          #   in layout.tsx runs one ItemTracker per /games/* visit; rides
