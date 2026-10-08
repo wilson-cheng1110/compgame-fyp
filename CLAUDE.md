@@ -236,8 +236,10 @@ Full spec: `docs/end-of-study-battery-plan.md`. Runs ONCE per participant, at th
 study (~2026-11-23..26 — see the window below), for every topic they COMPLETED. Two DVs it exists
 to add: the immediate post-test is ceiling'd (~91/100, compressing the FLIP-CONTROL gap), and a
 DELAYED re-test is where productive-failure theory predicts the flip effect should show up as
-slower decay in FLIP; affect (IMI/CoI/ARCS) is cohort-level and cannot be split by arm, so a
-per-topic retrospective instrument fills that gap. **Hard invariant honoured throughout the
+slower decay in FLIP; and a per-topic retrospective affect instrument. (The original rationale
+said IMI/CoI/ARCS "cannot be split by arm" — WRONG: they are asked after EVERY topic, so they can.
+Corrected 2026-10-08: `measures.questionnaire_subscales()` now reads every battery, splits by arm
+and reports straight-lining — 72-73% on CoI/ARCS, 41% on IMI, the main caveat for paper 02.) **Hard invariant honoured throughout the
 build: `backend/checks.py`, `docs/quiz-item-banks.md`, and `topic_schedule.json`'s existing topic
 rows were never touched.**
 

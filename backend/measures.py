@@ -777,25 +777,27 @@ def demographics_summary(db_path=None) -> dict:
 
 
 def questionnaire_by_arm(db_path=None) -> dict:
-    """Paper 02 (affective outcomes). PAAS mental effort is per-topic, so it splits by the
-    arm ASSIGNED for that topic -- the one true arm split the within-subjects design allows.
-    IMI / CoI / ARCS are administered ONCE across all topics (topic_id is null), so they
-    have no single arm to split on: reported as cohort completion + a raw item mean, and
-    that limit is stated, not faked. Reverse-scoring / subscale means are deliberately NOT
-    applied here -- the raw mean is descriptive monitor colour; the codebook scores at
-    analysis time (same principle as questionnaire_api storing raw responses)."""
+    """Paper 02 (affective outcomes): completion + a raw item mean per instrument, and PAAS
+    split by the arm assigned for each topic. IMI / CoI / ARCS are asked after EVERY topic
+    (topic-questionnaire.tsx, Wilson's 2026-08-30 decision) -- this used to assume "once,
+    topic_id null" and kept only each participant's first answer, discarding ~3/4 of them
+    (found 2026-10-08). The scored, by-arm view of those three is questionnaire_subscales();
+    the raw mean here stays descriptive monitor colour (no reverse-scoring)."""
     idx = topic_index()
     frozen = _frozen_arms(db_path)
 
     def _cohort(name):
         rows, _ = enrolled_only(_meta_events([f"questionnaire_{name}"], db_path))
-        per = _first_per_participant(rows)
-        vals = [v for ans in per.values() for v in ans.values()
+        per_topic = any(r["topic_id"] for r in rows)
+        vals = [v for r in rows for v in (r["meta"].get("answers") or {}).values()
                 if isinstance(v, int) and not isinstance(v, bool)]
-        return {"scope": "cohort", "n": len(per),
+        return {"scope": "per_topic" if per_topic else "cohort",
+                "n": len({r["participant_id"] for r in rows}),
+                "submissions": len(rows),
                 "mean_raw": round(sum(vals) / len(vals), 2) if vals else None,
-                "note": "cohort-level (one submission spans all topics) — no per-arm split; "
-                        "reverse-scoring + subscales at analysis"}
+                "note": "asked after every topic; scored subscales + FLIP/CONTROL split in "
+                        "questionnaire_subscales" if per_topic else
+                        "legacy single submission (no topic) — no per-arm split"}
 
     out = {name: _cohort(name) for name in ("imi", "coi", "arcs")}
 
@@ -1611,6 +1613,8 @@ def questionnaire_subscales(db_path=None) -> dict:
     (topic_id null), so there is no per-arm split -- a real design limit, kept as a note (the same
     limit questionnaire_by_arm states). No SID leaves (test asserts it)."""
     out: dict = {}
+    idx = topic_index()
+    frozen = _frozen_arms(db_path)
     for name in ("imi", "coi", "arcs"):
         inst = _instrument(name) or {}
         scale_len = len(inst.get("scale") or [])
@@ -1618,38 +1622,66 @@ def questionnaire_subscales(db_path=None) -> dict:
         subscales = inst.get("subscales") or {}
 
         rows, _ = enrolled_only(_meta_events([f"questionnaire_{name}"], db_path))
-        per = _first_per_participant(rows)   # participant -> answer map, first submission wins
+        # One answer map per (participant, topic) -- the battery runs after EVERY topic
+        # (topic-questionnaire.tsx, Wilson 2026-08-30). A legacy row with no topic keys as
+        # (participant, None) and counts toward the cohort figure only.
+        battery: dict = {}
+        for r in rows:
+            battery.setdefault((r["participant_id"], r["topic_id"]), r["meta"].get("answers") or {})
+        arm_of = {k: (_resolved_arm(k[0], k[1], idx.get(k[1]), frozen) if k[1] in idx else None)
+                  for k in battery}
 
         def _score(item_id, v, _reverse=reverse, _scale_len=scale_len):
             if not (isinstance(v, int) and not isinstance(v, bool)):
                 return None
             return (_scale_len + 1 - v) if (item_id in _reverse and _scale_len) else v
 
+        def _person_means(item_ids, keep):
+            """participant -> mean over their kept batteries of this subscale's battery mean."""
+            acc: dict = defaultdict(list)
+            for k, ans in battery.items():
+                if not keep(k):
+                    continue
+                vals = [s for iid in item_ids for s in (_score(iid, ans.get(iid)),) if s is not None]
+                if vals:
+                    acc[k[0]].append(sum(vals) / len(vals))
+            return [sum(v) / len(v) for v in acc.values()]
+
+        def _block(xs):
+            return {"n": len(xs), "mean": round(sum(xs) / len(xs), 2) if xs else None}
+
         sub_out = []
         for sub_name, item_ids in subscales.items():
-            per_person = []
-            for ans in per.values():
-                vals = [s for iid in item_ids
-                        for s in (_score(iid, ans.get(iid)),) if s is not None]
-                if vals:
-                    per_person.append(sum(vals) / len(vals))
+            per_person = _person_means(item_ids, lambda k: True)
             sub_out.append({
                 "subscale": sub_name,
                 "items": list(item_ids),
                 "n": len(per_person),
                 "mean": round(sum(per_person) / len(per_person), 2) if per_person else None,
                 "sd": _sample_sd(per_person, 3),
+                # Within-student design: each person's FLIP-topic batteries vs their
+                # CONTROL-topic batteries, person-averaged so a student with 11 batteries
+                # does not outweigh one with 1. Descriptive here; the test is pre-reg 02's.
+                "flip": _block(_person_means(item_ids, lambda k: arm_of[k] == schedule.FLIP)),
+                "control": _block(_person_means(item_ids, lambda k: arm_of[k] == schedule.CONTROL)),
             })
+        multi = [a for a in battery.values() if len(a) >= 2]
+        straight = sum(1 for a in multi if len(set(a.values())) == 1)
         out[name] = {
             "title": inst.get("title"),
             "scale_max": scale_len or None,
             "reverse_items": sorted(reverse),
             "subscales": sub_out,
-            "n_respondents": len(per),
+            "n_respondents": len({k[0] for k in battery}),
+            "batteries": len(battery),
+            # Careless-responding signal (pre-reg 02 §6): every item given the same answer.
+            # On an instrument with reverse-keyed items that pattern is self-contradictory.
+            "straight_lined_pct": round(100 * straight / len(multi), 1) if multi else None,
         }
-    out["note"] = ("Reverse-applied subscale means (cohort-level). IMI/CoI/ARCS are each "
-                   "administered once across all topics, so there is no per-arm split. Reverse "
-                   "items are flipped to (min+max)-v using each instrument's scale length.")
+    out["note"] = ("Reverse-applied subscale means over EVERY per-topic battery (person-averaged), "
+                   "plus the same means split by the arm assigned for that topic. Reverse items "
+                   "are flipped to (min+max)-v. straight_lined_pct = submissions with every item "
+                   "identical; on IMI (reverse-keyed items) that is internally inconsistent.")
     return out
 
 

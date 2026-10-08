@@ -434,9 +434,9 @@ def _paper_slice(pid: str) -> dict:
             return side["mean_effort"] if side["mean_effort"] is not None else "—"
 
         stats = [
-            {"label": "IMI completed", "value": q["imi"]["n"], "sub": f"raw mean {q['imi']['mean_raw'] or '—'}"},
-            {"label": "CoI completed", "value": q["coi"]["n"], "sub": f"raw mean {q['coi']['mean_raw'] or '—'}"},
-            {"label": "ARCS completed", "value": q["arcs"]["n"], "sub": f"raw mean {q['arcs']['mean_raw'] or '—'}"},
+            {"label": "IMI completed", "value": q["imi"]["n"], "sub": f"{q['imi'].get('submissions', q['imi']['n'])} batteries · raw mean {q['imi']['mean_raw'] or '—'}"},
+            {"label": "CoI completed", "value": q["coi"]["n"], "sub": f"{q['coi'].get('submissions', q['coi']['n'])} batteries · raw mean {q['coi']['mean_raw'] or '—'}"},
+            {"label": "ARCS completed", "value": q["arcs"]["n"], "sub": f"{q['arcs'].get('submissions', q['arcs']['n'])} batteries · raw mean {q['arcs']['mean_raw'] or '—'}"},
             {"label": "PAAS effort — FLIP", "value": _eff(paas["flip"]), "sub": f"{paas['flip']['responses']} responses"},
             {"label": "PAAS effort — CONTROL", "value": _eff(paas["control"]), "sub": f"{paas['control']['responses']} responses"},
         ]
@@ -479,8 +479,8 @@ def _paper_slice(pid: str) -> dict:
 
         # The REAL H2/H3 instrument (measures.questionnaire_subscales): reverse-applied subscale
         # means — IMI (4 subscales), CoI (2), ARCS (2) — the scored form the analysis needs, vs
-        # the single raw item mean the stat cards above show. Cohort-level (these instruments have
-        # no per-arm split — a real design limit, kept in the note). One row per (instrument,
+        # the single raw item mean the stat cards above show. Asked after EVERY topic, so each
+        # row also carries the FLIP/CONTROL split (was wrongly "cohort-level", 2026-10-08). One row per (instrument,
         # subscale) with its mean + n. The FE renders ONE table, so this scored table is preferred
         # when there are questionnaire responses; the per-topic affect-recall table is the
         # fallback (it only has data after the end-of-study battery runs).
@@ -488,13 +488,23 @@ def _paper_slice(pid: str) -> dict:
         has_subs = any(subs[name]["n_respondents"] for name in ("imi", "coi", "arcs"))
         sub_table = None
         if has_subs:
+            # Per-topic batteries, so the FLIP/CONTROL columns are the within-student split
+            # (person-averaged). Descriptive only; the test is pre-reg 02's mixed model.
+            def _m(b):
+                return b["mean"] if b["mean"] is not None else "—"
             sub_table = {
-                "columns": ["Instrument", "Subscale", "mean (reverse-applied)", "n"],
-                "rows": [[name.upper(), s["subscale"],
-                          s["mean"] if s["mean"] is not None else "—", s["n"]]
+                "columns": ["Instrument", "Subscale", "mean (reverse-applied)", "n",
+                            "FLIP", "CONTROL", "straight-lined %"],
+                "rows": [[name.upper(), s["subscale"], _m(s), s["n"],
+                          _m(s["flip"]), _m(s["control"]),
+                          subs[name]["straight_lined_pct"] if subs[name]["straight_lined_pct"] is not None else "—"]
                          for name in ("imi", "coi", "arcs")
                          for s in subs[name]["subscales"]],
             }
+            stats.append({"label": "Straight-lined batteries (IMI / CoI / ARCS)",
+                          "value": " / ".join(f"{subs[n]['straight_lined_pct']}%" if subs[n]["straight_lined_pct"] is not None else "—"
+                                              for n in ("imi", "coi", "arcs")),
+                          "sub": "every item the same answer — careless-responding flag (pre-reg 02 §6)"})
             # Headline: the two IMI subscales most central to H2 (intrinsic interest / value).
             _imi = {s["subscale"]: s for s in subs["imi"]["subscales"]}
             for _sub, _lab in (("IE", "IMI interest/enjoyment"), ("VU", "IMI value/usefulness")):
@@ -503,7 +513,7 @@ def _paper_slice(pid: str) -> dict:
                                   "sub": f"n={_imi[_sub]['n']} (reverse-applied)"})
 
         table = sub_table or ar_table
-        return env("IMI/CoI/ARCS completion + raw item means (cohort-level), PAAS mental "
+        return env("IMI/CoI/ARCS completion + raw item means (asked after every topic), PAAS mental "
                    "effort split by the arm assigned per topic, the reverse-applied subscale "
                    "means (IMI/CoI/ARCS — the scored H2/H3 instrument, in the table) and — once "
                    "the end-of-study battery has run — the retrospective affect-recall block "

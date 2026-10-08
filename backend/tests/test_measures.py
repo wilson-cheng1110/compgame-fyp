@@ -649,6 +649,29 @@ check("the reverse item is read from the bank (M9/M11), not hardcoded",
 _tp = next(s for s in subs["coi"]["subscales"] if s["subscale"] == "TP")
 check("CoI TP (no reverse) mean is the plain item mean (4.0)", _tp["mean"] == 4.0, _tp)
 
+# PER-TOPIC batteries (the live design since 2026-08-30): the same student answers after a
+# FLIP topic and after a CONTROL topic. Both must be read (not "first wins"), split by the arm
+# assigned for THAT topic, and a straight-lined battery must be counted.
+QP = "25QPT0001A"
+_tix = measures.topic_index()
+_tf = next(t for t, i in _tix.items() if S.arm_for(QP, i) == S.FLIP)
+_tc = next(t for t, i in _tix.items() if S.arm_for(QP, i) == S.CONTROL)
+evm(QP, "questionnaire_imi", _tf, {"answers": {"M3": 5, "M7": 5, "M11": 1}})   # EI 5.0
+evm(QP, "questionnaire_imi", _tc, {"answers": {"M3": 2, "M7": 2, "M11": 4}})   # EI 2.0
+evm("25QPT0002A", "questionnaire_imi", _tf, {"answers": {"M1": 3, "M2": 3}})   # straight-lined
+conn.commit()
+_s2 = measures.questionnaire_subscales(DB)
+_ei2 = next(s for s in _s2["imi"]["subscales"] if s["subscale"] == "EI")
+check("per-topic: BOTH of a student's batteries are read, split by that topic's arm (5.0 / 2.0)",
+      _ei2["flip"] == {"n": 1, "mean": 5.0} and _ei2["control"] == {"n": 1, "mean": 2.0}, _ei2)
+check("per-topic: the cohort figure person-averages (QP's two batteries count once, as 3.5)",
+      _ei2["n"] == 3 and _ei2["mean"] == round((5.0 + 3.0 + 3.5) / 3, 2), _ei2)
+check("straight-lining is surfaced: 2 of 6 IMI submissions are all-identical (25IMI0002A, 25QPT0002A)",
+      _s2["imi"]["straight_lined_pct"] == 33.3 and _s2["imi"]["batteries"] == 6, _s2["imi"])
+_qa2 = measures.questionnaire_by_arm(DB)
+check("questionnaire_by_arm reports IMI as per-topic, counting every submission",
+      _qa2["imi"]["scope"] == "per_topic" and _qa2["imi"]["submissions"] == 6, _qa2["imi"])
+
 print("\n-- NO SID LEAK: every slice returns counts, never a participant id --")
 _blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_by_arm(DB),
                      measures.reflection_summary(DB), measures.game_result_summary(DB),

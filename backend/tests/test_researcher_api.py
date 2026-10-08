@@ -381,8 +381,12 @@ _p02s = pi.get("/api/researcher/paper/02-motivation-experience")
 _p02sj = _p02s.json()
 check("paper 02 returns the reverse-applied subscale table once IMI/CoI/ARCS responses exist",
       _p02sj.get("table") is not None
-      and _p02sj["table"]["columns"] == ["Instrument", "Subscale", "mean (reverse-applied)", "n"],
+      and _p02sj["table"]["columns"] == ["Instrument", "Subscale", "mean (reverse-applied)", "n",
+                                         "FLIP", "CONTROL", "straight-lined %"],
       _p02sj.get("table"))
+check("paper 02 surfaces the straight-lining rate (the 5-item all-3s ARCS answer counts: 100%)",
+      any(s["label"].startswith("Straight-lined") and s["value"].endswith("100.0%")
+          for s in _p02sj["stats"]), _p02sj["stats"])
 check("the subscale table carries an IMI IE row (reverse-applied: M9=1 -> 5, mean 5.0)",
       any(r[0] == "IMI" and r[1] == "IE" and r[2] == 5.0 for r in _p02sj["table"]["rows"]),
       [r for r in _p02sj["table"]["rows"] if r[0] == "IMI"])
