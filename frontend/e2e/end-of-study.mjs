@@ -146,9 +146,24 @@ test("the end-of-study battery: served without the answer key, graded, recorded,
   const items = page.locator('[data-testid="retention-item"]')
   const nItems = await items.count()
   for (let i = 0; i < nItems; i++) {
+    // Hover the second option on the way, so per-item telemetry has something to record.
+    await items.nth(i).locator('[data-testid="retention-option"]').nth(1).hover()
     await items.nth(i).locator('[data-testid="retention-option"]').first().click()
   }
+  // Capture what the battery actually SENDS (2026-10-08: duration + gated per-item telemetry).
+  const sent = page.waitForRequest((r) => r.method() === "POST"
+    && new URL(r.url()).pathname === `/api/retention/${topicId}`, { timeout: 8000 }).catch(() => null)
   await page.locator('[data-testid="retention-submit"]').click()
+  const req = await sent
+  const body = req ? JSON.parse(req.postData() || "{}") : {}
+  t.check("the retention POST carries a duration (needed for the rapid-guess rule)",
+    Number.isFinite(body.duration_ms) && body.duration_ms > 0, body.duration_ms)
+  if (ret.body?.telemetry_enabled) {
+    t.check("with telemetry on, it carries one telemetry snapshot per served item",
+      body.telemetry && Object.keys(body.telemetry).length === nItems, Object.keys(body.telemetry || {}))
+  } else {
+    t.check("with telemetry off, it sends no telemetry at all", body.telemetry === undefined, body.telemetry)
+  }
   await page.waitForTimeout(1200)
   t.check("a result (score out of total) is shown after submitting",
     (await page.locator('[data-testid="retention-continue"]').count()) === 1)

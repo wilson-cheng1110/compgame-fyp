@@ -189,6 +189,8 @@ export interface CheckPayload {
   form: "A" | "B"
   items: CheckItem[]
   reveals_answers: boolean
+  /** Retention only: whether the server will keep per-item telemetry (TELEMETRY_ENABLED). */
+  telemetry_enabled?: boolean
 }
 
 export interface GradedItem {
@@ -705,10 +707,12 @@ export const topics = {
 
 export const retention = {
   get: (topicId: string) => api.get<CheckPayload>(`/api/retention/${topicId}`),
-  submit: (topicId: string, answers: Record<string, string>, durationMs?: number) =>
+  submit: (topicId: string, answers: Record<string, string>, durationMs?: number,
+           telemetry?: Record<string, unknown>) =>
     api.post<CheckResult>(`/api/retention/${topicId}`, {
       answers,
       duration_ms: durationMs,
+      telemetry,
     }),
   /** Has the terminal "whole battery is finished" marker already been recorded for
    *  this SID? Mirrors `questionnaires.status()`'s "have I already done this" idiom,

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { ItemTracker, watchVisibility } from "@/lib/telemetry"
 import {
   retention,
   retentionProbe,
@@ -65,6 +66,13 @@ export default function EndOfStudyBattery({
   const [retResult, setRetResult] = useState<CheckResult | null>(null)
   const [retBusy, setRetBusy] = useState(false)
   const [retError, setRetError] = useState("")
+  // Per-item interaction telemetry on the Form C items, mirroring topic-check.tsx. Kept
+  // only when the server says TELEMETRY_ENABLED (and the server drops it otherwise). On the
+  // live checks, selection changes + options hovered tracked doubt and showed a FLIP effect
+  // the 6-item score could not (2026-10-08) -- pre-reg 01b's decisiveness DV needs it here.
+  const retTrackers = useRef<Record<string, ItemTracker>>({})
+  const retStartedAt = useRef<number>(0)
+  useEffect(() => watchVisibility(() => Object.values(retTrackers.current)), [])
 
   const [probePrompt, setProbePrompt] = useState<string | null>(null)
   const [probeAnswer, setProbeAnswer] = useState("")
@@ -102,6 +110,12 @@ export default function EndOfStudyBattery({
         setRetError(res.message ?? "Couldn't load the retention check.")
         return
       }
+      const tel = !!res.data.telemetry_enabled
+      retTrackers.current = {}
+      res.data.items.forEach((i) => {
+        retTrackers.current[i.id] = new ItemTracker(tel)
+      })
+      retStartedAt.current = Date.now()
       setRetItems(res.data.items)
     })
     return () => {
@@ -192,6 +206,9 @@ export default function EndOfStudyBattery({
 
   const chooseRet = (itemId: string, letter: string) => {
     if (retResult) return
+    if (retAnswers[itemId] && retAnswers[itemId] !== letter) {
+      retTrackers.current[itemId]?.onSelectionChange()
+    }
     setRetAnswers((prev) => ({ ...prev, [itemId]: letter }))
   }
 
@@ -199,7 +216,17 @@ export default function EndOfStudyBattery({
     if (!retItems || retBusy || retResult) return
     setRetBusy(true)
     setRetError("")
-    const res = await retention.submit(current.topic_id, retAnswers)
+    const telemetry: Record<string, unknown> = {}
+    for (const item of retItems) {
+      const snap = retTrackers.current[item.id]?.snapshot()
+      if (snap) telemetry[item.id] = snap
+    }
+    const res = await retention.submit(
+      current.topic_id,
+      retAnswers,
+      Date.now() - retStartedAt.current,
+      Object.keys(telemetry).length ? telemetry : undefined,
+    )
     setRetBusy(false)
     // Lost a race or a resubmit from a second tab — the row is already in.
     if (res.error === "already_submitted") {
@@ -321,8 +348,15 @@ export default function EndOfStudyBattery({
             <div className="space-y-4 mt-4">
               {retItems.map((item, idx) => {
                 const graded = retResult?.items?.find((g) => g.id === item.id)
+                const t = retTrackers.current[item.id]
                 return (
-                  <div key={item.id} className="u-card-quiet p-4" data-testid="retention-item">
+                  <div
+                    key={item.id}
+                    className="u-card-quiet p-4"
+                    data-testid="retention-item"
+                    onMouseMove={(e) => t?.onPointerMove(e.clientX, e.clientY)}
+                    onTouchStart={() => t?.onTouch()}
+                  >
                     <p className="u-eyebrow u-num mb-2">
                       Question {idx + 1} of {retItems.length}
                     </p>
@@ -346,6 +380,8 @@ export default function EndOfStudyBattery({
                             aria-checked={picked}
                             disabled={!!retResult}
                             onClick={() => chooseRet(item.id, opt.letter)}
+                            onMouseEnter={() => t?.onHoverStart(opt.letter)}
+                            onMouseLeave={() => t?.onHoverEnd(opt.letter)}
                             data-testid="retention-option"
                             className="u-btn"
                             style={{

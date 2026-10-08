@@ -32,6 +32,7 @@ for f in ("a.db", "r.db", ".secret"):
         os.remove(p)
 
 import auth_store, checks, research_store, schedule
+import json
 import retention as R
 
 ok = fail = 0
@@ -180,9 +181,17 @@ check("options are relettered a../d. sequentially",
           if len(it["options"]) == 4))
 
 answers = {it["id"]: it["options"][0]["letter"] for it in served_items}
-r = student.post("/api/retention/memory", json={"answers": answers, "duration_ms": 45000})
+_tel = {it["id"]: {"total_time_ms": 4000, "selection_changes": 1} for it in served_items}
+_meta = lambda e: (json.loads(e["meta"]) if isinstance(e.get("meta"), str) else (e.get("meta") or {}))
+check("GET tells the client whether to collect telemetry (flag off in this test env)",
+      r.json().get("telemetry_enabled") is False, r.json().get("telemetry_enabled"))
+r = student.post("/api/retention/memory",
+                 json={"answers": answers, "duration_ms": 45000, "telemetry": _tel})
 check("POST succeeds and reveals a score (end of study -- no contamination risk)",
       r.status_code == 200 and r.json().get("ok") is True and "score" in r.json(), r.json())
+check("telemetry sent while TELEMETRY_ENABLED is off is DROPPED server-side",
+      all("telemetry" not in _meta(e) for e in research_store.fetch_for_participant("24012345")
+          if e["event_type"] == "topic_retention"))
 check("topic_retention landed in the sink, once",
       sum(1 for e in research_store.fetch_for_participant("24012345")
           if e["event_type"] == "topic_retention" and e["topic_id"] == "memory") == 1)
@@ -218,7 +227,16 @@ check("refused while a completed+banked topic (problem-solving) has no retention
 # Finish problem-solving's retention too, then the marker succeeds.
 r = student.get("/api/retention/problem-solving")
 answers2 = {it["id"]: it["options"][0]["letter"] for it in r.json()["items"]}
-student.post("/api/retention/problem-solving", json={"answers": answers2})
+R.TELEMETRY_ENABLED = True   # the flag is read at import; flip it for this one submission
+student.post("/api/retention/problem-solving",
+             json={"answers": answers2, "duration_ms": 30000,
+                   "telemetry": {k: {"total_time_ms": 5000} for k in answers2}})
+R.TELEMETRY_ENABLED = False
+_ps = [e for e in research_store.fetch_for_participant("24012345")
+       if e["event_type"] == "topic_retention" and e["topic_id"] == "problem-solving"]
+check("with the flag ON, per-item telemetry and the duration are stored with the answers",
+      len(_ps) == 1 and set(_meta(_ps[0]).get("telemetry", {})) == set(answers2)
+      and _ps[0]["duration_ms"] == 30000, _ps)
 r = student.post("/api/retention/_complete")
 check("_complete succeeds once every completed+banked topic has a retention row",
       r.status_code == 200 and r.json().get("ok") is True, r.json())

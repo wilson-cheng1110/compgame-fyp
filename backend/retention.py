@@ -46,6 +46,12 @@ import checks
 import research_store
 import schedule
 
+# Per-item interaction telemetry on the Form C items, same rule as topic_api: accepted
+# and stored ONLY while the flag is on, dropped server-side otherwise. Added 2026-10-08
+# because on the live checks a decisiveness signal (selection changes + options hovered)
+# showed a FLIP effect the 6-item score was too coarse to show (pre-reg 01b).
+TELEMETRY_ENABLED = os.environ.get("TELEMETRY_ENABLED", "0") == "1"
+
 router = APIRouter(prefix="/api/retention", tags=["retention"])
 
 BANK_PATH = os.environ.get(
@@ -246,6 +252,7 @@ async def _consented(sid: str) -> bool:
 class Submission(BaseModel):
     answers: dict[str, str]
     duration_ms: int | None = None
+    telemetry: dict | None = None
 
 
 @router.get("/_status")
@@ -363,7 +370,8 @@ async def get_retention(topic_id: str, response: Response,
         return {"error": "already_submitted",
                 "message": "You've already submitted this one — it can only be answered once."}
 
-    return {"topic_id": topic_id, "form": "C", "items": items}
+    return {"topic_id": topic_id, "form": "C", "items": items,
+            "telemetry_enabled": TELEMETRY_ENABLED}
 
 
 @router.post("/{topic_id}")
@@ -412,7 +420,8 @@ async def submit_retention(topic_id: str, body: Submission, response: Response,
         "score": graded["score"],
         "duration_ms": body.duration_ms,
         "meta": {"form": "C", "answers": body.answers,
-                 "section": user["section"]},
+                 "section": user["section"],
+                 **({"telemetry": body.telemetry} if (TELEMETRY_ENABLED and body.telemetry) else {})},
     })
     if not created:
         # Lost the one-submission race (finding C1, sibling of topic_api.submit_check):
