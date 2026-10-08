@@ -74,8 +74,11 @@ mixed model; if it fails to converge, a linear mixed model on the 0–2 score.
 
 - Rows are participant × topic for topics the participant COMPLETED (the battery only offers
   completed topics). `norman` and `hicks-law` are analysed separately, as in H1.
-- **Rapid responding:** Form C attempts below the same rapid-guess time floor used for H1 are
-  flagged; the primary is reported with and without them.
+- **Rapid responding:** the same NT10 rule as H1 (`01-flip-effect.md` §6 — item time < 10% of
+  that item's median, capped at 10 s; a topic attempt flagged when ≥ half its items are rapid),
+  medians computed over Form C responses. Item times come from per-item battery telemetry if it is
+  recorded by the window (see §9), else the attempt's duration ÷ item count. Primary reported with
+  and without flagged attempts.
 - Withdrawn / disabled accounts excluded (export already applies this).
 - **Non-response:** a participant who does not take the battery contributes nothing; because each
   participant has topics in both conditions, non-response removes both arms together. Response

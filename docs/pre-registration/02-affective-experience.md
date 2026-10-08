@@ -17,6 +17,17 @@ submission per instrument). As with pre-reg `01`, **no analysis relating conditi
 outcome has been conducted or examined**; monitoring is limited to questionnaire *completion counts*,
 not scored construct values by condition.
 
+> **Disclosure — revision of 2026-10-08 (an interim look HAS now happened).** One unregistered
+> exploratory analysis of scored constructs by condition was run on the pseudonymised export
+> (185 participants, 766 per-topic batteries per instrument), reported in full: within-student
+> mixed models, condition effect on subscale means — IMI interest/enjoyment **+0.064** (95% CI
+> +0.009 to +0.119, p = .022), ARCS satisfaction **+0.065** (+0.007 to +0.124, p = .028), and no
+> effect on IMI competence, effort or value, CoI teaching/social presence, ARCS global, or Paas
+> effort (−0.04, p = .58). Nine uncorrected tests; neither positive result survives
+> Holm–Bonferroni. The same look found heavy straight-lining (every item identical) — CoI 72%,
+> ARCS 73%, IMI 41% of submissions — which prompted the concrete exclusion rule in §6. Either
+> outcome is reported as a finding; the final estimates are computed once, after the last topic.
+
 **2. Main question / hypotheses.**
 
 Does the flip change how learning **feels**, net of effort cost?
@@ -63,8 +74,14 @@ together with **Holm–Bonferroni** at family-wise α = .05.
 
 **6. Outliers and exclusions (pre-specified).**
 
-- **Straight-lining / careless responding** on the questionnaires flagged via a long-string /
-  consistency index (method per Meade & Craig 2012); primary run with and without flagged sets.
+- **Straight-lining / careless responding** (long-string index, Meade & Craig 2012), fixed
+  2026-10-08: a submission is **flagged** when its long-string equals the instrument's item count —
+  every item given the same answer. On IMI, which has reverse-keyed items (M9, M11), such a
+  submission is also internally contradictory. Each construct's primary is run **twice — all
+  submissions, and flagged submissions excluded** — and both are reported, with the flag rate per
+  instrument and per condition (if flagging differs by condition, that is itself reported). Paas is
+  a single item and cannot be flagged. The rule is computed by `measures.questionnaire_subscales()`
+  (`straight_lined_pct`) so the dashboard and the analysis use the same definition.
 - One submission per instrument is enforced server-side (partial unique index), so duplicates are
   not an exclusion case.
 - Same account-status exclusions (withdrawn/disabled) as pre-reg `01`.

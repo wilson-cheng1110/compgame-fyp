@@ -97,10 +97,15 @@ pre-registrations are corrected together with **Holm–Bonferroni** at family-wi
   comparable to the lecture-backed topics (decision of record, 2026-08-30). `webers-law`'s in-game
   assessment is **perceptual, not a knowledge quiz**, so its behavioural measure is excluded from
   the conceptual-gain DV and reported as a separate perceptual measure.
-- **Rapid-response / non-effortful check attempts:** pre/post responses completed below a
-  rapid-response time floor (two-state solution-vs-rapid-guessing threshold, method per
-  Wise & Kong 2005 / Kong et al. 2007) are flagged; the primary is run both with and without these,
-  and the flagging rule is fixed before analysis.
+- **Rapid-response / non-effortful check attempts** (Wise & Kong 2005; Kong et al. 2007), rule
+  fixed 2026-10-08: an item response is **rapid** when its time is below **10% of that item's
+  median response time across all participants, capped at 10 s** (normative threshold NT10,
+  Wise & Ma 2012). Item time is the per-item telemetry `total_time_ms` where recorded (from
+  2026-09-10) and the submission's duration ÷ item count otherwise. A check submission is
+  **flagged** when at least half its items are rapid. The primary is run with and without flagged
+  pre/post rows and both are reported, with flag rates by condition. (For scale: a crude
+  < 5 s/item rule flagged ~17% of submissions at the 2026-10-08 interim; NT10 is expected to flag
+  fewer, because many fast answers on easy items are simply known.)
 - **Attrition:** the primary is intention-to-treat (§5) — a participant × topic contributes if it has
   a scorable pre-check; completers-only is sensitivity analysis (a). Differential attrition by
   condition is reported (a CONSORT-style diagram; attrition bias budget per
