@@ -70,7 +70,7 @@ git will not deliver these. Put them in place **before** `start.ps1`.
 ## 7. Know these going in (accepted, not blockers)
 - **Session idle timeout:** `SESSION_IDLE_MINUTES` default **30** (env-tunable in `.env.local`). A student idle 30 min with zero interaction is logged out; the keep-alive pings on any activity, so active use — including typing a probe answer — never expires. In-progress, *unsubmitted* answers are lost on a logout; a *recorded* step is safe (progress is server-side, they re-login and resume).
 - **`norman` / `hicks-law`** have thin RAG corpus (built from 2023 decks) — the tutor is weaker on those two. Reported separately; not H1 evidence.
-- **Backups:** `backend\backup_sink.py` runs an hourly online-backup of the sink + accounts — confirm it's writing.
+- **Backups:** `backend\backup_sink.py` snapshots the sink + accounts, but ONLY if scheduled: run `deploy\install-services.ps1` **elevated** — it registers `COMPGame-Backup` (hourly, destination `BACKUP_DIR` in `deploy\.env.local`, default `C:\compgame-backups`; a different disk is better). Until 2026-10-08 nothing scheduled it and this line wrongly said it ran. Confirm on `/researcher` health that the last backup is under an hour old.
 - A release window is **five days wide**, not one morning: an hour of downtime is not a lost topic. Do not panic-fix during a window.
 
 ## Rollback

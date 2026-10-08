@@ -16,6 +16,7 @@
       COMPGame-Heartbeat  every 5 minutes, pings OUT to a dead-man's switch
       COMPGame-Checks     daily 6am, runs the measurement/corpus/schedule checks
       COMPGame-Decks      daily 5am, builds the tutorial deck due before each class
+      COMPGame-Backup     hourly, snapshots the sink + accounts (BACKUP_DIR in .env.local)
 
     The heartbeat is the one people skip and it is the one that matters. Inbound
     monitoring cannot tell you a box is off, because nothing answers either way. A
@@ -40,7 +41,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Start = Join-Path $Root "deploy\start.ps1"
 $Names = @("COMPGame-Boot", "COMPGame-Watchdog", "COMPGame-Heartbeat",
-           "COMPGame-Checks", "COMPGame-Decks")
+           "COMPGame-Checks", "COMPGame-Decks", "COMPGame-Backup")
 
 function Ok($m)   { Write-Host "  [ok]   $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "  [warn] $m" -ForegroundColor Yellow }
@@ -169,6 +170,37 @@ Pop-Location
 '@ | Set-Content -Path $decks -Encoding utf8
 Ok "wrote deploy\make-decks.ps1"
 
+# ------------------------------------------------------------------- backups
+# The sink + accounts are the whole study and cannot be re-collected. backup_sink.py
+# takes a consistent online snapshot (sqlite backup API), prunes old ones, and stamps
+# backend\.last-backup -- which /researcher health reads, so a stopped task shows up
+# there as "N hours since the last backup". Until 2026-10-08 nothing scheduled this:
+# the docs said "hourly" and the only backups were taken by hand.
+# BACKUP_DIR in deploy\.env.local picks the destination; default is outside the repo
+# (backup_sink's own default sits inside it, one git clean from gone). Prefer a
+# DIFFERENT disk when the box has one.
+$backup = Join-Path $Root "deploy\backup.ps1"
+@'
+# Hourly snapshot of the study databases. Registered by install-services.ps1.
+$root = Split-Path -Parent $PSScriptRoot
+$be = Join-Path $root "backend"
+$log = Join-Path $PSScriptRoot "logs\backup.log"
+New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
+$dest = "C:\compgame-backups"
+$envFile = Join-Path $root "deploy\.env.local"
+if (Test-Path $envFile) {
+    $d = (Get-Content $envFile | Where-Object { $_ -match '^\s*BACKUP_DIR\s*=\s*(.+)$' } |
+          ForEach-Object { $Matches[1].Trim() } | Select-Object -First 1)
+    if ($d) { $dest = $d }
+}
+$py = Join-Path $be ".venv\Scripts\python.exe"
+if (-not (Test-Path $py)) { $py = "python" }
+"$(Get-Date -Format s)  backup -> $dest" | Add-Content $log
+& $py (Join-Path $be "backup_sink.py") --dest $dest --verify *>> $log
+exit $LASTEXITCODE
+'@ | Set-Content -Path $backup -Encoding utf8
+Ok "wrote deploy\backup.ps1"
+
 # ------------------------------------------------------------------ register
 function Register($name, $script, $trigger) {
     if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
@@ -205,6 +237,10 @@ Register "COMPGame-Checks"    $checks    $daily
 # complete; 5am leaves the deck on the /admin page well before a 9am tutorial.
 $deckTrigger = New-ScheduledTaskTrigger -Daily -At 5am
 Register "COMPGame-Decks"     $decks     $deckTrigger
+
+$hourly = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) `
+    -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 3650)
+Register "COMPGame-Backup"    $backup    $hourly
 
 # ------------------------------------------------------------------- tunnel
 Write-Host ""

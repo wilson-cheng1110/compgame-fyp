@@ -14,9 +14,10 @@ live database, which is exactly the situation here.
     python backup_sink.py --verify        # also open each snapshot and count rows
     python backup_sink.py --dest D:/bak   # somewhere that is NOT this disk
 
-Scheduled task (run hourly, survives reboot):
-    schtasks /create /tn COMPGameBackup /sc hourly /tr ^
-      "python C:\\path\\to\\backend\\backup_sink.py --dest D:\\compgame-backups"
+Scheduled task (run hourly, survives reboot): `deploy\\install-services.ps1` registers
+COMPGame-Backup, which runs this via `deploy\\backup.ps1` with BACKUP_DIR from
+deploy\\.env.local. Nothing scheduled it before 2026-10-08 -- check /researcher health
+(signal.backup.hours_since) rather than assuming it runs.
 """
 
 import argparse
