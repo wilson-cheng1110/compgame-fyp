@@ -209,8 +209,10 @@ soon = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
 # A topic opens `opens_days_before` its lecture, so "still locked" means further out.
 lead = S._load().get("window", {}).get("opens_days_before", 7)
 still_locked = (datetime.now() + timedelta(days=lead + 1)).strftime("%Y-%m-%d")
+# ...and it must carry topics: a topic-less lecture (e.g. lecture 8) reports nothing to unlock.
+with_topics = {t["session"] for t in S._load()["topics"]}
 upcoming = sorted((int(n), d["A"]) for n, d in S._load()["sessions"].items()
-                  if d.get("A", "") > still_locked)
+                  if d.get("A", "") > still_locked and int(n) in with_topics)
 if upcoming:
     lec = upcoming[0][0]
     near = S.set_session_date(lec, "A", soon, commit=False)

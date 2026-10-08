@@ -471,7 +471,8 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
 - **Design — Stage 2 is CURRENT as of 2026-08-16. Full plan: `docs/revamp.md`.** Within-subjects,
   **13 topics × 300 students** (3 sections of ~100, Tue/Wed/Thu), released in **lecture-notes order**.
   *(A 4th **MSc** section — COMP5517, Mondays — was added to `topic_schedule.json` 2026-09-03 for a
-  cross-population read; its inclusion in the study analysis is HSESC-gated, `docs/ethics-amendment-stage2.md`.)*
+  cross-population read. Its inclusion in the study analysis is CLEARED — Wilson confirmed 2026-10-08
+  that MSc is approved; it is no longer an open ethics item for paper 05.)*
   FLIP/CONTROL is **randomised per topic per participant** (~half each), counterbalanced across the
   cohort, **assigned and recorded server-side at release time** — not inferred from completion order.
   A Latin square does not extend to 13 topics.

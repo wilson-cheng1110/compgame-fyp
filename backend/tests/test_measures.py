@@ -585,7 +585,8 @@ evm(gH, "assessment_complete", "hicks-law",
         {"comparison_id": "c1", "n_choices_a": 4, "n_choices_b": 12, "rt_ms": 600},
         {"comparison_id": "c2", "n_choices_a": 3, "n_choices_b": 9, "rt_ms": 400}]}})
 evm(gF, "assessment_complete", "fitts-law",
-    {"game_result": {"game": "fitts", "distance": {"A": 300, "B": 500}, "size": {"A": 400, "B": 600}}})
+    # Cumulative deciseconds from round start (the game's real payload): A at 0.3 s, B at 0.8 s.
+    {"game_result": {"game": "fitts", "distance": {"A": 3, "B": 8}, "size": {"A": 4, "B": 10}}})
 evm(gW, "assessment_complete", "webers-law",
     {"game_result": {"game": "weber",
                      "trials": [{"attribute": "size", "jnd_pct": 12.0},
@@ -600,9 +601,10 @@ check("Stroop: consistent/inconsistent mean RT + the congruency delta (800-500=3
 check("Hick: comparison RT keyed by TOTAL alternatives a+b, one bucket per trial (no n_a/n_b mirror)",
       {b["n_choices"]: b["mean_rt_ms"] for b in gp["hick"]["flip"]["by_n_choices"]}
       == {16: 600.0, 12: 400.0}, gp["hick"]["flip"])
-check("Fitts: mean MT by condition (distance 400, size 500)",
+check("Fitts: per-target MT in ms, gap since previous catch, targets NOT pooled",
       {b["condition"]: b["mean_mt_ms"] for b in gp["fitts"]["flip"]["by_condition"]}
-      == {"distance": 400.0, "size": 500.0}, gp["fitts"]["flip"])
+      == {"distance near (A)": 300.0, "distance far (B)": 500.0,
+          "size small (A)": 400.0, "size large (B)": 600.0}, gp["fitts"]["flip"])
 check("Weber: mean JND over the trials' jnd_pct ((12+8)/2 = 10.0)",
       gp["weber"]["flip"]["mean_jnd_pct"] == 10.0 and gp["weber"]["flip"]["trials"] == 2,
       gp["weber"]["flip"])

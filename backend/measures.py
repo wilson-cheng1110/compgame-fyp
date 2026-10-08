@@ -1402,9 +1402,11 @@ def game_psychophysics_summary(db_path=None) -> dict:
                    times ONE binary A-vs-B decision weighing two menus of size a and b, so its single
                    RT keys by the TOTAL alternatives shown (a + b) -- one bucket per trial, not the
                    old mirror that recorded the same RT against both n_a and n_b.
-      * Fitts   -- mean movement time (ms) by condition (distance / size). game_result.distance /
-                   size are {target -> catch_ms} maps (the two Fitts manipulations, amplitude and
-                   width); there is no numeric ID in the payload, so condition is the ID bucket.
+      * Fitts   -- mean movement time (ms) per TARGET: distance near/far, size small/large.
+                   game_result.distance / size are {fish -> cumulative deciseconds since round
+                   start}; MT = gap since the previous catch x100. Coarse (100 ms ticks, first MT
+                   includes reaction time) -- a within-arm near<far / large<small contrast, not
+                   an ID regression.
       * Weber   -- mean just-noticeable-difference (JND, % of base). Reads game_result.trials[].
                    jnd_pct, falling back to the jnd {attribute -> pct} map.
 
@@ -1416,6 +1418,9 @@ def game_psychophysics_summary(db_path=None) -> dict:
     idx = topic_index()
     frozen = _frozen_arms(db_path)
     rows, dropped = enrolled_only(_meta_events(None, db_path, where_meta='%"game_result"%'))
+    # fitts-law-understanding fish ids -> what they manipulate (distance/page.tsx, size/page.tsx).
+    _FITTS_TARGETS = {"distance": {"A": "distance near (A)", "B": "distance far (B)"},
+                      "size": {"A": "size small (A)", "B": "size large (B)"}}
 
     stroop = {schedule.FLIP: {"cons": [], "incons": [], "who": set()},
               schedule.CONTROL: {"cons": [], "incons": [], "who": set()}}
@@ -1500,16 +1505,26 @@ def game_psychophysics_summary(db_path=None) -> dict:
                 b["who"].add(pid_)
 
         elif game == "fitts":
+            # The payload is NOT per-fish movement time in ms. fitts-law-understanding's
+            # game-canvas ticks a timer every 100 ms (deciseconds) from ROUND START and stores
+            # the tick count at each catch, so {A: 13, B: 31} = A caught at 1.3 s, B at 3.1 s.
+            # Movement time per target = gap since the previous catch, x100 -> ms. And the two
+            # fish ARE the Fitts manipulation (distance: A near / B far; size: A 100px small /
+            # B 300px large) -- pooling them, as this used to, erased the effect being measured.
             b = fitts[arm]
             counted = False
             for cond in ("distance", "size"):
                 m = gr.get(cond)
                 if not isinstance(m, dict):
                     continue
-                for v in m.values():
-                    mt = _num(v)
-                    if mt is not None:
-                        b["by_cond"][cond].append(mt)
+                caught = sorted((t, k) for k, t in ((k, _num(v)) for k, v in m.items())
+                                if t is not None and k in _FITTS_TARGETS[cond])
+                prev = 0
+                for t, k in caught:
+                    mt = (t - prev) * 100
+                    prev = t
+                    if mt > 0:
+                        b["by_cond"][_FITTS_TARGETS[cond][k]].append(mt)
                         counted = True
             if counted:
                 b["who"].add(pid_)
