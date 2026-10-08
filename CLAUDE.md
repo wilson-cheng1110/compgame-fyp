@@ -254,6 +254,9 @@ rows were never touched.**
   `auth_store.pseudonym()` already uses, nothing stored, re-derived identically at grade time.
   "The answer is C" shared between two students maps to a DIFFERENT real option for each.
   Answers are keyed by `item_id`, so the question-order shuffle never touches grading.
+  Since 2026-10-08 the battery also sends `duration_ms` (it sent none) and per-item `ItemTracker`
+  telemetry, stored only when `TELEMETRY_ENABLED` (`retention.py` drops it otherwise, as
+  `topic_api` does) — for pre-reg 01b's rapid-guess rule and its decisiveness DV.
   `GET/POST /api/retention/{topic_id}`: session → consent → end-of-study window
   (`schedule.end_of_study_open`) → topic must be COMPLETE for this sid → one-submission
   (`topic_retention` event, added to `research_store`'s once-only index, now `idx_events_once_v3`)
