@@ -106,6 +106,18 @@ retention data that did not exist when it was proposed.
 Moderators are tested at α = .05 each, reported as **secondary** (not part of the Holm family),
 and interpreted only if H1b's main effect and the moderator agree in direction.
 
+- **Exploratory DV — decisiveness (registered so it is a fair test on new data).** Per Form C
+  item, from per-item battery telemetry (recorded when `TELEMETRY_ENABLED`): hesitation =
+  mean of z-scored *selection changes* and *options hovered > 300 ms* (mouse responses only);
+  time and cursor direction changes are NOT part of it, because on the immediate checks they
+  went WITH correct answers (effort, not doubt). Model: per participant × topic mean
+  hesitation ~ condition + immediate post-check hesitation + (1|participant) + (1|topic).
+  Prediction: lower in FLIP. Motivation: on the immediate checks (2026-10-08, exploratory)
+  this index predicted wrong answers (−0.028 per SD, p < .001) and was lower under FLIP
+  (−0.041 SD, p = .010), and cursor dwell on the correct option rose more under FLIP (+1.5 pp,
+  p = .019) — while the 6-item score was not significant. The index's components were chosen
+  after seeing that validity check, which is why it is exploratory here, not confirmatory.
+
 **9. Anything else.**
 
 - **Known instrument risk, declared now:** on the immediate check, some Form B items proved
@@ -113,6 +125,9 @@ and interpreted only if H1b's main effect and the moderator agree in direction.
   Form C slots that mirror the worst A/B pairs were flagged for human desk-review before the
   window (`docs/retention-review-packet.md`). Any item changed in that review is changed BEFORE
   the window opens and listed here before filing.
+- **Battery telemetry added 2026-10-08, before the window:** the battery now sends per-item
+  telemetry (stored only when `TELEMETRY_ENABLED`) and the attempt duration (needed by §6's
+  rapid-response rule; it previously sent neither).
 - Either outcome is a finding. A null H1b alongside a null immediate H1 will be reported as
   evidence against a flip benefit in this setting, with the dose and alignment checks as
   context — not explained away.

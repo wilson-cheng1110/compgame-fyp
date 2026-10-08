@@ -117,6 +117,30 @@ button still reads "Back to the unit"; free play still offers the assessment (22
 recorded before the fix are unchanged — report the bug in papers 01/06 as a documented instance of
 a navigation defect producing differential attrition, with the fix date as the boundary.
 
+## 2026-10-08 — the other papers, drilled (ALL EXPLORATORY)
+
+| Paper | Finding | Action taken |
+|---|---|---|
+| 02 | IMI/CoI/ARCS are asked after every topic, but the measures kept only each student's FIRST answer (~185 of 766 batteries used) and claimed "no arm split". Within-student: FLIP edges IMI interest/enjoyment +0.064 (p=.022) and ARCS satisfaction +0.065 (p=.028); nothing else; none survive Holm. **Straight-lining: CoI 72%, ARCS 73%, IMI 41%** (55% of students straight-line CoI/ARCS every time) — the main caveat for paper 02 | `37f22a5` measures read every battery, FLIP/CONTROL columns + straight-lined % on the dashboard; `ec47247` concrete careless-responding rule + interim disclosed in pre-reg 02 |
+| 09 | Fitts per-target times are order-confounded: the easy fish is caught first 65/65 and 62/63 rounds, so the per-target contrast reads Fitts' law backwards. Stroop replicates (~600 ms interference). Weber JND FLIP 22.6 vs CONTROL 27.3 (unexplained) | `997b0e7` order-confounded flag + dashboard caveat |
+| 04 | < 5 s/item responding ≈ 17% of check submissions (dashboard's accuracy-based "rapid guess" says 3%) | `ec47247` NT10 rapid-guess rule fixed in pre-reg 01 / 01b |
+| 03/07 | Tutor "insight" (51%) is unrelated to arm or post score; asking for the answer weakly predicts lower post (p=.057) — the tutor's own "understood" flag is not a learning measure | none (report) |
+
+**Does on-site behaviour reflect learning?** (`scripts/h1_interim/behaviour.py`; check items with
+telemetry since 2026-09-10; 24,048 item responses, 260 students, 87% mouse.) The literal "click
+faster after the Fitts game" is not testable: knowing a motor law does not change motor speed, and
+no target geometry is recorded. Decisiveness IS measurable:
+- **Validity:** selection changes and options hovered go with WRONG answers; time and direction
+  changes go with RIGHT answers (effort). Index = selection changes + options hovered:
+  −0.028 per SD on P(correct), p < .001.
+- **FLIP students are more decisive on the post-check:** −0.041 SD (95% CI −0.072 to −0.010),
+  p = .010, controlling pre-check hesitation, topic, student.
+- **FLIP students' cursors dwell more on the correct option:** share 0.51→0.53 vs 0.50→0.51,
+  +0.015 (p = .019).
+- So behaviour shows a FLIP effect the 6-item score (p = .11) is too coarse to show. Caveat: the
+  index was refined after the validity check — exploratory. Registered as an exploratory DV in
+  `01b-retention.md` so November is a fair test; the battery now records per-item telemetry.
+
 ## Follow-up plan
 
 **Now (this week)**
