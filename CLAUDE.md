@@ -92,7 +92,9 @@ FYP_Submission/
   deploy/                # ONE COMMAND to a running study server. setup.ps1 -> start.ps1
                          #   -> publish.ps1, plus install-services.ps1 for the part
                          #   three commands do NOT give you: Scheduled Tasks for boot,
-                         #   a watchdog, and a dead-man's-switch heartbeat (inbound
+                         #   a watchdog, the HOURLY BACKUP (COMPGame-Backup, added
+                         #   2026-10-08 -- before that nothing scheduled backup_sink.py),
+                         #   and a dead-man's-switch heartbeat (inbound
                          #   monitoring cannot tell you a box is OFF -- silence is the
                          #   signal). publish.ps1 REFUSES on a red gate. See deploy/README.md.
                          #   All .ps1 are ASCII + UTF-8 BOM: PowerShell 5.1 reads a
@@ -495,6 +497,11 @@ Goal: measure whether the Understanding-then-Assessment (flip) sequence improves
   topic unit; everything logs through the existing sink. `docs/revamp.md` Parts 2 and 8.
 
 ## Known issues / TODOs
+- **Gestalt Understanding drops `?unit=` (found 2026-10-08, NOT fixed — Wilson's call, mid-study).**
+  The menu's principle links and each sub-game's "Back to the Gestalt menu" lose the tag, so the
+  completion button routes FLIP students to the assessment and SKIPS the post-check (18 of 19 gestalt
+  FLIP no-post rows). Only gestalt has the pattern. Evidence + fix shape:
+  `docs/research-actions-2026-10-03.md` ("Gestalt drop-out").
 - Avatar system: only 2 avatars, minimal personality — needs revamp
 - Game isolation: no shared narrative thread, no "journey" feel
 - RAG widget: floating chatbot feels bolted-on, not integrated into game flow
