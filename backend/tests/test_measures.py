@@ -323,6 +323,49 @@ check("absent-telemetry tolerance: items=0 with empty means, no error",
       _cb_empty["items"] == 0 and _cb_empty["mean_time_ms"] is None, _cb_empty)
 check("ask_turn tolerates a sink with no ask_turn rows (zeros, no error)",
       measures.ask_turn_summary(_emptydb)["turns"] == 0, measures.ask_turn_summary(_emptydb))
+_gb0 = measures.game_behavior_summary(_emptydb)
+check("game_behavior_summary tolerates absent telemetry (n=0 everywhere, no error)",
+      all(c["n"] == 0 for c in _gb0["by_kind"].values()) and _gb0["understanding_by_arm"]["flip"]["n"] == 0, _gb0)
+
+print("\n-- game_behavior_summary (paper 09, card #09): game vs no-game, per session --")
+# Own sink so the expected medians are exact. memory = topic index 0; pick one FLIP and one
+# CONTROL student for it. FLIP game: 60 s, 6000 px (100 px/s), 30 dir (30/min), idle 15 s (.25).
+# CONTROL game: 30 s, 6000 px (200 px/s), 30 dir (60/min), no idle, one tab blur.
+_gbdb = os.path.join(tmp, "gamebeh.db")
+_gc = sqlite3.connect(_gbdb); _gc.execute(DDL)
+_mi = measures.topic_index()["memory"]
+_gf = next(s for s in (f"25GBF{i:04d}A" for i in range(9999)) if S.arm_for(s, _mi) == S.FLIP)
+_gk = next(s for s in (f"25GBC{i:04d}A" for i in range(9999)) if S.arm_for(s, _mi) == S.CONTROL)
+def _gev(sid, et, meta):
+    _gc.execute("INSERT INTO events (participant_id, event_type, topic_id, server_ts, meta)"
+                " VALUES (?,?,?,?,?)", (sid, et, "memory", "2026-09-12T00:00:00+00:00", _json.dumps(meta)))
+_gev(_gf, "understanding_complete", {"telemetry": {"total_time_ms": 60000, "path_length_px": 6000,
+     "direction_changes": 30, "max_idle_ms": 15000, "tab_blur_count": 0}})
+_gev(_gk, "understanding_complete", {"telemetry": {"total_time_ms": 30000, "path_length_px": 6000,
+     "direction_changes": 30, "max_idle_ms": 0, "tab_blur_count": 1}})
+_gev(_gk, "understanding_complete", {"telemetry": {"total_time_ms": 2000, "path_length_px": 50}})   # < 3 s: dropped
+_gev(_gf, "assessment_complete", {"telemetry": {"total_time_ms": 60000, "path_length_px": 12000,
+     "direction_changes": 10, "max_idle_ms": 0}})
+# A 2-item check: each item tracker reports the WHOLE check's 120 s; movement sums across items.
+_gev(_gf, "topic_pretest", {"telemetry": {"A1": {"total_time_ms": 120000, "path_length_px": 600, "direction_changes": 2},
+                                          "A2": {"total_time_ms": 120000, "path_length_px": 600, "direction_changes": 2}}})
+_gc.commit(); _gc.close()
+_gb = measures.game_behavior_summary(_gbdb)
+_u = _gb["by_kind"]["understanding game"]
+check("understanding game: 2 sessions (the 2 s one dropped), medians of the two",
+      _u["n"] == 2 and _u["minutes"] == 0.75 and _u["px_per_s"] == 150.0
+      and _u["dir_per_min"] == 45.0 and _u["blur_rate"] == 0.5, _u)
+_c = _gb["by_kind"]["MC check"]
+check("MC check collapses to ONE session: max item time (2 min), summed movement (1200 px -> 10 px/s, 4 dir -> 2/min)",
+      _c["n"] == 1 and _c["minutes"] == 2.0 and _c["px_per_s"] == 10.0 and _c["dir_per_min"] == 2.0, _c)
+check("assessment game counted separately (200 px/s)",
+      _gb["by_kind"]["assessment game"]["n"] == 1 and _gb["by_kind"]["assessment game"]["px_per_s"] == 200.0,
+      _gb["by_kind"]["assessment game"])
+_ua = _gb["understanding_by_arm"]
+check("understanding game split by the arm assigned for that topic (FLIP 100 px/s, CONTROL 200)",
+      _ua["flip"]["n"] == 1 and _ua["flip"]["px_per_s"] == 100.0 and _ua["flip"]["idle_share"] == 0.25
+      and _ua["control"]["n"] == 1 and _ua["control"]["px_per_s"] == 200.0, _ua)
+check("no participant id in the game-behaviour summary", _gf not in _json.dumps(_gb) and _gk not in _json.dumps(_gb))
 
 # game_result rides in meta.game_result on a completion event.
 evm(flip_sid, "assessment_complete", T, {"game_result": {"rt_ms": 420, "trials": 10}})
@@ -688,6 +731,7 @@ _blob = _json.dumps([measures.demographics_summary(DB), measures.questionnaire_b
                      # the process/behavioural slices (P04 accuracy + per-item telemetry,
                      # P07 free-chat) — same aggregate-only invariant, never a participant
                      measures.effort_summary(DB), measures.check_behavior_summary(DB),
+                     measures.game_behavior_summary(DB),
                      measures.ask_turn_summary(DB)])
 for _sid in (flip_sid, ctrl_sid, "24DEMOG01A", "24DEMOG02A", "24NOREFL1A", MIGN, PLAIN,
              "24AGE0001A", "24AGE0005A", CEIL_A, CEIL_B, GNOPOST, GNOACT,

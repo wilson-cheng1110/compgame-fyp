@@ -401,6 +401,81 @@ def check_behavior_summary(db_path=None) -> dict:
     }
 
 
+# ── game vs no-game behaviour (paper 09, board card #09) ──────────────────────
+#
+# game-telemetry.tsx attaches the SAME ItemTracker to every /games/* visit and its snapshot
+# rides understanding_complete / assessment_complete -- built for card #09 "Game vs No-Game
+# Behavior", then left unread when paper 09 was reframed to the ordering effect (2026-09-21).
+# Compared here per SESSION: one game visit, or one whole pre/post check. A check's per-item
+# trackers all start when the check loads, so per-item time is really whole-check time --
+# a check session takes the MAX item time and SUMS movement across items.
+
+_GAME_SESSION_EVENTS = {"understanding_complete": "understanding game",
+                        "assessment_complete": "assessment game"}
+_MIN_SESSION_MS = 3000
+
+
+def game_behavior_summary(db_path=None) -> dict:
+    """Behavioural telemetry per session for games vs the MC checks, plus the Understanding
+    game split by the arm assigned for that topic (FLIP plays it BEFORE the post-check,
+    CONTROL after). Medians, n per cell. Sessions under 3 s are dropped. Aggregate-only;
+    zeros (never an error) when telemetry was off."""
+    import statistics
+    idx = topic_index()
+    frozen = _frozen_arms(db_path)
+    rows, dropped = enrolled_only(_meta_events(
+        list(_GAME_SESSION_EVENTS) + _CHECK_TELEMETRY_EVENTS, db_path))
+
+    def _num(v):
+        return v if (isinstance(v, (int, float)) and not isinstance(v, bool)) else 0
+
+    sessions = defaultdict(list)            # kind -> [session dict]
+    by_arm = {schedule.FLIP: [], schedule.CONTROL: []}
+    for r in rows:
+        tel = r["meta"].get("telemetry")
+        if not isinstance(tel, dict):
+            continue
+        if r["event_type"] in _GAME_SESSION_EVENTS:
+            kind, parts = _GAME_SESSION_EVENTS[r["event_type"]], [tel]
+        else:
+            kind, parts = "MC check", [t for t in tel.values() if isinstance(t, dict)]
+        if not parts:
+            continue
+        total = max(_num(t.get("total_time_ms")) for t in parts)
+        if total < _MIN_SESSION_MS:
+            continue
+        s = {"minutes": total / 60000,
+             "px_per_s": sum(_num(t.get("path_length_px")) for t in parts) / (total / 1000),
+             "dir_per_min": sum(_num(t.get("direction_changes")) for t in parts) / (total / 60000),
+             "idle_share": min(1.0, max(_num(t.get("max_idle_ms")) for t in parts) / total),
+             "blurred": any(_num(t.get("tab_blur_count")) > 0 for t in parts)}
+        sessions[kind].append(s)
+        if r["event_type"] == "understanding_complete" and r["topic_id"] in idx:
+            arm = _resolved_arm(r["participant_id"], r["topic_id"], idx[r["topic_id"]], frozen)
+            if arm in by_arm:
+                by_arm[arm].append(s)
+
+    def _cell(ss):
+        if not ss:
+            return {"n": 0, "minutes": None, "px_per_s": None, "dir_per_min": None,
+                    "idle_share": None, "blur_rate": None}
+        med = lambda k, nd: round(statistics.median(x[k] for x in ss), nd)  # noqa: E731
+        return {"n": len(ss), "minutes": med("minutes", 2), "px_per_s": med("px_per_s", 1),
+                "dir_per_min": med("dir_per_min", 1), "idle_share": med("idle_share", 2),
+                "blur_rate": round(sum(x["blurred"] for x in ss) / len(ss), 3)}
+
+    return {
+        "by_kind": {k: _cell(sessions.get(k, [])) for k in
+                    ("MC check", "understanding game", "assessment game")},
+        "understanding_by_arm": {"flip": _cell(by_arm[schedule.FLIP]),
+                                 "control": _cell(by_arm[schedule.CONTROL])},
+        "test_traffic_excluded": dropped,
+        "note": "Per-session medians (sessions >= 3 s). Games vs MC checks, and the "
+                "Understanding game by when it was played (FLIP: before the post-check; "
+                "CONTROL: after). Descriptive; empty when TELEMETRY_ENABLED was off.",
+    }
+
+
 def enrolled_only(rows, key="participant_id"):
     """Drop anything that is not a real enrolled student.
 
