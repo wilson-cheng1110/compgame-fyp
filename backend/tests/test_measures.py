@@ -605,6 +605,18 @@ check("Fitts: per-target MT in ms, gap since previous catch, targets NOT pooled"
       {b["condition"]: b["mean_mt_ms"] for b in gp["fitts"]["flip"]["by_condition"]}
       == {"distance near (A)": 300.0, "distance far (B)": 500.0,
           "size small (A)": 400.0, "size large (B)": 600.0}, gp["fitts"]["flip"])
+check("Fitts: one round, easy fish first in both conditions -> flagged order-confounded",
+      gp["fitts"]["flip"]["order_confounded"] is True
+      and gp["fitts"]["flip"]["first_caught"]["distance"] == {"target": "distance near (A)", "pct": 100, "rounds": 1},
+      gp["fitts"]["flip"])
+_ixF = measures.topic_index()["fitts-law"]
+gF2 = next(s for s in (f"25H{i:05d}A" for i in range(20000)) if S.arm_for(s, _ixF) == S.FLIP)
+evm(gF2, "assessment_complete", "fitts-law",
+    {"game_result": {"game": "fitts", "distance": {"A": 9, "B": 4}, "size": {"A": 7, "B": 2}}})
+conn.commit()
+_f2 = measures.game_psychophysics_summary(DB)["fitts"]["flip"]
+check("Fitts: once rounds split 50/50 on which fish comes first, the flag clears",
+      _f2["order_confounded"] is False and _f2["first_caught"]["size"]["pct"] == 50, _f2)
 check("Weber: mean JND over the trials' jnd_pct ((12+8)/2 = 10.0)",
       gp["weber"]["flip"]["mean_jnd_pct"] == 10.0 and gp["weber"]["flip"]["trials"] == 2,
       gp["weber"]["flip"])

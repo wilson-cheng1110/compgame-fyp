@@ -1426,8 +1426,9 @@ def game_psychophysics_summary(db_path=None) -> dict:
               schedule.CONTROL: {"cons": [], "incons": [], "who": set()}}
     hick = {schedule.FLIP: {"by_n": defaultdict(list), "who": set()},
             schedule.CONTROL: {"by_n": defaultdict(list), "who": set()}}
-    fitts = {schedule.FLIP: {"by_cond": defaultdict(list), "who": set()},
-             schedule.CONTROL: {"by_cond": defaultdict(list), "who": set()}}
+    fitts = {a: {"by_cond": defaultdict(list), "who": set(),
+                 "first": {"distance": defaultdict(int), "size": defaultdict(int)}}
+             for a in (schedule.FLIP, schedule.CONTROL)}
     weber = {schedule.FLIP: {"jnd": [], "who": set()},
              schedule.CONTROL: {"jnd": [], "who": set()}}
 
@@ -1526,6 +1527,11 @@ def game_psychophysics_summary(db_path=None) -> dict:
                     if mt > 0:
                         b["by_cond"][_FITTS_TARGETS[cond][k]].append(mt)
                         counted = True
+                # Both fish are on screen together and the FIRST catch's time includes
+                # reaction/start-up, so if students always take the easy fish first the
+                # per-target contrast measures catch ORDER, not Fitts' law. Count it.
+                if len(caught) == 2 and caught[0][0] < caught[1][0]:
+                    b["first"][cond][_FITTS_TARGETS[cond][caught[0][1]]] += 1
             if counted:
                 b["who"].add(pid_)
 
@@ -1557,9 +1563,19 @@ def game_psychophysics_summary(db_path=None) -> dict:
 
     def _fitts_arm(arm):
         b = fitts[arm]
+        first = {}
+        for cond, counts in b["first"].items():
+            total = sum(counts.values())
+            if total:
+                target, n = max(counts.items(), key=lambda kv: kv[1])
+                first[cond] = {"target": target, "pct": round(100 * n / total), "rounds": total}
         return {"n": len(b["who"]),
                 "by_condition": [{"condition": cond, "mean_mt_ms": _mean(b["by_cond"][cond]),
-                                  "trials": len(b["by_cond"][cond])} for cond in sorted(b["by_cond"])]}
+                                  "trials": len(b["by_cond"][cond])} for cond in sorted(b["by_cond"])],
+                # >= 90% of rounds start on the same fish -> the per-target MTs are confounded
+                # with catch order and are NOT a Fitts'-law test (2026-10-08: 65/65, 62/63).
+                "first_caught": first,
+                "order_confounded": any(v["pct"] >= 90 for v in first.values())}
 
     def _weber_arm(arm):
         b = weber[arm]

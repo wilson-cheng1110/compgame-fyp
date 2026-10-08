@@ -866,8 +866,13 @@ def _paper_slice(pid: str) -> dict:
                     return ("; ".join(f"n={b['n_choices']}:{_fmt(b['mean_rt_ms'])}ms"
                                       for b in side["by_n_choices"]) or "—")
                 if paradigm == "fitts":
-                    return ("; ".join(f"{b['condition']}:{_fmt(b['mean_mt_ms'])}ms"
-                                      for b in side["by_condition"]) or "—")
+                    s = ("; ".join(f"{b['condition']}:{_fmt(b['mean_mt_ms'])}ms"
+                                   for b in side["by_condition"]) or "—")
+                    if side.get("order_confounded"):
+                        fc = side["first_caught"]
+                        s += " | ⚠ order-confounded, not a Fitts'-law test (caught first: " + ", ".join(
+                            f"{v['target']} {v['pct']}%" for v in fc.values()) + ")"
+                    return s
                 return f"JND {_fmt(side['mean_jnd_pct'])}%"
 
             rows = []
