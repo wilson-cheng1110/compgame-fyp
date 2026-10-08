@@ -82,6 +82,39 @@ the post-check FLIP 38 vs CONTROL 6. A large immediate benefit is ruled out.
 Scripts (scratchpad, not committed): `h1.py`, `whynull.py`, `lateness.py`, run on the researcher
 export with statsmodels; item responses re-graded against `checks._key()` (0 score mismatches).
 
+## Auto-mode run, 2026-10-08 — what got done
+
+| Plan item | Status | Where |
+|---|---|---|
+| Schedule the hourly backup | **Code done**; box step pending (run `deploy\install-services.ps1` elevated) | `a4bd21d` — `COMPGame-Backup` → `deploy\backup.ps1`, `BACKUP_DIR` in `.env.local`, default `C:\compgame-backups` |
+| Form C vs the form gap | **Packet done**; human review pending | `029bb66` — `docs/retention-review-packet.md` (20 flagged slots: 6 A/B-gap, 14 hardened), `scripts/form_gap_report.py` |
+| Pre-register the delayed analysis | **Drafted**; PI to file before 2026-11-23 | `dbf6e3e` — `docs/pre-registration/01b-retention.md` |
+| Gestalt drop-out | **Diagnosed — a navigation bug, not difficulty** (below) | `scripts/h1_interim/gestalt.py` |
+| Reproducible analysis scripts | Done | `b7b0ced` — `scripts/h1_interim/` |
+| Participant-forget ×12 | **Not run** — irreversible; needs Wilson's explicit yes | — |
+
+**Gestalt drop-out — cause found, and it is a routing bug.** Of the 19 gestalt FLIP rows with no
+post-check, **18 went `understanding_complete` → `assessment_complete`** and never saw the
+post-check. Mechanism (live route `frontend/app/games/[gameId]/gestalt-understanding-wrapper.tsx`):
+the menu's five principle links (`:246-250`, `/games/gestalt-understanding/app/<principle>`) and
+each sub-game's "Back to the Gestalt menu" link (`gestalt-understanding/{similarity,proximity,
+continuity,symmetry,closure}-game.tsx`, bare `href="/games/gestalt-understanding"`) all DROP the
+`?unit=` tag. Back on the menu the completion button (`:321-331`) therefore thinks it is free play:
+it reads "Take the Assessment →", records the game complete, and `router.push`es to
+`/games/gestalt-assessment` — **skipping the unit's post-check and running the scored assessment
+outside the unit**. Only students who actually opened a sub-game lose the tag, so the bug
+selectively removes the MORE engaged FLIP students; CONTROL is untouched because its post-check
+comes before the game. It is therefore a **bug-induced differential attrition by arm**, and the
+gestalt per-protocol estimate is biased by it (the ITT primary treats them as "no change").
+Scope: a scan of all 13 Understanding games found bare internal links ONLY in gestalt (the others
+are single-page; fitts carries the tag via `withUnit`), so ergonomics and experiment-design are
+safe. Fitts' 7 (also `understanding_complete` then no post) have a different, still-unknown cause.
+Also: gestalt's `understanding_complete` carries no `duration_ms`, so gestalt is absent from the
+dose analysis. **Fix decision is Wilson's:** gestalt's on-time window closed with lecture 5, so a
+fix helps late completers only; it is ~6 links carrying `?unit=` (the fitts `withUnit` pattern),
+no instrument change. Report the bug in papers 01/06 either way — a clean, documented instance of
+how a navigation defect produces differential attrition.
+
 ## Follow-up plan
 
 **Now (this week)**
