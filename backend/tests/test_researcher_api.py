@@ -368,6 +368,27 @@ check("the psychophysics table has a Stroop row for each arm (FLIP + CONTROL)",
       sum(1 for r in _p09j["table"]["rows"] if r[0] == "Stroop") == 2, _p09j["table"]["rows"][:2])
 for _leak in ("24STUDENT1B", "20250001", "20250001A", "99Z00000Z"):
     check(f"paper 09's psychophysics table leaks no raw SID ({_leak})", _leak not in _p09.text, _p09.text[:200])
+check("paper 09 shows no behaviour tables while no game carries telemetry",
+      "extra_tables" not in _p09j, list(_p09j))
+# Card #09: a game visit WITH telemetry -> the game-vs-no-game behaviour tables appear.
+research_store.record_event({"participant_id": "24STUDENT1B", "event_type": "understanding_complete",
+                             "topic_id": "stroop",
+                             "meta": {"telemetry": {"total_time_ms": 60000, "path_length_px": 6000,
+                                                    "direction_changes": 30, "max_idle_ms": 6000}}})
+_p09b = pi.get("/api/researcher/paper/09-game-psychophysics")
+_p09bj = _p09b.json()
+check("paper 09 adds the two game-vs-no-game behaviour tables once game telemetry exists",
+      [t["title"] for t in _p09bj.get("extra_tables", [])]
+      == ["Game vs no-game behaviour (per session, medians)",
+          "Understanding game: played before (FLIP) vs after (CONTROL) the post-check"],
+      _p09bj.get("extra_tables"))
+check("the understanding-game row reads the session (1 session, 100 px/s, idle share 0.1)",
+      any(r[0] == "understanding game" and r[1] == 1 and r[3] == 100.0 and r[5] == 0.1
+          for r in _p09bj["extra_tables"][0]["rows"]), _p09bj["extra_tables"][0]["rows"])
+check("other papers carry no extra_tables",
+      "extra_tables" not in pi.get("/api/researcher/paper/04-test-taking-behaviour").json())
+for _leak in ("24STUDENT1B", "20250001", "20250001A"):
+    check(f"paper 09's behaviour tables leak no raw SID ({_leak})", _leak not in _p09b.text, _p09b.text[:200])
 
 # P02: give the enrolled student IMI/CoI/ARCS submissions so the reverse-scored subscale table
 # has data (it is preferred over the affect-recall table when questionnaire responses exist).

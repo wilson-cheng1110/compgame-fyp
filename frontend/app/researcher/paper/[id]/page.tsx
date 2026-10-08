@@ -3,7 +3,36 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getPaper, PAPERS, paperLiveTone } from "@/lib/papers"
 import { StaffHeader, Panel, StatGrid, StatCard, DataTable, THEAD_ROW_STYLE, TROW_STYLE } from "@/components/staff"
-import type { PaperSlice } from "@/lib/api"
+import type { PaperSlice, PaperTable } from "@/lib/api"
+
+/** One live-slice table. The main table and any `extra_tables` render through this, so
+ *  the column alignment and the "—" for null stay identical across them. */
+function SliceTable({ table }: { table: PaperTable }) {
+  return (
+    <DataTable minWidth={Math.max(520, table.columns.length * 96)}>
+      <thead>
+        <tr className="u-faint" style={THEAD_ROW_STYLE}>
+          {table.columns.map((col, ci) => (
+            <th key={col} scope="col" className={ci === 0 ? "p-3" : "p-3 u-r"}>
+              {col}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {table.rows.map((row, ri) => (
+          <tr key={ri} style={TROW_STYLE}>
+            {row.map((cell, ci) => (
+              <td key={ci} className={ci === 0 ? "p-3" : "p-3 u-num u-r"}>
+                {cell === null ? "—" : cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </DataTable>
+  )
+}
 
 // ONE PAPER's page, in the research-programme dashboard added to /researcher. A SERVER
 // component, following app/topics/[topicId]/page.tsx exactly: gate server-side with the
@@ -287,30 +316,18 @@ export default async function ResearcherPaperPage({
 
               {slice.table && slice.table.rows.length > 0 && (
                 <div className="mt-4">
-                  <DataTable minWidth={Math.max(520, slice.table.columns.length * 96)}>
-                    <thead>
-                      <tr className="u-faint" style={THEAD_ROW_STYLE}>
-                        {slice.table.columns.map((col, ci) => (
-                          <th key={col} scope="col" className={ci === 0 ? "p-3" : "p-3 u-r"}>
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {slice.table.rows.map((row, ri) => (
-                        <tr key={ri} style={TROW_STYLE}>
-                          {row.map((cell, ci) => (
-                            <td key={ci} className={ci === 0 ? "p-3" : "p-3 u-num u-r"}>
-                              {cell === null ? "—" : cell}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </DataTable>
+                  <SliceTable table={slice.table} />
                 </div>
               )}
+
+              {(slice.extra_tables ?? [])
+                .filter((t) => t.rows.length > 0)
+                .map((t) => (
+                  <div className="mt-6" key={t.title}>
+                    <p className="u-eyebrow mb-2">{t.title}</p>
+                    <SliceTable table={t} />
+                  </div>
+                ))}
 
               {slice.note && <p className="u-faint mt-3">{slice.note}</p>}
             </div>

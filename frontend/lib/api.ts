@@ -565,6 +565,8 @@ export interface PaperSlice {
   stats: PaperStat[]
   note?: string | null
   table?: PaperTable | null
+  /** Further titled tables after the main one (paper 09: game-vs-no-game behaviour). */
+  extra_tables?: (PaperTable & { title: string })[] | null
 }
 
 // ── deployment signal-health (aggregate-only) ──────────────────────────────────

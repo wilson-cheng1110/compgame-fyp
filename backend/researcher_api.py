@@ -324,9 +324,14 @@ def _paper_slice(pid: str) -> dict:
     {id, basis, status, stats:[{label,value,sub}], note, table?}. Aggregate-only. status is
     'live' (a real measure), 'proxy' (a live stand-in for a construct whose PRIMARY analysis
     is an offline pass), 'flag_off' (telemetry was off -> zero rows), or 'pending'."""
-    def env(basis, status, stats, note=None, table=None):
-        return {"id": pid, "basis": basis, "status": status,
-                "stats": stats, "note": note, "table": table}
+    def env(basis, status, stats, note=None, table=None, extra_tables=None):
+        # extra_tables: optional [{title, columns, rows}] rendered after the main table, for a
+        # paper with more than one view (paper 09: psychophysics + game-vs-no-game behaviour).
+        out = {"id": pid, "basis": basis, "status": status,
+               "stats": stats, "note": note, "table": table}
+        if extra_tables:
+            out["extra_tables"] = extra_tables
+        return out
 
     order = {t["id"]: i for i, t in enumerate(schedule._load().get("topics", []))}
 
@@ -896,10 +901,42 @@ def _paper_slice(pid: str) -> dict:
                 rows.append([paradigm.capitalize(), arm, side["n"],
                              _stat_for(paradigm, side) + _low_n(side["n"])])
             table = {"columns": ["Paradigm", "Arm", "N", "Statistic"], "rows": rows}
+        # Board card #09's original question, game vs no-game BEHAVIOUR, from the same
+        # ItemTracker telemetry the games and checks both record (measures.game_behavior_summary).
+        # Descriptive medians per session; only shown when there is game telemetry.
+        gb = measures.game_behavior_summary()
+        extra = None
+        n_game = gb["by_kind"]["understanding game"]["n"] + gb["by_kind"]["assessment game"]["n"]
+        if n_game:
+            def _v(x):
+                return x if x is not None else "—"
+            cols = ["Where", "Sessions", "Minutes", "Pointer px/s", "Direction changes/min",
+                    "Longest idle (share)", "Tab-blur rate"]
+
+            def _row(label, c):
+                return [label, c["n"], _v(c["minutes"]), _v(c["px_per_s"]), _v(c["dir_per_min"]),
+                        _v(c["idle_share"]), _v(c["blur_rate"])]
+            ua = gb["understanding_by_arm"]
+            extra = [
+                {"title": "Game vs no-game behaviour (per session, medians)", "columns": cols,
+                 "rows": [_row(k, gb["by_kind"][k]) for k in
+                          ("MC check", "understanding game", "assessment game")]},
+                {"title": "Understanding game: played before (FLIP) vs after (CONTROL) the post-check",
+                 "columns": cols,
+                 "rows": [_row("FLIP — before the post-check", ua["flip"]),
+                          _row("CONTROL — after the post-check", ua["control"])]},
+            ]
+            stats.append({"label": "Game-screen sessions with telemetry", "value": n_game,
+                          "sub": "card #09 — game vs no-game behaviour, tables below"})
+        note = g["note"]
+        if extra:
+            note = (note + " Behaviour tables: descriptive medians per session (>= 3 s). A check's "
+                    "per-item trackers start when the check loads, so a check session uses the "
+                    "longest item time and summed movement.")
         return env("Per-paradigm psychophysics DV split by assigned arm — Stroop congruency "
                    "delta, Hick RT×n_choices, Fitts MT by condition (distance/size), Weber JND — "
                    "the reframed DV. Trial coverage is in the stat cards. Live only when "
-                   "TELEMETRY_ENABLED was on in prod.", status, stats, g["note"], table)
+                   "TELEMETRY_ENABLED was on in prod.", status, stats, note, table, extra)
 
     return env("Unknown paper.", "pending", [], "No live slice for this id.")
 
