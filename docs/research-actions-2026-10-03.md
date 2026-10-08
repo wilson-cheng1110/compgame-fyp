@@ -144,6 +144,27 @@ paper-09 page (`5b38800`, `038957f`); script `scripts/h1_interim/game_behaviour.
   student: direction changes −2.4/min (p = .064), pointer −7.7 px/s (p = .13), time +7% (p = .14),
   idle share n.s. — a trend toward more deliberate play before the test, **not significant**.
 
+**External help on the unproctored checks (papers 04 / 01; exploratory, 2026-10-09).** A check
+session counts as "left the page" when any item's `tab_blur_count` > 0 (sessions ≥ 3 s; 10-08
+export).
+
+| | Left the page | FLIP | CONTROL | Median time away |
+|---|---|---|---|---|
+| Pre-check (n = 2,019) | 43.8% | 43.0% | 44.6% | 48 s |
+| Post-check (n = 1,989) | 36.8% | 34.0% | 39.6% | 31 s |
+
+- Within student, controlling time on the page and topic, leaving the page goes with higher scores:
+  **pre-check +7.0 points** (95% CI +5.1 to +9.0), **post-check +5.5** (+3.6 to +7.3).
+- **Interpretation: students got external help** during the checks. The source is not identified
+  and is not claimed: no copy events are recorded, and the tests that could separate sources
+  (self-reported study-chatbot use; item-difficulty pattern) were inconclusive.
+- Consequences: (1) the pre-check partly measures access to external help, not only prior
+  knowledge — part of the ~85 baseline and of the ceiling; (2) on the post-check FLIP leaves the
+  page **6 points less** often than CONTROL (p < .001; no difference on the pre-check, p = .42),
+  so external help slightly lifts CONTROL's post-check — roughly 0.3 points against FLIP.
+- Proposed (not done): add "left the page" as an H1 sensitivity analysis (excluded / covariate),
+  disclosed as found at this interim; show the rates on paper 04's page.
+
 **Does on-site behaviour reflect learning?** (`scripts/h1_interim/behaviour.py`; check items with
 telemetry since 2026-09-10; 24,048 item responses, 260 students, 87% mouse.) The literal "click
 faster after the Fitts game" is not testable: knowing a motor law does not change motor speed, and
