@@ -28,9 +28,10 @@ these then.
 | Paper | Hypothesis | Status | Pre-reg |
 |---|---|---|---|
 | **01** Does the flip work? | H1 — flip raises learning gain | **Confirmatory (primary)** | `01-flip-effect.md` ✅ drafted |
+| **01b** Does the flip help retention? | H1b/H1c — delayed Form C + application probe | **Confirmatory** (file before 2026-11-23) | `01b-retention.md` ✅ drafted |
 | **02** How the flip feels | H2/H3/H4 — motivation, community, satisfaction, effort | **Confirmatory (if PI commits)** | `02-affective-experience.md` ✅ drafted |
 | **03** Reflection & help-seeking | reflection depth / answer-grabbing vs learning | Confirmatory **candidate** | stub below |
-| **05** Transfer to master's students | flip effect holds UG→PG | Confirmatory **candidate**, HSESC-gated | stub below |
+| **05** Transfer to master's students | flip effect holds UG→PG | Confirmatory **candidate** (MSc inclusion cleared 2026-10-08) | stub below |
 | 04 / 08 / 09 | test-taking traces / small-model / game-as-experiment | **Exploratory** — do **not** pre-register as confirmatory | — |
 | 06 / 07 | classroom-RCT method / AI-tutor design | Methods & design contributions | — |
 
