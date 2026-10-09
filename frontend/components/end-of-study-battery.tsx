@@ -12,6 +12,8 @@ import {
   type QuestionnaireInstrument,
 } from "@/lib/api"
 import { TOPICS } from "@/lib/topic-definitions"
+import { suppressTutor } from "@/lib/tutor-suppress"
+import RetentionReview from "@/components/retention-review"
 
 // The end-of-study battery: for every topic the student COMPLETED, three steps,
 // topic by topic —
@@ -72,7 +74,18 @@ export default function EndOfStudyBattery({
   // the 6-item score could not (2026-10-08) -- pre-reg 01b's decisiveness DV needs it here.
   const retTrackers = useRef<Record<string, ItemTracker>>({})
   const retStartedAt = useRef<number>(0)
-  useEffect(() => watchVisibility(() => Object.values(retTrackers.current)), [])
+  // Copying a question is blocked and COUNTED (2026-10-09): on the immediate checks,
+  // leaving the page went with +7 points (external help). Counts ride each item's
+  // telemetry snapshot, so they are kept only when TELEMETRY_ENABLED.
+  const retCopies = useRef<Record<string, number>>({})
+  const probeTracker = useRef<ItemTracker | null>(null)
+  const probeCopies = useRef(0)
+  useEffect(
+    () => watchVisibility(() => [...Object.values(retTrackers.current),
+                                 ...(probeTracker.current ? [probeTracker.current] : [])]),
+    [],
+  )
+  const [reviewScores, setReviewScores] = useState<{ topic_id: string; score: number }[]>([])
 
   const [probePrompt, setProbePrompt] = useState<string | null>(null)
   const [probeAnswer, setProbeAnswer] = useState("")
@@ -87,6 +100,20 @@ export default function EndOfStudyBattery({
 
   const current = topics[index] as JourneyTopic | undefined
   const def = current ? TOPICS.find((t) => t.id === current.topic_id) : undefined
+
+  // The AI tutor steps aside while the battery is open (lib/tutor-suppress.ts).
+  useEffect(() => {
+    if (!open || done) return
+    return suppressTutor()
+  }, [open, done])
+
+  // The payoff for answering honestly: which topics to revise before the exam.
+  useEffect(() => {
+    if (!done) return
+    retention.status().then((res) => {
+      if (res.ok && res.data?.scores) setReviewScores(res.data.scores)
+    })
+  }, [done])
 
   // Load the current topic's retention step whenever we land on it. A 409 here means
   // a previous session already recorded it — skip straight to the affect step rather
@@ -112,6 +139,7 @@ export default function EndOfStudyBattery({
       }
       const tel = !!res.data.telemetry_enabled
       retTrackers.current = {}
+      retCopies.current = {}
       res.data.items.forEach((i) => {
         retTrackers.current[i.id] = new ItemTracker(tel)
       })
@@ -143,6 +171,8 @@ export default function EndOfStudyBattery({
         setProbeError(res.message ?? "Couldn't load the question.")
         return
       }
+      probeTracker.current = new ItemTracker(!!res.data.telemetry_enabled)
+      probeCopies.current = 0
       setProbePrompt(res.data.prompt)
       probeStartedAt.current = Date.now()
     })
@@ -173,6 +203,7 @@ export default function EndOfStudyBattery({
     return done ? (
       <div className="u-card p-5 mt-6" data-testid="end-of-study-done">
         <p className="u-stem">Thanks — that&apos;s the whole review, recorded.</p>
+        <RetentionReview scores={reviewScores} />
       </div>
     ) : null
   }
@@ -184,11 +215,15 @@ export default function EndOfStudyBattery({
         data-testid="end-of-study-prompt"
       >
         <div>
-          <p style={{ fontWeight: 600 }}>One last thing: a quick look back</p>
+          <p style={{ fontWeight: 600 }}>Exam revision check: what do you still remember?</p>
           <p className="u-faint mt-0.5">
             For each topic you finished — a short recap quiz, one short-answer
             question, and three quick questions about how it went. A couple of minutes
-            per topic.
+            per topic. At the end you get the list of topics worth revising before the exam.
+          </p>
+          <p className="u-faint mt-1" data-testid="end-of-study-honesty">
+            It isn&apos;t graded. Answer from memory — looking answers up only hides the
+            topics you actually need to revise.
           </p>
         </div>
         <button
@@ -196,7 +231,7 @@ export default function EndOfStudyBattery({
           className="u-btn u-btn-primary"
           data-testid="end-of-study-start"
         >
-          Start the review
+          I&apos;ll answer from memory — start
         </button>
       </div>
     )
@@ -219,7 +254,7 @@ export default function EndOfStudyBattery({
     const telemetry: Record<string, unknown> = {}
     for (const item of retItems) {
       const snap = retTrackers.current[item.id]?.snapshot()
-      if (snap) telemetry[item.id] = snap
+      if (snap) telemetry[item.id] = { ...snap, copy_attempts: retCopies.current[item.id] ?? 0 }
     }
     const res = await retention.submit(
       current.topic_id,
@@ -249,10 +284,12 @@ export default function EndOfStudyBattery({
     if (!probePrompt || probeBusy || probeWords === 0) return
     setProbeBusy(true)
     setProbeError("")
+    const psnap = probeTracker.current?.snapshot()
     const res = await retentionProbe.submit(
       current.topic_id,
       probeAnswer,
       Date.now() - probeStartedAt.current,
+      psnap ? { probe: { ...psnap, copy_attempts: probeCopies.current } } : undefined,
     )
     setProbeBusy(false)
     // NO grade ever comes back (offline blind grading, like the live probe). Success —
@@ -335,7 +372,10 @@ export default function EndOfStudyBattery({
 
       {phase === "retention" && (
         <div className="mt-5" data-testid="end-of-study-retention">
-          <p className="u-stem u-muted">A quick recap — same idea as before, fresh questions.</p>
+          <p className="u-stem u-muted">
+            A quick recap — same idea as before, fresh questions. Answer from memory; it only
+            shows you what to revise.
+          </p>
 
           {retError && (
             <p className="u-stem mt-3" style={{ color: "var(--state-late)" }}>
@@ -356,6 +396,12 @@ export default function EndOfStudyBattery({
                     data-testid="retention-item"
                     onMouseMove={(e) => t?.onPointerMove(e.clientX, e.clientY)}
                     onTouchStart={() => t?.onTouch()}
+                    onCopy={(e) => {
+                      e.preventDefault()
+                      retCopies.current[item.id] = (retCopies.current[item.id] ?? 0) + 1
+                    }}
+                    onCut={(e) => e.preventDefault()}
+                    style={{ userSelect: "none" }}
                   >
                     <p className="u-eyebrow u-num mb-2">
                       Question {idx + 1} of {retItems.length}
@@ -459,12 +505,25 @@ export default function EndOfStudyBattery({
 
           {probePrompt && (
             <div className="mt-4 space-y-4">
-              <p className="u-stem" data-testid="retention-probe-prompt">
+              <p
+                className="u-stem"
+                data-testid="retention-probe-prompt"
+                style={{ userSelect: "none" }}
+                onCopy={(e) => {
+                  e.preventDefault()
+                  probeCopies.current += 1
+                }}
+                onCut={(e) => e.preventDefault()}
+              >
                 {probePrompt}
               </p>
               <textarea
                 value={probeAnswer}
                 onChange={(e) => setProbeAnswer(e.target.value)}
+                onKeyDown={(e) => probeTracker.current?.onKey(e.key)}
+                onPaste={() => probeTracker.current?.onPaste()}
+                onMouseMove={(e) => probeTracker.current?.onPointerMove(e.clientX, e.clientY)}
+                onTouchStart={() => probeTracker.current?.onTouch()}
                 rows={7}
                 maxLength={4000}
                 data-testid="retention-probe-answer"

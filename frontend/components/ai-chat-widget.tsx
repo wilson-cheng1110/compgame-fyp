@@ -7,6 +7,7 @@ import { TOPICS } from "@/lib/topic-definitions"
 import { API_BASE } from "@/lib/api"
 import { logResearchEvent } from "@/lib/research-log"
 import { inlineMarkdown } from "@/lib/inline-markdown"
+import { useTutorSuppressed } from "@/lib/tutor-suppress"
 
 interface Message {
   id: string
@@ -94,6 +95,9 @@ export function AiChatWidget() {
   // embedded in an external LMS iframe keeps its tutor) and flash-free (known at SSR,
   // no client-only framed state to hydrate). The outer widget still floats above the frame.
   const suppress = pathname?.includes("/gestalt-assessment/app") ?? false
+  // A component on screen can ask the tutor to step aside (lib/tutor-suppress.ts) — the
+  // end-of-study battery does, so the retention re-test is answered without it.
+  const stepAside = useTutorSuppressed()
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState("")
   const [currentTopic, setCurrentTopic] = useState<(typeof TOPICS)[number] | null>(null)
@@ -266,7 +270,7 @@ export function AiChatWidget() {
   const widgetTitle = currentTopic ? `AI Tutor · ${currentTopic.title}` : "AI Teaching Assistant"
 
 
-  if (hideOn || suppress) return null
+  if (hideOn || suppress || stepAside) return null
 
   return (
     <>

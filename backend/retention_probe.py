@@ -191,7 +191,8 @@ async def get_probe(topic_id: str, response: Response,
         return {"error": "already_submitted",
                 "message": "You've already answered this one — it can only be answered once."}
 
-    return {"topic_id": topic_id, "form": "C", "prompt": prompt}
+    return {"topic_id": topic_id, "form": "C", "prompt": prompt,
+            "telemetry_enabled": TELEMETRY_ENABLED}
 
 
 @router.post("/{topic_id}")

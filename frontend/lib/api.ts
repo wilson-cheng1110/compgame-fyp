@@ -719,7 +719,9 @@ export const retention = {
   /** Has the terminal "whole battery is finished" marker already been recorded for
    *  this SID? Mirrors `questionnaires.status()`'s "have I already done this" idiom,
    *  scoped to the one thing this router needs to report. */
-  status: () => api.get<{ done: boolean }>("/api/retention/_status"),
+  /** `scores`: this student's OWN Form C scores, for "topics to review before the exam". */
+  status: () => api.get<{ done: boolean; scores?: { topic_id: string; score: number }[] }>(
+    "/api/retention/_status"),
   /** Records the terminal marker, once every completed+banked topic already has a
    *  retention row (the server re-checks this — a client that raced ahead is
    *  refused with `{error: "incomplete", missing: [...]}`) . */
@@ -740,14 +742,17 @@ export interface RetentionProbePayload {
   topic_id: string
   form: "C"
   prompt: string
+  telemetry_enabled?: boolean
 }
 
 export const retentionProbe = {
   get: (topicId: string) =>
     api.get<RetentionProbePayload>(`/api/retention/probe/${topicId}`),
-  submit: (topicId: string, answer: string, durationMs?: number) =>
+  submit: (topicId: string, answer: string, durationMs?: number,
+           telemetry?: Record<string, unknown>) =>
     api.post<{ ok: true; recorded: true }>(`/api/retention/probe/${topicId}`, {
       answer,
       duration_ms: durationMs,
+      telemetry,
     }),
 }

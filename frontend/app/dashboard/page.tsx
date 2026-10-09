@@ -17,6 +17,7 @@ import SessionMap from "@/components/session-map"
 import DemographicsGate from "@/components/demographics-gate"
 import FeedbackCard from "@/components/feedback-card"
 import EndOfStudyBattery from "@/components/end-of-study-battery"
+import RetentionReview from "@/components/retention-review"
 import { TOPICS } from "@/lib/topic-definitions"
 import { useSlowLoad } from "@/lib/use-slow-load"
 import type { TopicId } from "@/lib/topic-definitions"
@@ -64,6 +65,8 @@ export default function DashboardPage() {
   // distinct from `false` so the battery never flashes open for a moment before the
   // real answer comes back.
   const [endOfStudyDone, setEndOfStudyDone] = useState<boolean | null>(null)
+  // The student's own Form C scores -> "topics to review before the exam" once done.
+  const [reviewScores, setReviewScores] = useState<{ topic_id: string; score: number }[]>([])
   // Is this the course team? `/admin` was linked from NOWHERE -- grep found the
   // string only inside two code comments -- so a teacher reached the panel by
   // typing the URL from memory or not at all. whoami is the same check the panel
@@ -111,6 +114,7 @@ export default function DashboardPage() {
     retention.status().then((res) => {
       if (!alive) return
       setEndOfStudyDone(res.ok && res.data ? res.data.done : true)
+      if (res.ok && res.data?.scores) setReviewScores(res.data.scores)
     })
     return () => { alive = false }
   }, [journeyLoaded, endOfStudyOpen, longUnits])
@@ -652,6 +656,7 @@ export default function DashboardPage() {
                           ? "A short, ungraded round revisiting every topic you finished — it is on your dashboard now and closes out the study."
                           : "Once your last lecture has passed, around late November, a short ungraded round revisits every topic you finished. Same format as a topic check — it wraps up the study."}
                     </p>
+                    {endOfStudyDone === true && <RetentionReview scores={reviewScores} />}
                   </div>
                 </details>
               )}
