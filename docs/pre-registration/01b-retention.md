@@ -79,6 +79,15 @@ mixed model; if it fails to converge, a linear mixed model on the 0–2 score.
   medians computed over Form C responses. Item times come from per-item battery telemetry if it is
   recorded by the window (see §9), else the attempt's duration ÷ item count. Primary reported with
   and without flagged attempts.
+- **External help (fixed 2026-10-09, before the window).** Per topic attempt — Form C quiz and
+  application probe separately — two flags from the battery telemetry: **left the page** (any
+  item, or the probe, has `tab_blur_count` > 0) and **copy attempted** (any `copy_attempts` > 0;
+  copying is blocked, so the count records the attempt). H1b and H1c are each reported (i) on all
+  attempts, (ii) excluding attempts with either flag, and (iii) with both flags as covariates.
+  Flag rates are reported per condition. Unlike on the immediate check, these flags are measured
+  on the OUTCOME occasion itself — after both conditions have played the game — so they are not
+  differentially caused by the order manipulation at that moment; any difference in flag rates
+  by condition is reported as a finding, not adjusted away.
 - Withdrawn / disabled accounts excluded (export already applies this).
 - **Non-response:** a participant who does not take the battery contributes nothing; because each
   participant has topics in both conditions, non-response removes both arms together. Response
@@ -128,6 +137,13 @@ and interpreted only if H1b's main effect and the moderator agree in direction.
 - **Battery telemetry added 2026-10-08, before the window:** the battery now sends per-item
   telemetry (stored only when `TELEMETRY_ENABLED`) and the attempt duration (needed by §6's
   rapid-response rule; it previously sent neither).
+- **Instrument changes made 2026-10-09, before the window, to reduce and measure external help**
+  (motivated by the immediate checks: leaving the page went with +7.0 / +5.5 points within
+  student; 30 of 86 tutor questions were asked during a check): the battery is framed as an
+  ungraded exam-revision check with an honesty line and an "I'll answer from memory" start;
+  students see their own topics-to-review list at the end; the AI tutor is hidden while the
+  battery is open; copying a question or the application scenario is blocked and counted; the
+  application probe records the same telemetry as the quiz. Proctoring was not possible.
 - Either outcome is a finding. A null H1b alongside a null immediate H1 will be reported as
   evidence against a flip benefit in this setting, with the dose and alignment checks as
   context — not explained away.
