@@ -125,11 +125,17 @@ test("the end-of-study battery: served without the answer key, graded, recorded,
     promptShown,
     "did the server actually launch with QUESTIONNAIRES_ENABLED=1 and the --eos-open schedule?")
 
+  t.check("the prompt frames it as answer-from-memory exam revision (honesty line shown)",
+    (await page.locator('[data-testid="end-of-study-honesty"]').count()) === 1)
+  t.check("the AI tutor is available on the dashboard before the battery is opened",
+    (await page.locator('[aria-label="Open AI tutor"]').count()) > 0)
   await prompt.locator('[data-testid="end-of-study-start"]').click()
   await ready(page, 800)
   t.check("the battery wizard renders", (await page.locator('[data-testid="end-of-study-battery"]').count()) === 1)
   t.check("it starts on the retention step",
     (await page.locator('[data-testid="end-of-study-retention"]').count()) === 1)
+  t.check("the AI tutor steps aside while the battery is open",
+    (await page.locator('[aria-label="Open AI tutor"]').count()) === 0)
 
   // Inspect the retention payload over the REAL network response — no answer key.
   const ret = await apiFromPage(page, `/api/retention/${topicId}`)
@@ -150,6 +156,13 @@ test("the end-of-study battery: served without the answer key, graded, recorded,
     await items.nth(i).locator('[data-testid="retention-option"]').nth(1).hover()
     await items.nth(i).locator('[data-testid="retention-option"]').first().click()
   }
+  // A copy of the first question is blocked (the clipboard event is cancelled) and counted.
+  const copyBlocked = await items.first().evaluate((el) => {
+    const ev = new ClipboardEvent("copy", { bubbles: true, cancelable: true })
+    el.querySelector("[id^=\"ret-stem-\"]")?.dispatchEvent(ev)
+    return ev.defaultPrevented
+  })
+  t.check("copying a question is blocked", copyBlocked === true, copyBlocked)
   // Capture what the battery actually SENDS (2026-10-08: duration + gated per-item telemetry).
   const sent = page.waitForRequest((r) => r.method() === "POST"
     && new URL(r.url()).pathname === `/api/retention/${topicId}`, { timeout: 8000 }).catch(() => null)
@@ -161,6 +174,9 @@ test("the end-of-study battery: served without the answer key, graded, recorded,
   if (ret.body?.telemetry_enabled) {
     t.check("with telemetry on, it carries one telemetry snapshot per served item",
       body.telemetry && Object.keys(body.telemetry).length === nItems, Object.keys(body.telemetry || {}))
+    t.check("and the blocked copy is counted (copy_attempts >= 1 on some item)",
+      Object.values(body.telemetry || {}).some((x) => (x.copy_attempts ?? 0) >= 1),
+      Object.values(body.telemetry || {}).map((x) => x.copy_attempts))
   } else {
     t.check("with telemetry off, it sends no telemetry at all", body.telemetry === undefined, body.telemetry)
   }
@@ -207,6 +223,11 @@ test("the end-of-study battery: served without the answer key, graded, recorded,
     .then(() => true)
     .catch(() => false)
   t.check("the battery shows a completion state once every completed topic is walked", doneShown)
+  await page.locator('[data-testid="retention-review"]').waitFor({ timeout: 8000 }).catch(() => {})
+  t.check("the finish card lists the topic with its score, as revision feedback",
+    (await page.locator('[data-testid="retention-review-row"]').count()) === 1)
+  t.check("the AI tutor comes back once the battery is finished",
+    (await page.locator('[aria-label="Open AI tutor"]').count()) > 0)
 
   const status = await apiFromPage(page, "/api/retention/_status")
   t.check("the terminal marker is recorded server-side", status.body?.done === true, status.body)
