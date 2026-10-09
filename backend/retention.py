@@ -268,7 +268,13 @@ async def battery_status(response: Response, session: str | None = Cookie(defaul
         return {"error": "no_session"}
     done = await asyncio.to_thread(
         research_store.has_event, user["sid"], "questionnaire_end_of_study")
-    return {"done": done}
+    # This student's OWN Form C scores, for the "topics to review before the exam" list on the
+    # finished battery (2026-10-09). Nothing new is exposed: each score was already revealed to
+    # them at submit. Never anyone else's.
+    rows = await asyncio.to_thread(research_store.fetch_for_participant, user["sid"])
+    scores = [{"topic_id": r["topic_id"], "score": r["score"]} for r in rows
+              if r["event_type"] == "topic_retention" and r["score"] is not None]
+    return {"done": done, "scores": scores}
 
 
 @router.post("/_complete")

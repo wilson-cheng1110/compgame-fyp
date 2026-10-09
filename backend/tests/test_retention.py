@@ -219,6 +219,12 @@ check("nothing recorded for the empty submission",
 print("\n-- HTTP: the terminal end-of-study marker --")
 check("_status reports not done yet",
       student.get("/api/retention/_status").json()["done"] is False)
+_st = student.get("/api/retention/_status").json()
+check("_status returns this student's OWN Form C scores (memory only so far) for topics-to-review",
+      [x["topic_id"] for x in _st.get("scores", [])] == ["memory"]
+      and isinstance(_st["scores"][0]["score"], (int, float)), _st)
+check("_status without a session is 401, never someone else's scores",
+      TestClient(app).get("/api/retention/_status").status_code == 401)
 r = student.post("/api/retention/_complete")
 check("refused while a completed+banked topic (problem-solving) has no retention yet",
       r.status_code == 400 and r.json()["error"] == "incomplete"

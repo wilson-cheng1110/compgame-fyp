@@ -132,7 +132,8 @@ check("and NOT the model-answer's distinctive phrase either", model_phrase not i
 
 r = student.post("/api/retention/probe/memory",
                  json={"answer": "Chunk the 16 digits into groups and the menu into ~5 sections.",
-                       "duration_ms": 45000})
+                       "duration_ms": 45000,
+                       "telemetry": {"probe": {"tab_blur_count": 1, "copy_attempts": 2}}})
 check("POST succeeds and returns NO grade (offline/blind, unlike Form C's MC)",
       r.status_code == 200 and r.json().get("ok") is True and "score" not in r.json(), r.json())
 
@@ -145,6 +146,8 @@ if rows:
         meta = json.loads(meta)
     check("the row stored the answer and the stamped prompt",
           "digits" in (meta.get("answer") or "") and len(meta.get("prompt") or "") > 40, meta)
+    check("telemetry sent while TELEMETRY_ENABLED is off is DROPPED server-side",
+          "telemetry" not in meta, meta)
 
 r2 = student.get("/api/retention/probe/memory")
 check("a second GET is refused (409) -- one submission per topic",
@@ -164,6 +167,16 @@ check("400 empty", r.status_code == 400 and r.json()["error"] == "empty", r.json
 check("nothing recorded for the empty submission",
       not any(e["event_type"] == "topic_retention_probe" and e["topic_id"] == "problem-solving"
               for e in research_store.fetch_for_participant("24012345")))
+RP.TELEMETRY_ENABLED = True   # read at import; flip it for one submission
+r = student.post("/api/retention/probe/problem-solving",
+                 json={"answer": "Work backwards from the goal state.", "duration_ms": 30000,
+                       "telemetry": {"probe": {"tab_blur_count": 0, "copy_attempts": 1}}})
+RP.TELEMETRY_ENABLED = False
+_pp = [e for e in research_store.fetch_for_participant("24012345")
+       if e["event_type"] == "topic_retention_probe" and e["topic_id"] == "problem-solving"]
+_pm = json.loads(_pp[0]["meta"]) if _pp and isinstance(_pp[0]["meta"], str) else (_pp[0]["meta"] if _pp else {})
+check("with the flag ON, the probe's telemetry (incl. copy_attempts) is stored",
+      r.status_code == 200 and _pm.get("telemetry", {}).get("probe", {}).get("copy_attempts") == 1, _pm)
 
 
 # ── offline blind grading of the application probe (Ollama-free path only) ───────

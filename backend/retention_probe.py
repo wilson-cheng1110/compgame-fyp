@@ -42,6 +42,11 @@ import schedule
 # here, so there is no cycle. These are the SAME session/consent/topic-completed gates
 # the MC re-test uses; the only difference below is the instrument, not who may sit it.
 from retention import _consented, _me, _topic_completed
+from retention import TELEMETRY_ENABLED as _TEL_DEFAULT
+
+# Same rule as retention.py / topic_api: telemetry (tab switches, paste, copy attempts on the
+# scenario) is stored ONLY while TELEMETRY_ENABLED; dropped server-side otherwise. 2026-10-09.
+TELEMETRY_ENABLED = _TEL_DEFAULT
 
 router = APIRouter(prefix="/api/retention/probe", tags=["retention-probe"])
 
@@ -145,6 +150,7 @@ def rubric_points_for(topic_id: str) -> dict[str, str]:
 class ProbeAnswer(BaseModel):
     answer: str
     duration_ms: int | None = None
+    telemetry: dict | None = None
 
 
 @router.get("/{topic_id}")
@@ -237,7 +243,8 @@ async def submit_probe(topic_id: str, body: ProbeAnswer, response: Response,
         # answer bounded like topic_probe (one textarea must not write a megabyte); the
         # prompt is STAMPED so a later bank edit cannot change what was asked of this row.
         "meta": {"form": "C", "answer": text[:4000],
-                 "prompt": prompt, "section": user["section"]},
+                 "prompt": prompt, "section": user["section"],
+                 **({"telemetry": body.telemetry} if (TELEMETRY_ENABLED and body.telemetry) else {})},
     })
     if not created:
         # Lost the one-submission race (the partial unique index is the backstop; this
