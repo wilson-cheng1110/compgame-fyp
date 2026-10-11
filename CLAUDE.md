@@ -93,7 +93,10 @@ FYP_Submission/
                          #   -> publish.ps1, plus install-services.ps1 for the part
                          #   three commands do NOT give you: Scheduled Tasks for boot,
                          #   a watchdog, the HOURLY BACKUP (COMPGame-Backup, added
-                         #   2026-10-08 -- before that nothing scheduled backup_sink.py),
+                         #   2026-10-08 -- before that nothing scheduled backup_sink.py;
+                         #   THE STUDY BOX DENIES TASK REGISTRATION without admin, so it
+                         #   uses install-user-autostart.ps1 -> keepalive.ps1 instead:
+                         #   Startup-folder loop, watchdog 5 min + backup 60 min, at login),
                          #   and a dead-man's-switch heartbeat (inbound
                          #   monitoring cannot tell you a box is OFF -- silence is the
                          #   signal). publish.ps1 REFUSES on a red gate. See deploy/README.md.
