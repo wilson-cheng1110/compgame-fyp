@@ -96,7 +96,8 @@ FYP_Submission/
                          #   2026-10-08 -- before that nothing scheduled backup_sink.py;
                          #   THE STUDY BOX DENIES TASK REGISTRATION without admin, so it
                          #   uses install-user-autostart.ps1 -> keepalive.ps1 instead:
-                         #   Startup-folder loop, watchdog 5 min + backup 60 min, at login),
+                         #   Startup-folder loop, watchdog 5 min + backup 60 min + a PUBLIC-path
+                         #   check that resets the Tailscale funnel if only it is down),
                          #   and a dead-man's-switch heartbeat (inbound
                          #   monitoring cannot tell you a box is OFF -- silence is the
                          #   signal). publish.ps1 REFUSES on a red gate. See deploy/README.md.
