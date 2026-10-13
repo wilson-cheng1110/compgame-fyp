@@ -127,6 +127,18 @@ and interpreted only if H1b's main effect and the moderator agree in direction.
   p = .019) — while the 6-item score was not significant. The index's components were chosen
   after seeing that validity check, which is why it is exploratory here, not confirmatory.
 
+- **Exploratory — does the tutor reflection help retention? (registered 2026-10-13, before any
+  battery data.)** The AI-tutor reflection happens AFTER the immediate post-check, so the immediate
+  data cannot show whether it teaches anything; the delayed test can. Model, per participant ×
+  topic: Form C score ~ reflection outcome + immediate post + interval + (1|participant) +
+  (1|topic), where reflection outcome is (a) reached insight (tutor's flag), and separately
+  (b) reflection completed vs skipped. The immediate post-check MUST stay in the model: on the
+  2026-10-13 data, reflections ending on insight followed higher post-checks (95.2 vs 88.0;
+  within-student trend p = .071), so insight partly reflects what the student already knew.
+  Prediction: a positive coefficient for (a) net of the post-check. (b) is confounded by who skips
+  and is reported descriptively only. The tutor's insight flag is not validated against human
+  coding (paper 03, pending); a null here is not evidence the reflection is useless.
+
 **9. Anything else.**
 
 - **Known instrument risk, declared now:** on the immediate check, some Form B items proved
