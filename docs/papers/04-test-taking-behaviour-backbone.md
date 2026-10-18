@@ -1,0 +1,123 @@
+# Paper 04 backbone: test-taking behaviour on unproctored low-stakes checks
+
+Status 2026-10-16. Exploratory paper. Findings are interim prod numbers (see `_brief.md`), not final.
+Citation checks: DOIs resolved against the CrossRef API on 2026-10-16 (title, authors, year, venue compared).
+
+## 1. Working title and claim
+
+**Working title:** "Leaving the page, rushing, and hesitating: behavioural traces on unproctored low-stakes concept checks in a flipped HCI course"
+
+**One-sentence claim (what the data supports today):** On ungraded, unproctored topic checks, leaving the page is common (40% of checks) and goes with higher within-student scores (+7.0 pre / +5.5 post points), so it behaves like external help rather than engagement, while decisiveness traces differ slightly by condition; rapid guessing is the pre-registered effort screen, and the paper asks how much these traces add beyond the score.
+
+## 2. Research questions / hypotheses
+
+Matched to `docs/pre-registration/01-flip-effect.md` (§5e, §6) and `01b-retention.md` (rapid + external-help rules). Paper 04 itself has no separate pre-registration, so all of it is labelled exploratory.
+
+- RQ1 (prevalence): how often do students rapid-guess (NT10 rule: item time < 10% of that item's median, capped at 10 s; attempt flagged if at least half the items are rapid) and leave the page, per check type (pre, post, retention) and per condition?
+- RQ2 (external help): is leaving the page associated with higher scores within student, and is the association larger on the pre- or post-check? Is it differentially frequent by condition (FLIP leaves less on post, -6 pp)?
+- RQ3 (decisiveness): do selection changes and options hovered, and dwell on the correct option, differ by FLIP vs CONTROL, and do they carry signal about correctness beyond total time?
+- RQ4 (incremental value): do process traces (time, leaving, decisiveness, straight-lining) add predictive value over the score for outcomes the score does not contain (IMI/ARCS engagement, later retention)? The "adds nothing" null is a live outcome.
+- RQ5 (instrument change): did the 2026-10-09 retention-battery changes (honesty framing, tutor hidden, copy blocked) change the leaving rate relative to the immediate checks? Data come after ~23 Nov.
+- Only the PRE-check leaving flag may be used as a covariate; the post-check flag is post-treatment (pre-reg §5e).
+
+## 3. Literature support
+
+VERIFIED = DOI resolved on CrossRef and title, authors, year match. Where print year differs from online year it is noted.
+
+1. Wise, S. L., & Kong, X. (2005). Response time effort: A new measure of examinee motivation in computer-based tests. *Applied Measurement in Education, 18*(2), 163-183. https://doi.org/10.1207/s15324818ame1802_2. VERIFIED. Introduces RTE (share of effortful responses); RTE tracks lower performance. Supports the effort-flag idea; our pre-reg rule descends from it.
+2. Kong, X. J., Wise, S. L., & Bhola, D. S. (2007). Setting the response time threshold parameter to differentiate solution behavior from rapid-guessing behavior. *Educational and Psychological Measurement, 67*(4), 606-619. https://doi.org/10.1177/0013164406294779. VERIFIED. Compares ways of setting RT cut-offs. Grounds our threshold choice and the case for reporting it with and without flagged rows.
+3. Wise, S. L. (2017). Rapid-guessing behavior: Its identification, interpretation, and implications. *Educational Measurement: Issues and Practice, 36*(4), 52-61. https://doi.org/10.1111/emip.12165. VERIFIED. Review: rapid guessing is a validity threat in low-stakes tests and best read as disengagement. Frames our interpretation, and warns that it needs care for easy items.
+4. Wise, S. L., & DeMars, C. E. (2005). Low examinee effort in low-stakes assessment: Problems and potential solutions. *Educational Assessment, 10*(1), 1-17. https://doi.org/10.1207/s15326977ea1001_1. VERIFIED. Low effort depresses scores when tests carry no consequence. Closest analogue to our ungraded checks. (Not in the original dossier; added.)
+5. Rios, J. A., & Deng, J. (2021). Does the choice of response time threshold procedure substantially affect inferences concerning the identification and exclusion of rapid guessing responses? A meta-analysis. *Large-scale Assessments in Education, 9*, article 18. https://doi.org/10.1186/s40536-021-00110-8. VERIFIED. Threshold procedures largely agree. Supports a robustness argument for NT10.
+6. Rios, J. A., Deng, J., & Ihlenfeldt, S. D. (2022). To what degree does rapid guessing distort aggregated test scores? A meta-analytic investigation. *Educational Assessment, 27*(4), 356-373. https://doi.org/10.1080/10627197.2022.2110465. VERIFIED. Gives benchmarks for how far rapid guessing biases group scores. Corrects the dossier, which listed no authors.
+7. Rios, J. A., & Deng, J. (2025; online 2024). Is effort moderated scoring robust to multidimensional rapid guessing? *Educational and Psychological Measurement, 85*(1), 134-155. https://doi.org/10.1177/00131644241246749. VERIFIED. Effort-moderated scoring is only conditionally robust. Challenges any plan to "rescue" scores by dropping flagged rows.
+8. Welling, J., Gnambs, T., & Carstensen, C. H. (2024; online 2023). Identifying disengaged responding in multiple-choice items: Extending a latent class item response model with novel process data indicators. *Educational and Psychological Measurement, 84*(2), 314-339. https://doi.org/10.1177/00131644231169211. VERIFIED. Adding revisit and answer-change indicators beats RT alone. Supports using decisiveness traces.
+9. Tan, B., & Bulut, O. (2025). The value of individual screen response time in predicting student test performance: Evidence from TIMSS 2019 problem solving and inquiry tasks. *Journal of Intelligence, 13*(7), 82. https://doi.org/10.3390/jintelligence13070082. VERIFIED. Pacing pattern predicts beyond mean speed. Supports multi-signal use; large-scale, not course-embedded.
+10. Aydin, F. N., Atalay Kabasakal, K., & Dilek, I. (2025). Investigating the predictive performance of process data and result data in complex problem solving using the conditional gradient boosting algorithm. *Journal of Intelligence, 13*(3), 29. https://doi.org/10.3390/jintelligence13030029. VERIFIED. Process plus result predicts best; process alone is weaker. Sets the "adds some, not everything" ceiling for RQ4.
+11. Goldhammer, F., Naumann, J., Stelter, A., Tóth, K., Rölke, H., & Klieme, E. (2014). The time on task effect in reading and problem solving is moderated by task difficulty and skill. *Journal of Educational Psychology, 106*(3), 608-626. https://doi.org/10.1037/a0034716. VERIFIED. Time-on-task changes sign with difficulty and skill. Challenges: slow is not simply engaged; the dossier's DOI-less entry now has this DOI.
+12. Stupple, E. J. N., Pitchford, M., Ball, L. J., Hunt, T. E., & Steel, R. (2017). Slower is not always better: Response-time evidence clarifies the limited role of miserly information processing in the Cognitive Reflection Test. *PLOS ONE, 12*(11), e0186404. https://doi.org/10.1371/journal.pone.0186404. VERIFIED. RT only weakly tracks accuracy per item. Challenges the pace-as-effort reading.
+13. Diedenhofen, B., & Musch, J. (2017; online 2016). PageFocus: Using paradata to detect and prevent cheating on online achievement tests. *Behavior Research Methods, 49*(4), 1444-1459. https://doi.org/10.3758/s13428-016-0800-7. VERIFIED. Page-blur events as a cheating indicator in unproctored online tests. Direct method precedent for our tab-leaving flag (I have not read the effect sizes; the title and venue are what is verified).
+14. Karim, M. N., Kaminsky, S. E., & Behrend, T. S. (2014). Cheating, reactions, and performance in remotely proctored testing: An exploratory experimental study. *Journal of Business and Psychology, 29*(4), 555-572. https://doi.org/10.1007/s10869-014-9343-z. VERIFIED. Remote-test cheating and proctoring conditions. Context for why unproctored external help is expected; our checks are low-stakes, so it is a weaker analogy.
+15. Bauer, D., Kopp, V., & Fischer, M. R. (2007). Answer changing in multiple choice assessment: Change that answer when in doubt, and spread the word! *BMC Medical Education, 7*, 28. https://doi.org/10.1186/1472-6920-7-28. VERIFIED. Answer changing is common and often beneficial. Gives a baseline for reading selection changes, but it is high-stakes medical-exam work; may not transfer.
+16. Wise, S. L., & Ma, L. (2012, April). *Setting response time thresholds for a CAT item pool: The normative threshold method.* Paper presented at the NCME annual meeting, Vancouver. UNVERIFIED. No DOI or stable URL found. The NT10 rule in our pre-registration cites it; cite it only as "as described in" or replace with Wise (2017) if it cannot be sourced.
+
+17. Steger, D., Schroeders, U., & Gnambs, T. (2020; preprint 2018). A meta-analysis of test scores in proctored and unproctored ability assessments. *European Journal of Psychological Assessment, 36*(1), 174-184. https://doi.org/10.1027/1015-5759/a000494. VERIFIED on CrossRef (via Consensus). Unproctored scores run higher, most clearly for items that can be looked up. Supports reading page-leaving as outside help; the dossier-derived framing of effect sizes is not checked here (I read only the Consensus snippet, not the paper).
+
+18. Arnold, I. J. M. (2016). Cheating at online formative tests: Does it pay off? *The Internet and Higher Education, 29*, 98-106. https://doi.org/10.1016/j.iheduc.2016.02.001. VERIFIED on CrossRef (via Consensus). Likely-cheating scores on unproctored formative tests were negatively related to later academic progress. Relevant to our retention analysis: outside help on a check may not carry to the delayed test; also the closest formative-quiz precedent. (Abstract only read.)
+19. Nagy, G., Ulitzsch, E., & Lindner, M. A. (2023; online 2022). The role of rapid guessing and test-taking persistence in modelling test-taking engagement. *Journal of Computer Assisted Learning, 39*(3), 751-766. https://doi.org/10.1111/jcal.12719. VERIFIED on CrossRef (via Consensus). Non-rapid responses are not necessarily engaged; performance decline over a test adds a disengagement signal. Challenges: an NT10 flag undercounts disengagement. (Abstract only read.)
+20. Tiffin-Richards, S. P., Lenhart, J., & Marx, P. (2022). When do examinees change their initial answers? The influence of task instruction, response confidence, and subjective task difficulty. *Learning and Instruction, 82*, 101654. https://doi.org/10.1016/j.learninstruc.2022.101654. VERIFIED on CrossRef (via Consensus). Answer changes fall with confidence and rise with felt difficulty, so selection changes index metacognitive state. Supports reading our decisiveness measure as confidence, not only effort. (Abstract only read.)
+21. Noorbehbahani, F., Mohammadi, A., & Aminazadeh, M. (2022). A systematic review of research on cheating in online exams from 2010 to 2021. *Education and Information Technologies, 27*(6), 8413-8460. https://doi.org/10.1007/s10639-022-10927-7. VERIFIED on CrossRef (via Consensus). Review of 58 papers on detection and prevention. Orientation for the external-help framing; it treats cheating, not benign help. (Abstract only read.)
+
+22. Wilcox, B. R., & Pollock, S. J. (2019). Investigating students' behavior and performance in online conceptual assessment. *Physical Review Physics Education Research, 15*(2), 020145. https://doi.org/10.1103/physrevphyseducres.15.020145. VERIFIED on CrossRef (via Consensus). Browser loss of focus was the most common logged behaviour; across five institutions, none of the logged behaviours shifted average scores enough to threaten interpretation. Closest precedent for our design and a direct CHALLENGE to reading page-leaving as score-inflating help (correlations differed between intro and upper-division students). Abstract only read.
+23. Burgess, T., Uminski, C., Alicea, M., & Couch, B. (2026). The impact of external resource use on the validity of score interpretation for a biology concept assessment administered out-of-class. *Journal of Microbiology & Biology Education, 27*(1). https://doi.org/10.1128/jmbe.00198-25. VERIFIED on CrossRef (via Consensus). About 45% of students self-reported using external resources on a low-stakes out-of-class concept assessment, and use went with higher scores; open-ended answers showed less. Supports our 44% pre-check rate and the help interpretation; self-report may undercount. Abstract only read.
+24. Wong, A. Y., Smith, S. D., McGrath, A., & Flynn, M. (2022). Task-unrelated thought during educational activities: A meta-analysis of its occurrence and relationship with learning. *Contemporary Educational Psychology, 71*, 102098. https://doi.org/10.1016/j.cedpsych.2022.102098. VERIFIED on CrossRef (via Consensus). Students are off-task about 30% of the time in educational activities, with a small-to-medium negative link to learning. Offers a benign reading of page-leaving (distraction, not help), which conflicts with the within-student score gain. Abstract only read; Consensus's author list was truncated, CrossRef gave these first four.
+25. Roediger, H. L., Agarwal, P. K., McDaniel, M. A., & McDermott, K. B. (2011). Test-enhanced learning in the classroom: Long-term improvements from quizzing. *Journal of Experimental Psychology: Applied, 17*(4), 382-395. https://doi.org/10.1037/a0026252. VERIFIED on CrossRef (via Consensus). Low-stakes quizzes improve later exam performance through retrieval. Supports the claim that looking up answers on a check forfeits retrieval benefit, which predicts weaker retention for help-takers. Abstract only read.
+
+Dropped from the earlier dossier because not re-verified this pass: He & von Davier 2016 (book chapter). Meade & Craig 2012, Kim et al. 2019, van der Linden 2006, Schnipke & Scrams 1997 and Wise & DeMars 2006 all resolved on CrossRef and may be restored for the methods section if needed.
+
+## 4. Review of the field
+
+- Rapid guessing is a mature topic: a bimodal RT distribution separates solution behaviour from quick guesses, and RTE and thresholds are standard (Wise & Kong 2005; Kong et al. 2007; Wise 2017).
+- Threshold choice matters less than feared, since procedures mostly agree (Rios & Deng 2021), but score distortion at group level is real and sizeable in low-stakes tests (Rios et al. 2022).
+- Remedies are contested: effort-moderated scoring is robust only under some conditions (Rios & Deng 2025), so excluding flagged rows should be a sensitivity analysis, not a fix.
+- Response time is ambiguous: its link to accuracy flips with difficulty and skill and is weak per item (Goldhammer et al. 2014; Stupple et al. 2017). A single speed flag is a poor proxy for effort.
+- Multi-signal process data help but are bounded: revisit and answer-change indicators improve engagement models (Welling et al. 2024); pacing pattern beats mean speed (Tan & Bulut 2025); process plus result beats either alone, and process alone is moderate (Aydin et al. 2025).
+- Most of this work is on large-scale international assessments with proctored sessions. External help is handled as a cheating problem (Diedenhofen & Musch 2016; Karim et al. 2014), not as a feature of ungraded formative checks.
+- Gap: repeated short formative checks inside one course, with rapid guessing, tab-leaving and decisiveness from the same sessions, an experimental manipulation (game before or after the check), and later retention as an outcome the score cannot contain. The check in a flipped design is also a place where the manipulation may change how students behave, not only what they score.
+
+## 5. Argument
+
+1. In unproctored, ungraded checks, the score is a mix of knowledge, effort and outside help. Evidence: Wise & DeMars 2005; Wise 2017; our unproctored context (paper 06).
+2. Response time alone cannot separate these. Evidence: Goldhammer 2014; Stupple 2017; our median of 16 s/item hides a wide spread (distribution to come).
+3. Rapid guessing is rare enough to leave the score mostly interpretable but must be reported with and without flagged rows. Evidence: NT10 pre-registered; flag rate at final N to come in Nov (a crude 5 s rule flagged ~17% at interim, NT10 expected lower).
+4. Leaving the page is the dominant behaviour trace: 40% of checks vs 13-21% of game sessions, and it goes with +7.0 (pre) and +5.5 (post) points within student. It is best read as external help, source unknown. Evidence: our telemetry (interim); Diedenhofen & Musch 2016 for the method.
+5. External help biases the instrument, not obviously the condition effect. Adjusting for pre-check leaving moves the H1 estimate from +1.32 to +1.35 (interim), but the post-check flag is post-treatment and must not be adjusted for. Evidence: pre-reg §5e.
+6. The manipulation changes behaviour: FLIP leaves less on the post-check (-6 pp), and decisiveness is lower under FLIP (-0.041 SD, p .010) with slightly more dwell on the correct option (+1.5 pp, p .019). A cautious reading is that a prior game makes students surer, or that they have less to look up. Evidence: interim, exploratory; Welling 2024 for the idea that these indicators carry signal.
+7. How much traces add beyond the score is bounded (Aydin 2025). The paper reports the increment honestly, including a null. Evidence: to come in Nov (retention and IMI/ARCS joins).
+8. Conclusion: for low-stakes unproctored checks, behavioural traces should be reported as a validity check on the score, and external help should be modelled rather than assumed away. Instrument changes made 2026-10-09 test whether framing reduces it (RQ5, to come in Nov).
+
+## 6. Our evidence so far (interim, exploratory)
+
+- About 4,700 checks logged; median 16 s per item.
+- Tab-leaving in 40% of checks vs 13-21% of game sessions; 44% of pre-checks involve leaving the page.
+- Within student, leaving the page goes with +7.0 (pre) and +5.5 (post) points; FLIP leaves less on the post (-6 pp), no difference on the pre.
+- Decisiveness (selection changes plus options hovered): FLIP lower, -0.041 SD, p .010. Dwell on the correct option: +1.5 pp, p .019. Not corrected for multiplicity.
+- H1 with pre-check leaving covariate: +1.35 (p .07) vs +1.32 without; pre-checks without leaving had mean 78.9 vs 84.1 overall.
+- 30 of 86 tutor questions were asked during a check (paper 03/07 data), another route to outside help.
+- NT10 rapid-response flag rate: pre-registered, not yet reported in this backbone; crude 5 s rule ~17% at the 2026-10-08 interim.
+- Games show about 2x the pointer activity of checks (paper 09), so check traces are a low-activity baseline.
+- Not yet run (per `docs/lit/data-to-paper-fit.md`): per-item timing exists from 2026-09-10 only; earlier pairs have whole-check duration only.
+
+## 7. Threats and counter-arguments
+
+- Consensus's summary says tab-leaving is a suspicious signal, not proof, and the score benefit is inconsistent across studies (summary only, not evidence). Fits our stance: report it as a flag with unknown source.
+- Wilcox & Pollock 2019 found loss of focus common and not enough to shift average scores in physics concept inventories; Wong et al. 2022 gives a distraction reading (about 30% off-task). Answer: our within-student +7.0/+5.5 is a direct test and is reported with unknown source, and Burgess et al. 2026 show self-reported help goes with higher scores. Add an item-level analysis of whether the score gain is concentrated on lookup-able items.
+- Consensus round 1 found no study that shows tab-leaving in low-stakes formative quizzes is mainly benign. Arnold 2016 suggests formative-test cheating does not pay off later, which predicts that outside help on checks should not carry into retention; this is a testable prediction for Nov.
+- "Non-rapid means engaged" is false (Nagy et al. 2023): NT10 undercounts disengagement; report persistence (within-check decline) as an extra flag.
+- "Leaving the page is not help; students may be checking notes, a calculator or a messaging app." True, the source is unidentified. The paper says "external help, source not identified" and does not claim cheating. Retention battery adds a copy-attempt flag.
+- "The +7 points are confounded: better students or easier items leave more." Within-student comparison, controlling for time on page, handles stable ability; item difficulty needs item fixed effects (to do). Reverse causation (stuck students leave) is plausible and would bias the other way, so the effect is not claimed as causal.
+- "Rapid guessing on easy items is just knowing the answer." Wise 2017 and our pre-reg note this; NT10 uses item-relative thresholds and flags only attempts with at least half the items rapid. Report with and without.
+- "RT and traces are ambiguous" (Goldhammer; Stupple). Answer: that is the argument for multi-signal, and for reporting the increment rather than assuming it.
+- "Process traces add nothing beyond the score" (Aydin). Pre-register the null as acceptable; a paper that shows a bounded increment, or none, is still a validity contribution for flipped-class analytics.
+- "Telemetry is not a clean instrument": tab blur depends on device and browser (phones, split-screen), and telemetry is gated by `TELEMETRY_ENABLED`. Report coverage; do not treat absence of a flag as proof of no help.
+- "Differential attrition and the Gestalt routing bug" (paper 06): post-check traces only exist for those who reached it; report by condition.
+- "No proctoring, low stakes": the setting limits generalisation to high-stakes tests. State plainly.
+- Multiplicity: decisiveness p values (.010, .019) are exploratory and not Holm-corrected; label as hypothesis-generating.
+
+## 8. Venue fit
+
+- Journal of Learning Analytics: the dossier's target; fits process-data-in-a-course framing and exploratory work.
+- Computers & Education or Educational Measurement: Issues and Practice: fits the validity-of-unproctored-checks angle (check current scope before choosing).
+- Learning Analytics and Knowledge (LAK) or L@S short paper: a faster outlet for the descriptive tab-leaving result (check call dates).
+
+## 9. Open items
+
+- Run the NT10 flag on prod with per-item `total_time_ms` (from 2026-09-10) and whole-check fallback earlier; report flag rates by condition and check type. Classifier in `backend/measures.py` is CLI-only and was not run on prod in the last audit.
+- Confirm the exact per-item decisiveness definitions and the two reported p values come from a reproducible script; add item fixed effects and clustering by participant.
+- Check whether `TELEMETRY_ENABLED` was on for the whole window (earlier pairs carry no leaving flag), and report coverage.
+- Join traces to IMI/ARCS (paper 02) and to retention (Form C and application probe) after ~23 Nov to answer RQ4; keep the analysis plan fixed before the window closes.
+- Decide whether to file a short pre-registration for paper 04 (RQ2-RQ4) before the retention data are opened.
+- Source or replace Wise & Ma 2012; restore Meade & Craig, Kim et al. if the methods section needs straight-lining background (straight-lining on checks has a flag, `straight_lined`, defined for at least four items).
+- Decide whether the DOI for Goldhammer et al. and the Rios et al. 2022 author fix are propagated back to `docs/lit/04-test-taking-behaviour.md` (not edited in this task).
+- Consensus log (2026-10-16, via the Consensus MCP tool, 3 calls, no follow-ups): (1) tab-switching/page-leaving in low-stakes formative quizzes, benign vs cheating; (2) rapid guessing in low-stakes tests and engagement; (3) answer changing and response time as decisiveness/confidence. Each returned 3 papers without DOIs; round 2 asked five full-sentence questions: (a) why students switch tabs during ungraded practice quizzes and how often it is unrelated to looking up answers; (b) whether outside-resource users score higher and whether that persists on a delayed test; (c) whether playing a simulation or game first changes answer confidence and decisiveness (3 weak hits, none used); (d) how much is lost when students look up answers during retrieval practice (no direct hit; Roediger 2011 came from (b)); (e) how accurate self-reports and focus logs are for external-resource use. Round 1: four were matched on CrossRef (items 18-21). Skipped: Svetina Valdivia 2023 (journal unknown, UNVERIFIED), Miyoshi et al. (preprint only). No Consensus paper showed evidence for benign tab-leaving in formative quizzes; that counterargument stays open (see Threats).
+- Add the paper-09 comparison of check vs game pointer activity once the games' order confound (Fitts) is handled.
