@@ -4,9 +4,9 @@ Drafted 2026-10-16. Status: backbone only; all our-data numbers are interim/expl
 
 ## 1. Working title and claim
 
-**Title:** Does the game-first advantage travel? A within-student flipped-learning comparison of undergraduate and MSc students in HCI education
+**Title:** Does the effect of activity order differ between undergraduate and MSc students? A within-student flipped-learning comparison in HCI education
 
-**Claim the data supports today (honest):** The FLIP-minus-CONTROL gain gap is directionally larger for undergraduates (<g> gap 0.115) than for MSc students (0.045), but MSc students start at the ceiling (pre about 90/100), so the MSc estimate is low-information and the difference cannot yet be separated from a ceiling or expertise-reversal artefact. No interaction test has been run as a confirmatory analysis.
+**Claim the data supports today (honest, descriptive):** The immediate FLIP effect itself is small and not significant (paper 01), so there is no established advantage to "transfer". Descriptively, the FLIP-minus-CONTROL <g> gap is larger for undergraduates (0.113) than for MSc students (0.040; prod 2026-10-18), but <g> is descriptive only under the pre-registration, MSc students start at the ceiling (pre about 90/100), and a UG-vs-MSc interaction is badly underpowered (interactions need several times the N of main effects; it is a between-subject contrast even though condition is within-student). The analysis to report is post ~ pre + condition × population; until then the difference cannot be separated from a ceiling or expertise-reversal artefact, and a null interaction will be uninformative either way.
 
 ## 2. Research questions and hypotheses
 
@@ -72,13 +72,13 @@ Gaps in sources (not invented, to find in Nov): a source on ceiling effects and 
 2. Existing evidence on the moderator is thin and leans against transfer (Chen 2018; Oliver & Luther 2020). Cited.
 3. Theory gives two opposite predictions: expertise reversal (smaller or negative effect) and self-regulation/andragogy (equal or larger). Cited; Rachal warns neither is firmly grounded.
 4. Our design holds instruments, schedule, platform, and randomisation constant across cohorts, so population is the only planned difference (although prior knowledge, course, and class timing also differ). Our design (brief; platform facts).
-5. Observed: UG gap 0.115, MSc gap 0.045, MSc pre about 90. Interim, exploratory, not tested for interaction.
+5. Observed: UG gap 0.115, MSc gap 0.045 (2026-10-16; 0.113 / 0.040 on 2026-10-18), MSc pre about 90. Interim, exploratory, not tested for interaction.
 6. At pre about 90 there is little headroom, so a small MSc gap is what both a ceiling and an expertise-reversal account predict; the two are not separable on one post-test. To come: pre-adjusted models, item-level analysis, and the delayed retention and application outcomes (Nov), which are less ceilinged.
 7. Conclusion to be earned: either "no evidence of population difference after accounting for prior knowledge" (transfer holds, with explicit power limits) or "effect shrinks as prior knowledge rises" (expertise-reversal pattern). A claim of population-specificity needs the interaction to survive adjustment for pre score and the retention data. Pending.
 
 ## 6. Our evidence so far (interim, exploratory)
 
-- FLIP-CONTROL <g> gap: UG 0.115 vs MSc 0.045. No interaction test, CI, or multiplicity correction reported yet.
+- FLIP-CONTROL <g> gap: UG 0.113 vs MSc 0.040 (prod 2026-10-18; was 0.115 / 0.045). Descriptive only. No interaction test, CI, or multiplicity correction reported yet.
 - MSc pre about 90/100: ceiling. UG overall ceiling issue also noted: about 73% of post scores = 100.
 - Immediate H1 (paper 01), UG-dominated: mixed model FLIP +0.85 to +1.35 points per 100 (p .07-.25); <g> overstates (0.52 vs 0.41). Most of the pre-post gain (about 5.4 of about 7 points) is instrument/retest, not the game (about 1.3). This suggests the MSc gap of 0.045 may be well inside noise.
 - Platform parity: same pipeline for MSc; about 74 MSc accounts per the fit map (confirm current analysable N and per-topic MSc volume, which the aggregate monitor view can mask).

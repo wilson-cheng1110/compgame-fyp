@@ -7,7 +7,7 @@ Citation checks: DOIs resolved against the CrossRef API on 2026-10-16 (title, au
 
 **Working title:** "Leaving the page, rushing, and hesitating: behavioural traces on unproctored low-stakes concept checks in a flipped HCI course"
 
-**One-sentence claim (what the data supports today):** On ungraded, unproctored topic checks, leaving the page is common (40% of checks) and goes with higher within-student scores (+7.0 pre / +5.5 post points), so it behaves like external help rather than engagement, while decisiveness traces differ slightly by condition; rapid guessing is the pre-registered effort screen, and the paper asks how much these traces add beyond the score.
+**One-sentence claim (what the data supports today):** On ungraded, unproctored topic checks, leaving the page is common (40% of checks) and goes with higher within-student scores (+7.0 pre / +5.5 post points), which is consistent with external help (source unknown) rather than engagement — an association, not a demonstrated cause, and one study found page-leaving did not shift average scores (Wilcox & Pollock 2019) — while decisiveness traces differ slightly by condition; rapid guessing is the pre-registered effort screen, and the paper asks how much these traces add beyond the score.
 
 ## 2. Research questions / hypotheses
 

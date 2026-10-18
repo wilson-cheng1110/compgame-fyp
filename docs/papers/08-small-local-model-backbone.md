@@ -6,7 +6,7 @@ Citation verification done 2026-10-16 by resolving arXiv abs pages, Crossref and
 
 ## 1. Working title and claim
 
-**Working title:** "Good enough on a laptop-class GPU? A 4B-effective-parameter local model as blind short-answer grader and Socratic tutor in a 340-student HCI course."
+**Working title:** "Good enough on a single consumer GPU? A 4B-effective-parameter local model as blind short-answer grader and Socratic tutor in a 340-student HCI course."
 
 **Claim the data supports today (honest):** One locally hosted gemma4:e4b model serves two roles in a live course study with no student text leaving the machine: an interactive tutor (median latency about 2 s) and an offline blind grader whose pipeline (blinding, temperature 0, pinned output budget, human-sample and kappa tooling) is built and has been run. Whether its grades agree with human coders is **not yet known**; the claim is therefore "feasible and characterised on the engineering side", not "valid".
 

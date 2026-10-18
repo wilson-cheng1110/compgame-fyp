@@ -4,7 +4,9 @@
 
 ## 1. Working title and claim
 
-**Title:** *Nudged, not asked: a mandatory Socratic reflection turn versus optional free chat in a flipped HCI course*
+**Title:** *Nudged, not asked: a mandatory Socratic reflection step, and how little the optional chat was used, in a flipped HCI course*
+
+*(The two are different tools used at different moments, not randomised arms; any contrast between them is descriptive. Free-chat turns: 104 in prod on 2026-10-18.)*
 
 **Claim (what the data supports today):** In a 340-student, 13-topic course platform, a mandatory, post-check Socratic reflection with a small local model (gemma4:e4b) was completed by most students and reached the tutor's own "insight" flag about half the time, whereas optional free chat was almost never used and a third of the little use fell DURING checks. This is a descriptive design and usage account. It is not evidence that the Socratic gate improves learning relative to an answer-bot (no such arm exists, and none will be built).
 
