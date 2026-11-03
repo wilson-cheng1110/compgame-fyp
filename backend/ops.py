@@ -280,10 +280,14 @@ def health_snapshot(rag_loaded: bool) -> dict:
 
     try:
         import auth_store
-        n = len(auth_store._enrolment) if auth_store._enrolment else 0
         auth_store._refresh_enrolment()
         n = len(auth_store._enrolment)
-        components["enrolment"] = {"ok": n > 0, "enrolled": n}
+        # No roster file = self-enroll deployment (students pick their own
+        # section) -- a designed mode, not a lost roster. Red only when a roster
+        # EXISTS but parsed to nothing, or the load threw.
+        roster = os.path.exists(auth_store.ENROLMENT_PATH)
+        components["enrolment"] = {"ok": n > 0 or not roster, "enrolled": n,
+                                   "mode": "roster" if roster else "self-enroll"}
     except Exception as e:
         components["enrolment"] = {"ok": False, "detail": type(e).__name__}
 
