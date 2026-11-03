@@ -274,7 +274,10 @@ function Invoke-Firewall {
 
     # Parsec host needs inbound UDP for direct peer traffic. Kept explicit so the
     # default-deny profile cannot silently sever remote administration.
-    $parsecSvc = Get-CimInstance Win32_Service -Filter "Name='parsecd'" -ErrorAction SilentlyContinue
+    # Service is registered as 'Parsec' on some installs and 'parsecd' (the daemon
+    # process name) on others -- accept either. Caught 2026-11-04 by the -WhatIf
+    # checkpoint: a box with Parsec Running reported "parsecd not present".
+    $parsecSvc = Get-CimInstance Win32_Service -Filter "Name='parsecd' OR Name='Parsec'" -ErrorAction SilentlyContinue
     if ($null -ne $parsecSvc) {
         Remove-OurRule ($Prefix + 'Parsec-UDP-Inbound')
         if ($PSCmdlet.ShouldProcess($Prefix + 'Parsec-UDP-Inbound', 'New-NetFirewallRule')) {
