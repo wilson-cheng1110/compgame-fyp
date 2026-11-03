@@ -103,4 +103,7 @@ reports/
 # deploy runtime — logs and machine-local settings, never the repo
 deploy/logs/
 deploy/.env.local
+# nginx binary + temp dirs, fetched + hash-verified by service.ps1 install --
+# a downloaded binary, never source
+deploy/tools/
 data/

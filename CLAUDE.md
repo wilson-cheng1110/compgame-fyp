@@ -90,17 +90,22 @@ FYP_Submission/
     *.pdf                # COMP3423 lecture slides (6 weeks)
     requirements.txt
   deploy/                # ONE COMMAND to a running study server. setup.ps1 -> start.ps1
-                         #   -> publish.ps1, plus install-services.ps1 for the part
-                         #   three commands do NOT give you: Scheduled Tasks for boot,
-                         #   a watchdog, the HOURLY BACKUP (COMPGame-Backup, added
-                         #   2026-10-08 -- before that nothing scheduled backup_sink.py;
-                         #   THE STUDY BOX DENIES TASK REGISTRATION without admin, so it
-                         #   uses install-user-autostart.ps1 -> keepalive.ps1 instead:
-                         #   Startup-folder loop, watchdog 5 min + backup 60 min + a PUBLIC-path
-                         #   check that resets the Tailscale funnel if only it is down),
-                         #   and a dead-man's-switch heartbeat (inbound
-                         #   monitoring cannot tell you a box is OFF -- silence is the
-                         #   signal). publish.ps1 REFUSES on a red gate. See deploy/README.md.
+                         #   -> publish.ps1, PLUS nginx (127.0.0.1:8081 front door: /api ->
+                         #   uvicorn :8080, /_next/static from disk, rest -> next :3000) and
+                         #   service.ps1 -- the ONE supervision script (install / verify /
+                         #   watchdog / firewall / status / remove) that retired
+                         #   install-services.ps1 / install-user-autostart.ps1 /
+                         #   keepalive.ps1 / firewall.ps1 after the 2026-11-03 zombie
+                         #   incident. `service.ps1 install` (elevated, NO non-admin
+                         #   fallback) hash-verifies nginx and registers 5 Scheduled
+                         #   Tasks as the box user, S4U/Limited, never SYSTEM (any box
+                         #   shell can kill any component): COMPGame-Boot at startup,
+                         #   COMPGame-Watchdog every 5 min (verify + heartbeat +
+                         #   funnel re-assert), COMPGame-Backup hourly, COMPGame-Checks
+                         #   6am, COMPGame-Decks 5am. `service.ps1 verify` is the zombie
+                         #   detector (served webpack hash must exist on disk; 0 ok /
+                         #   1 stale-restartable / 2 structural). publish.ps1 REFUSES
+                         #   on a red gate. See deploy/README.md.
                          #   All .ps1 are ASCII + UTF-8 BOM: PowerShell 5.1 reads a
                          #   BOM-less .ps1 as ANSI and one em dash breaks the parse.
   frontend/              # Next.js 15 app

@@ -41,8 +41,8 @@ Ok "repo $Repo, master $short"
 
 Write-Host "== Chain completeness (the bundle carries committed master ONLY)"
 $needed = @('deploy/setup.ps1', 'deploy/start.ps1', 'deploy/publish.ps1',
-            'deploy/install-services.ps1', 'deploy/install-user-autostart.ps1',
-            'deploy/firewall.ps1')
+            'deploy/service.ps1', 'deploy/nginx.conf', 'deploy/nginx.sha256',
+            'deploy/backup.ps1', 'deploy/daily-checks.ps1', 'deploy/make-decks.ps1')
 $bad = @()
 foreach ($n in $needed) {
     $tracked = git -C $Repo ls-files -- $n

@@ -116,7 +116,7 @@
   <header class="top">
     <div class="eyebrow">Study server &middot; manual path</div>
     <h1>Installing HCI Playground on the 3090</h1>
-    <p class="lede">The proven <code>setup&nbsp;&rarr;&nbsp;start&nbsp;&rarr;&nbsp;publish</code> sequence, one command at a time. Every command is PowerShell, run from the repository root. The box is a one-shot study target &mdash; each student sits each topic once &mdash; so the gates below refuse rather than warn.</p>
+    <p class="lede">The proven <code>setup&nbsp;&rarr;&nbsp;install&nbsp;&rarr;&nbsp;start&nbsp;&rarr;&nbsp;publish</code> sequence, one command at a time. Every command is PowerShell, run from the repository root. The box is a one-shot study target &mdash; each student sits each topic once &mdash; so the gates below refuse rather than warn.</p>
     <div class="meta">
       <span class="tag">Windows &middot; PowerShell</span>
       <span class="tag">branch: master</span>
@@ -134,7 +134,7 @@
       <ul class="check">
         <li>Your backup of <b>backend&#92;.participant_secret</b> and its <b>16-hex fingerprint</b>.</li>
         <li>The real <b>enrolled_sids.txt</b> (roster, <code>SID,section</code> per line) and <b>admin_sids.txt</b> (teacher SIDs).</li>
-        <li>A free <b>healthchecks.io</b> ping URL for the heartbeat (Step&nbsp;8).</li>
+        <li>A free <b>healthchecks.io</b> ping URL for the heartbeat (set it in Step&nbsp;4; the watchdog pings it every 5&nbsp;min).</li>
       </ul>
     </div>
   </section>
@@ -174,32 +174,38 @@ winget import -i deploy&#92;winget-packages.json --accept-package-agreements --a
       </li>
 
       <li>
+        <div class="step-t">Install the front door + supervision</div>
+        <p class="step-d">From an <b>elevated</b> PowerShell, once. Hash-verifies the nginx front door into <code>deploy&#92;tools&#92;nginx&#92;</code> (<code>start.ps1</code> refuses without it, so this comes first) and registers five Scheduled Tasks as the box user, S4U / Limited &mdash; <b>never SYSTEM</b>, so any box shell can kill any component: <b>Boot</b> (start at startup), <b>Watchdog</b> (every 5&nbsp;min: verify the served build matches the disk build, ping the heartbeat while healthy, re-assert the funnel after two public-path failures), <b>Backup</b> (hourly), <b>Checks</b> (6am), <b>Decks</b> (5am). There is deliberately <b>no non-admin fallback</b> &mdash; a second supervision path is what created the 2026-11-03 zombie.</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;service.ps1 install</code></pre></div>
+      </li>
+
+      <li>
         <div class="step-t">Start it (loopback)</div>
-        <p class="step-d">Brings up the API on 8080 and the app on 3000, both loopback only, and <b>waits until each actually answers</b> before returning &mdash; "the process started" is not "the service is up".</p>
+        <p class="step-d">Brings up nginx (the front door, 127.0.0.1:8081), the API on 8080 and the app on 3000 &mdash; all loopback only &mdash; and <b>waits until the whole chain answers through 8081</b> before returning &mdash; "the process started" is not "the service is up".</p>
         <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;start.ps1</code></pre></div>
         <div class="note warn"><span class="lbl">to stop</span><code>powershell -ExecutionPolicy Bypass -File deploy&#92;start.ps1 -Stop</code></div>
       </li>
 
       <li>
         <div class="step-t">Sanity-check before going public</div>
-        <p class="step-d">Read the health endpoint <em>through port 3000</em> (that proves the rewrite works). On Windows PowerShell use <code>Invoke-RestMethod</code> &mdash; plain <code>curl</code> is an alias there and prints an object, not JSON.</p>
-        <div class="cmd"><button class="copy">copy</button><pre><code>Invoke-RestMethod http://127.0.0.1:3000/api/health | ConvertTo-Json -Depth 6</code></pre></div>
+        <p class="step-d">Read the health endpoint <em>through port 8081</em> (that proves the whole nginx chain &mdash; API leg, static leg, app leg). On Windows PowerShell use <code>Invoke-RestMethod</code> &mdash; plain <code>curl</code> is an alias there and prints an object, not JSON.</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>Invoke-RestMethod http://127.0.0.1:8081/api/health | ConvertTo-Json -Depth 6</code></pre></div>
         <div class="note check"><span class="lbl">confirm</span><code>status: ok</code>, <code>enrolment</code> = your cohort size (<b>not 8000</b>), <code>rag_model.ok: true</code>. Then sign in as a throwaway student, <b>ask the tutor once and time it</b> (this box's latency is unmeasured), and run one full topic unit.</div>
       </li>
 
       <li>
         <div class="step-t">Publish</div>
-        <p class="step-d">Opens the Cloudflare tunnel in front of port 3000. It <b>refuses on a red gate</b> and tells you why.</p>
+        <p class="step-d">Opens the Cloudflare tunnel in front of nginx on port 8081. It <b>refuses on a red gate</b> and tells you why.</p>
         <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;publish.ps1</code></pre></div>
-        <div class="note gate"><span class="lbl">gate</span>Refuses unless: web + API answer through :3000, <code>COOKIE_SECURE&ne;0</code>, participant key present, enrolment <b>&ne; 8000</b>, and the bundle names no hardcoded origin.</div>
+        <div class="note gate"><span class="lbl">gate</span>Refuses unless: web + API answer through :8081, <code>service.ps1 verify</code> is green (the served webpack hash exists in the on-disk build &mdash; a port probe alone cannot tell our server from a stale leftover process), <code>COOKIE_SECURE&ne;0</code>, participant key present, enrolment <b>&ne; 8000</b>, and the bundle names no hardcoded origin.</div>
         <div class="note warn"><span class="lbl">tunnel</span>Needs <code>cloudflared</code>. A named tunnel gives a <b>stable URL</b> students can bookmark, but wants a one-time <code>cloudflared tunnel login</code>. Note the URL it prints.</div>
       </li>
 
       <li>
-        <div class="step-t">Make it survive reboots</div>
-        <p class="step-d">Run from an <b>elevated</b> PowerShell. Registers three Scheduled Tasks: <b>Boot</b> (start at startup), <b>Watchdog</b> (restart if it stops answering), <b>Heartbeat</b> (ping out every 5&nbsp;min &mdash; if the pings stop, healthchecks.io emails you).</p>
-        <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;install-services.ps1</code></pre></div>
-        <div class="note check"><span class="lbl">then</span><b>Reboot the box once.</b> Confirm it comes back (health <code>ok</code>) and the heartbeat resumes at healthchecks.io &mdash; that is the only real proof of "leave it alone".</div>
+        <div class="step-t">Prove it survives a reboot</div>
+        <p class="step-d">Supervision was installed in Step&nbsp;5 &mdash; confirm it. Status shows the five tasks Ready and every listener on 3000 / 8080 / 8081 <b>owned by the box user</b>; a SYSTEM- or foreign-owned listener is the zombie signature &mdash; stop, and kill it from an elevated shell.</p>
+        <div class="cmd"><button class="copy">copy</button><pre><code>powershell -ExecutionPolicy Bypass -File deploy&#92;service.ps1 status</code></pre></div>
+        <div class="note check"><span class="lbl">then</span><b>Reboot the box once.</b> Confirm it comes back (health <code>ok</code> through the public URL) and the heartbeat resumes at healthchecks.io &mdash; the S4U tasks fire at boot without a login, so that is the only real proof of "leave it alone".</div>
       </li>
 
     </ol>
@@ -215,7 +221,7 @@ winget import -i deploy&#92;winget-packages.json --accept-package-agreements --a
         <li><b>A release window is five days wide</b>, not one morning. An hour of downtime is not a lost topic &mdash; do not panic-fix during a window.</li>
       </ul>
     </div>
-    <p class="foot">The same steps with the full reasoning are in <code>deploy&#92;3090-bringup.md</code> (in the repo after Step&nbsp;1). One command version of Steps&nbsp;3&ndash;5, once the Step&nbsp;2 files are in place: <code>deploy&#92;bootstrap.ps1 -SecretFingerprint &lt;16hex&gt;</code>.</p>
+    <p class="foot">The same steps with the full reasoning are in <code>deploy&#92;3090-bringup.md</code> (in the repo after Step&nbsp;1). One-command version of setup + start (after the Step&nbsp;2 files are in place AND the Step&nbsp;5 install has run): <code>deploy&#92;bootstrap.ps1 -SecretFingerprint &lt;16hex&gt;</code>.</p>
   </section>
 </div>
 

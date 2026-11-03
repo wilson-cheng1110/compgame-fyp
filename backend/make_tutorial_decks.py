@@ -10,7 +10,7 @@ datetime (schedule._window_for(...)[2]). The online module CLOSES 48 h before it
 the data the deck needs is complete well ahead of class. This picks every (topic,
 section) whose lecture starts inside [now - grace, now + horizon] and builds its deck.
 
-Run early each morning from a Scheduled Task (deploy/install-services.ps1 registers
+Run early each morning from a Scheduled Task (deploy/service.ps1 install registers
 COMPGame-Decks). With horizon 30 h a 5 a.m. run makes today's 9 a.m. classes AND
 tomorrow morning's, so the deck is on the /admin page the night before.
 

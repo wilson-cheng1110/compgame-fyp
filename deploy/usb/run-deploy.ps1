@@ -8,11 +8,11 @@
 
     Interactive exactly three times, on purpose:
       1. Tailscale auth key   (a secret; typed, never echoed, never stored)
-      2. firewall.ps1 APPLY   (per-step GO after you read the -WhatIf preview)
+      2. firewall APPLY       (per-step GO after you read the -WhatIf preview)
       3. funnel hostname      (confirm the https://....ts.net students will use)
 
     It will NOT: wipe anything (that is C1, before this), mint a participant key,
-    forward router ports, or install Parsec (optional; re-run firewall.ps1 after).
+    forward router ports, or install Parsec (optional; re-run service.ps1 firewall after).
     ASCII + UTF-8 BOM, like every .ps1 here.
 #>
 [CmdletBinding()]
@@ -161,26 +161,42 @@ Head "7. Firewall baseline"
 if ($SkipFirewall) {
     Warn "skipped (-SkipFirewall)"
 } else {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\firewall.ps1') -WhatIf
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\service.ps1') firewall -WhatIf
     Write-Host ""
     $go = Read-Host '  That was the -WhatIf preview. Type APPLY to enforce it'
     if ($go -ne 'APPLY') { Die "firewall not applied. Re-run run-deploy when ready." }
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\firewall.ps1')
-    if ($LASTEXITCODE -ne 0) { Die "firewall.ps1 failed" }
-    Ok "firewall enforced (undo: deploy\firewall.ps1 -Revert)"
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\service.ps1') firewall
+    if ($LASTEXITCODE -ne 0) { Die "service.ps1 firewall failed" }
+    Ok "firewall enforced (undo: deploy\service.ps1 firewall -Revert)"
 }
 
-# ------------------------------------------------------------ 8. services
-Head "8. Services"
+# ------------------------------------------------------------ 8. service install
+# BEFORE start.ps1: start.ps1 exits 1 when the nginx binary is missing, and ONLY
+# service.ps1 install downloads + hash-verifies it. ONE install call, no fallback --
+# the old fallback (task install OR Startup-folder keepalive) is what created the
+# dual-supervision zombie class. This box denied task registration without admin
+# once; run-deploy is #Requires -RunAsAdministrator, so a refusal here means the
+# box policy changed -- fix THAT, do not paper over it.
+Head "8. service.ps1 install -- nginx (hash-verified) + 5 Scheduled Tasks (user/S4U)"
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\service.ps1') install
+if ($LASTEXITCODE -ne 0) { Die "service.ps1 install failed -- read what it printed. There is deliberately no fallback." }
+Ok "nginx in place; tasks registered (boot / watchdog / backup / checks / decks)"
+# Park the watchdog for the rest of THIS deploy so its 5-min tick cannot race the
+# ALLOWED_ORIGINS restart below; re-enabled in step 10.
+try { Disable-ScheduledTask -TaskName 'COMPGame-Watchdog' -ErrorAction Stop | Out-Null; Ok "watchdog parked until step 10" }
+catch { Warn "could not park the watchdog -- its tick may fire during the deploy (harmless but noisy)" }
+
+# ------------------------------------------------------------ 9. services
+Head "9. Services"
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\start.ps1')
 if ($LASTEXITCODE -ne 0) { Die "start.ps1 did not come up -- see deploy\logs\" }
 try {
-    $h = Invoke-WebRequest 'http://127.0.0.1:3000/api/health' -UseBasicParsing -TimeoutSec 8
-    Ok "API answers through port 3000"
-} catch { Die "API not answering through 3000 -- see deploy\logs\" }
+    $h = Invoke-WebRequest 'http://127.0.0.1:8081/api/health' -UseBasicParsing -TimeoutSec 8
+    Ok "API answers through nginx on 8081"
+} catch { Die "API not answering through 8081 -- see deploy\logs\" }
 
-# ------------------------------------------------------------ 9. publish (funnel)
-Head "9. Publish via the Tailscale funnel (the decided architecture: funnel + firewall)"
+# ------------------------------------------------------------ 10. publish (funnel)
+Head "10. Publish via the Tailscale funnel (the decided architecture: funnel + nginx + firewall)"
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\publish.ps1') -Via tailscale
 if ($LASTEXITCODE -ne 0) { Die "publish.ps1 refused or failed -- read the gates it printed" }
 tailscale funnel status
@@ -201,24 +217,26 @@ try {
     Ok "public path answers: $hostUrl/api/health"
 } catch { Warn "public health check failed FROM THIS BOX -- check $hostUrl/api/health from another machine before declaring done" }
 
-# ------------------------------------------------------------ 10. survive reboots
-Head "10. Watchdog + hourly backup + heartbeat"
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\install-services.ps1')
-if ($LASTEXITCODE -ne 0) { Warn "install-services.ps1 could not register tasks (expected on this box) -- falling back to the Startup-folder keep-alive" }
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\install-user-autostart.ps1')
-if ($LASTEXITCODE -ne 0) { Die "install-user-autostart.ps1 failed" }
+# ------------------------------------------------------------ 11. supervision live
+Head "11. Watchdog resumed + final verify"
+try { Enable-ScheduledTask -TaskName 'COMPGame-Watchdog' -ErrorAction Stop | Out-Null; Ok "watchdog resumed (5-min tick: verify + heartbeat + funnel reset)" }
+catch { Die "could not resume the watchdog -- Enable-ScheduledTask -TaskName COMPGame-Watchdog by hand, now" }
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Target 'deploy\service.ps1') verify
+if ($LASTEXITCODE -ne 0) { Die "service.ps1 verify is red -- served build does not match disk, or a chain leg is down. See deploy\logs\verify.log" }
+Ok "verify green (served build == on-disk build)"
 
-# ------------------------------------------------------------ 11. final report
+# ------------------------------------------------------------ 12. final report
 Head "Done -- verify these before students touch it"
 Write-Host "  HEAD:            $head"
 Write-Host "  participant key: $fp (verified)"
 Write-Host "  public URL:      $hostUrl"
 Write-Host "  funnel:          tailscale funnel status"
-Write-Host "  keep-alive log:  $Target\deploy\logs\keepalive.log (first backup within a minute)"
+Write-Host "  supervision:     deploy\service.ps1 status   (tasks + listeners + owners)"
+Write-Host "  verify log:      $Target\deploy\logs\verify.log   backup: $Target\backend\.last-backup"
 Write-Host ""
 Write-Host "  Operator TODO (none of these are automatable):"
 Write-Host "   1. Tailnet console: confirm the OLD JEFF3090 node is deleted and its keys dead"
 Write-Host "   2. Open $hostUrl from a phone on cellular (not this box, not this network)"
-Write-Host "   3. Set Windows Update active hours; keep this user logged in (Startup-folder keep-alive)"
+Write-Host "   3. Set Windows Update active hours (tasks are S4U -- they fire without a login)"
 Write-Host "   4. WIPE THIS STICK -- it carries the participant key, the roster and .env.local"
 exit 0

@@ -23,9 +23,11 @@
     suite as a gate: if that shows the known date-relative test_schedule failures on
     this box, setup will refuse -- that is setup.ps1's existing behaviour, not new.
 
-    Verification IS the flow: setup.ps1's gates + start.ps1's API/web/proxy health
-    checks. ASCII only; run under -ExecutionPolicy Bypass (it passes the same to the
-    child scripts, so no Set-ExecutionPolicy dance and npm.ps1 is never blocked).
+    Verification IS the flow: setup.ps1's gates + start.ps1's API/web/proxy/8081-chain
+    health checks + a final service.ps1 verify (served webpack hash must match the
+    on-disk build -- the zombie detector). ASCII only; run under -ExecutionPolicy
+    Bypass (it passes the same to the child scripts, so no Set-ExecutionPolicy dance
+    and npm.ps1 is never blocked).
 #>
 [CmdletBinding()]
 param([switch]$NoPull, [string[]]$Reinstate = @(), [string]$ReinstateNote = "")
@@ -35,6 +37,7 @@ $Store = "backend/hci_chroma_db_local"
 $Watchdog = "COMPGame-Watchdog"
 $Setup = Join-Path $PSScriptRoot "setup.ps1"
 $Start = Join-Path $PSScriptRoot "start.ps1"
+$Service = Join-Path $PSScriptRoot "service.ps1"
 
 function Have-Task($n) { [bool](Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) }
 function PS-Run($file, [string[]]$extra) {
@@ -58,12 +61,13 @@ Push-Location $Root
 $paused = $false
 $failed = $false
 try {
-    # Pause the watchdog so it cannot restart a mid-update server (best-effort: touching
-    # a SYSTEM task may need an elevated shell; a rebuild is under the 5 min interval anyway).
+    # Pause the watchdog so it cannot restart a mid-update server. Every COMPGame-*
+    # task runs as the box user (service.ps1 install, S4U/Limited), so ANY box shell
+    # can pause/resume it -- no elevation needed, no best-effort caveat.
     if (Have-Task $Watchdog) {
         try { Disable-ScheduledTask -TaskName $Watchdog -ErrorAction Stop | Out-Null
               $paused = $true; Write-Host "watchdog paused" -ForegroundColor Cyan }
-        catch { Write-Host "WARN: could not pause watchdog (run elevated to be safe): $($_.Exception.Message)" -ForegroundColor Yellow }
+        catch { Write-Host "WARN: could not pause watchdog: $($_.Exception.Message)" -ForegroundColor Yellow }
     }
 
     if (-not $NoPull) {
@@ -93,10 +97,16 @@ try {
     if ((PS-Run $Setup @()) -ne 0) { throw "setup.ps1 failed (a gate is red or the build failed) -- server left stopped. Fix and re-run." }
 
     Write-Host "== start" -ForegroundColor Cyan
-    if ((PS-Run $Start @()) -ne 0) { throw "start.ps1 failed -- see deploy\logs\ (api.err.log / web.err.log)." }
+    if ((PS-Run $Start @()) -ne 0) { throw "start.ps1 failed -- see deploy\logs\ (api.err.log / web.err.log / nginx.err.log / verify.log)." }
+
+    # start.ps1 verifies too, but name the failure here: a nonzero verify means the
+    # port answers while serving a build that is not the one on disk (the zombie
+    # class) -- or a chain leg is down. Every redeploy must prove that absent.
+    Write-Host "== verify (served build == disk build)" -ForegroundColor Cyan
+    if ((PS-Run $Service @("verify")) -ne 0) { throw "fresh build not being served -- possible stale process. See deploy\logs\verify.log." }
 
     Write-Host ""
-    Write-Host ("update complete + verified at {0}.  http://localhost:3000" -f (git rev-parse --short HEAD).Trim()) -ForegroundColor Green
+    Write-Host ("update complete + verified at {0}.  front door: http://localhost:8081" -f (git rev-parse --short HEAD).Trim()) -ForegroundColor Green
 }
 catch {
     Write-Host ("UPDATE FAILED: {0}" -f $_.Exception.Message) -ForegroundColor Red

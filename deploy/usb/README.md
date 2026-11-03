@@ -2,8 +2,8 @@
 
 For rebuilding the study box after C1 (the wipe). One script assembles the stick on the
 dev machine; one script on the box runs the entire existing chain in order — it
-**sequences** `setup.ps1 / start.ps1 / firewall.ps1 / publish.ps1 / install-*.ps1`,
-it does not reimplement them.
+**sequences** `setup.ps1 / service.ps1 / start.ps1 / publish.ps1`, it does not
+reimplement them.
 
 ## Phase A — before the stick (not scripted, on purpose)
 
@@ -44,10 +44,11 @@ Phases, each gated (any red gate stops the run; fix and re-run — it is safe to
 | 4 | `setup.ps1` | deps, ~8 GB models, build, go-live gates (the slow part) |
 | 5 | Flags | `QUESTIONNAIRES_ENABLED=1`, `TELEMETRY_ENABLED=1`, heartbeat/idle merged into `.env.local` |
 | 6 | Tailscale | `tailscale up --authkey … --unattended` (you type the new key) |
-| 7 | `firewall.ps1` | `-WhatIf` preview first; type `APPLY` to enforce |
-| 8 | `start.ps1` | services up; `/api/health` checked through 3000 |
-| 9 | `publish.ps1 -Via tailscale` | funnel up; you confirm the `https://…ts.net` URL → `ALLOWED_ORIGINS` → restart → public health check |
-| 10 | Persistence | `install-services.ps1` → `install-user-autostart.ps1` (watchdog + hourly backup + heartbeat) |
+| 7 | `service.ps1 firewall` | `-WhatIf` preview first; type `APPLY` to enforce |
+| 8 | `service.ps1 install` | nginx (SHA256-pinned download) + 5 Scheduled Tasks as the box user, S4U/Limited — **no fallback**; watchdog parked until step 11 |
+| 9 | `start.ps1` | services up; `/api/health` checked through nginx on 8081 |
+| 10 | `publish.ps1 -Via tailscale` | funnel → 8081; you confirm the `https://…ts.net` URL → `ALLOWED_ORIGINS` → restart → public health check |
+| 11 | Supervision live | watchdog resumed; `service.ps1 verify` must be green (served build == on-disk build) |
 
 Interactive exactly three times: the auth key, the firewall `APPLY`, the funnel hostname.
 
@@ -55,20 +56,22 @@ Interactive exactly three times: the auth key, the firewall `APPLY`, the funnel 
 
 1. Phone on cellular (not the box, not the house network): open the `ts.net` URL, sign in.
 2. Tailnet console: old node confirmed gone.
-3. Keep the study user logged in (Startup-folder keep-alive); set Windows Update active hours.
-4. First backup line in `C:\COMPGame\deploy\logs\keepalive.log` within a minute.
+3. Set Windows Update active hours — the tasks are S4U, so they fire at boot WITHOUT a
+   login; no keep-logged-in requirement any more.
+4. `deploy\service.ps1 status` shows all five tasks Ready and every listener owned by
+   the study user (a SYSTEM- or foreign-owned listener is the zombie signature — stop).
 5. **Wipe the stick.**
 6. Optional, from another machine: `$env:E2E_APP="https://<host>"; $env:E2E_API="https://<host>"; node frontend\e2e\run.mjs`
 
 ## Undo paths
 
-- Firewall: `C:\COMPGame\deploy\firewall.ps1 -Revert` (restores recorded third-party rules).
-- Keep-alive: `deploy\install-user-autostart.ps1 -Remove`.
+- Firewall: `C:\COMPGame\deploy\service.ps1 firewall -Revert` (restores recorded third-party rules).
+- Supervision: `deploy\service.ps1 remove` (unregisters the five tasks; `-ResetFunnel` optional).
 - Services: `deploy\start.ps1 -Stop`.
 
 ## Deliberately not in the chain
 
 C1 itself (per-step GO), participant-key minting (carry-across only), router port
-forwards (funnel needs none), Parsec (optional — install later, re-run `firewall.ps1`,
-it is idempotent), offline model blobs (the box has network), the C4 Next.js pin bump
-(tracked backlog item).
+forwards (funnel needs none), Parsec (optional — install later, re-run
+`deploy\service.ps1 firewall`, it is idempotent), offline model blobs (the box has
+network), the C4 Next.js pin bump (tracked backlog item).

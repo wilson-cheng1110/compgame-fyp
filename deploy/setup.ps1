@@ -121,8 +121,9 @@ API_ORIGIN=http://127.0.0.1:8080
 AUTH_DB_PATH=$($Root -replace '\\','/')/data/auth.db
 RESEARCH_DB_PATH=$($Root -replace '\\','/')/data/research.db
 
-# The dead-man's-switch ping URL for deploy\install-services.ps1 (make one free at
-# healthchecks.io). If the pings stop, it emails you. Leave unset to skip the heartbeat.
+# The dead-man's-switch ping URL (make one free at healthchecks.io). The watchdog
+# tick (deploy\service.ps1 watchdog, 5 min) pings it when the chain is healthy; if
+# the pings stop, it emails you. Leave unset to skip the heartbeat.
 # HEARTBEAT_URL=
 
 # Session inactivity logout, minutes (default 30). The keep-alive refreshes an ACTIVE

@@ -13,9 +13,13 @@
         powershell -ExecutionPolicy Bypass -File deploy\bootstrap.ps1
         powershell -ExecutionPolicy Bypass -File deploy\bootstrap.ps1 -SecretFingerprint 3e4d98790a1b2c3d
 
-    Still separate on purpose (they need your accounts / a public URL):
-        deploy\publish.ps1            put it on the internet (refuses on a red gate)
-        deploy\install-services.ps1   survive reboots (run elevated)
+    One prerequisite it does NOT do: `deploy\service.ps1 install` from an ELEVATED
+    shell. start.ps1 refuses to come up without the nginx front door, and only that
+    install fetches it (hash-verified). Run install first, then bootstrap.
+
+    Still separate on purpose (they need elevation / a public URL):
+        deploy\service.ps1 install  nginx front door + reboot survival (elevated)
+        deploy\publish.ps1          put it on the internet (refuses on a red gate)
 
     ASCII + UTF-8 BOM, like every .ps1 here: PowerShell 5.1 reads a BOM-less file as
     ANSI and one stray byte breaks the parse.
@@ -89,11 +93,16 @@ if ($SkipModels) { $setupArgs += "-SkipModels" }
 & powershell @setupArgs
 if ($LASTEXITCODE -ne 0) { Die "setup.ps1 reported a problem (exit $LASTEXITCODE). Fix what it printed and re-run." }
 
+# start.ps1 refuses without the nginx front door, which only service.ps1 install
+# (elevated) fetches. Say so HERE rather than dying on start.ps1's exit 1.
+if (-not (Test-Path (Join-Path $Root "deploy\tools\nginx\nginx.exe"))) {
+    Die "nginx front door not installed. From an ELEVATED shell run: powershell -ExecutionPolicy Bypass -File deploy\service.ps1 install -- then re-run bootstrap."
+}
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "start.ps1")
 if ($LASTEXITCODE -ne 0) { Die "start.ps1 did not come up -- see deploy\logs\." }
 
 Head "Done"
-Ok "Running on http://localhost:3000 (loopback)."
+Ok "Running on http://localhost:8081 (loopback, through nginx)."
 Write-Host "  When you are ready:"
-Write-Host "    deploy\publish.ps1            put it on the internet (refuses on a red gate)"
-Write-Host "    deploy\install-services.ps1  survive reboots (run from an elevated shell)"
+Write-Host "    deploy\service.ps1 verify    served build == on-disk build (the zombie check)"
+Write-Host "    deploy\publish.ps1           put it on the internet (refuses on a red gate)"

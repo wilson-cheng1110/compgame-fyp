@@ -48,9 +48,13 @@ Copy it from your backup, then check the fingerprint matches:
 
 ## How it is wired, in one paragraph
 
-**One origin, one exposed port.** Next.js serves the app on 3000; FastAPI listens on 8080
-**loopback only** and is never published. The browser calls a *relative* `/api/...`, which
-`next.config.mjs` rewrites to the API. Three things follow, and each was a real hazard:
+**One origin, one exposed port.** nginx listens on **127.0.0.1:8081** and is the only
+port the tunnel ever points at: `/api/*` is proxied to FastAPI on 8080,
+`/_next/static/*` is served straight off `frontend/.next/static` from disk, and
+everything else goes to Next.js on 3000. FastAPI and Next are **loopback only** and
+never published. The browser calls a *relative* `/api/...`; in production nginx routes
+it, in dev `next.config.mjs` rewrites it to the API (and that rewrite doubles as a
+sanity probe). Three things follow, and each was a real hazard:
 
 - the build is **portable** — nothing bakes in a hostname, so a bundle built here works
   behind any tunnel. A build with an absolute origin loads perfectly on a deployed box and
@@ -68,12 +72,15 @@ has no origin to resolve against. `API_ORIGIN` controls those.
 
 `publish.ps1` checks before it opens anything, and refuses on a red gate:
 
-- the app and the API both answer, **and `/api/health` answers through port 3000** — if
-  the rewrite is not in effect the site loads and every data call 404s
+- the app and the API both answer **through nginx on port 8081** — if the nginx legs
+  are down the site loads from nowhere and every data call 404s
 - `COOKIE_SECURE` is not 0
 - the participant key exists
 - enrolment is not **8000** (that is the e2e fixture, not a class)
 - the built bundle names no API origin
+- **`service.ps1 verify` is green** — the webpack hash in the served HTML must exist
+  in the on-disk build. A port probe cannot tell our server from a stale leftover
+  process serving yesterday's build (the 2026-11-03 zombie); this check can.
 
 Pick a tunnel. Port forwarding is deliberately not offered — it puts a home router on the
 public internet in front of 300 students' credentials and buys nothing.
@@ -103,21 +110,64 @@ powershell -ExecutionPolicy Bypass -File deploy\update.ps1
 ```
 
 It runs the familiar sequence for you: discard the box's dirty vector store, `git pull`
-(fast-forward only), `start.ps1 -Stop`, `setup.ps1` (rebuild + the go-live gates), then
-`start.ps1`. It pauses `COMPGame-Watchdog` around the whole thing and resumes it in a
-`finally`, so a mid-run failure still restores it. The server is stopped BEFORE `setup`
-rebuilds, so a rebuild never 400s live assets under a running server; if a gate is red
-or the build fails, `setup.ps1` exits nonzero and it does NOT start (a red gate should
-never serve students) -- fix it and re-run. Verification is the flow itself: `setup`'s
-gates plus `start`'s API/web/proxy health checks. `-NoPull` if you already pulled by hand.
+(fast-forward only), `start.ps1 -Stop`, `setup.ps1` (rebuild + the go-live gates),
+`start.ps1`, then `service.ps1 verify` — the served build must match the on-disk build,
+so every redeploy proves no stale process survived. It pauses `COMPGame-Watchdog` around
+the whole thing and resumes it in a `finally`, so a mid-run failure still restores it.
+The server is stopped BEFORE `setup` rebuilds, so a rebuild never 400s live assets under
+a running server; if a gate is red or the build fails, `setup.ps1` exits nonzero and it
+does NOT start (a red gate should never serve students) -- fix it and re-run. `-NoPull`
+if you already pulled by hand.
+
+## Supervision — one script, six verbs
+
+`deploy\service.ps1` is the ONLY supervision surface (it retired install-services.ps1,
+install-user-autostart.ps1, keepalive.ps1 and firewall.ps1 — dual supervision and
+SYSTEM-context tasks are exactly what created the unkillable-zombie incident):
+
+```powershell
+deploy\service.ps1 install [-WithFirewall] [-DryRun]   # elevated; nginx (hash-verified) + 5 Scheduled Tasks
+deploy\service.ps1 verify                              # zombie detector: 0 healthy / 1 stale (safe to restart) / 2 structural
+deploy\service.ps1 watchdog                            # one 5-min tick: verify, restart on exit 1, heartbeat, funnel reset
+deploy\service.ps1 firewall [-Revert] [-WhatIf]        # the COMPGame-* baseline, Tailscale-adapter lockout guard
+deploy\service.ps1 status                              # read-only: tasks, listeners with owning PID+user, funnel, last verify
+deploy\service.ps1 remove [-ResetFunnel]               # elevated; unregister the 5 tasks
+```
+
+The five Scheduled Tasks — **all run as the box user, S4U / RunLevel Limited, never
+SYSTEM** (so any box shell can kill any component; a SYSTEM-owned server is what a
+normal shell could not stop on 2026-11-03):
+
+| task | cadence | runs |
+|---|---|---|
+| COMPGame-Boot | at startup | `deploy\start.ps1` |
+| COMPGame-Watchdog | every 5 min | `service.ps1 watchdog` |
+| COMPGame-Backup | hourly | `deploy\backup.ps1` |
+| COMPGame-Checks | daily 06:00 | `deploy\daily-checks.ps1` |
+| COMPGame-Decks | daily 05:00 | `deploy\make-decks.ps1` |
+
+The watchdog tick also pings `HEARTBEAT_URL` (set it in `deploy\.env.local`) — a
+dead-man's switch, so a powered-off box is silence in your monitor, and it re-asserts
+the funnel after two consecutive public-path failures. `install` deliberately has NO
+non-admin fallback: if the box refuses task registration, fix that — do not paper over
+it with a second supervision mechanism.
 
 ## When something is wrong
 
 ```
 deploy\logs\api.log   deploy\logs\web.log     what the services said
+deploy\logs\nginx-error.log                   the front door's log
+deploy\logs\verify.log                        what the zombie detector saw
+deploy\service.ps1 status                     who owns every listener, right now
 deploy\start.ps1 -Stop                        stop everything
 deploy\setup.ps1                              re-run; it resumes
 ```
+
+If `start.ps1` refuses with "a listener could not be killed from this shell", the port
+is held by a process owned by another context (the zombie signature). Open ONE elevated
+PowerShell, kill it with the command start.ps1 prints, CLOSE the elevated window, and
+re-run start.ps1 from a normal shell. Never start the servers from the elevated
+window — an elevated-spawned server recreates exactly that problem.
 
 The full operational runbook — backups, grading, exports, incident handling — is
 `docs\runbook.md`. The launch sequence and what is still blocking is
